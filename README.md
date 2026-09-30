@@ -1,56 +1,199 @@
 # OpenCode Mobile
 
-[![Get it on Google Play](https://img.shields.io/badge/Get_it_on-Google_Play-4285F4?style=for-the-badge&logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=app.getopencode)
-[![Download APK](https://img.shields.io/badge/Download-APK-18A748?style=for-the-badge&logo=android&logoColor=white)](https://github.com/alvarolorentedev/opencode-mobile/releases/latest/download/opencode-mobile.apk)
-[![TestFlight](https://img.shields.io/badge/Join_Beta-TestFlight-0D96F6?style=for-the-badge&logo=apple&logoColor=white)](https://testflight.apple.com/join/ddcE5Wzz)
+<p align="center">
+  <strong>Your OpenCode workflow, in your pocket.</strong>
+</p>
 
+<p align="center">
+  Start tasks, check progress, review changes, use the terminal, speak follow-ups, and manage OpenCode workspaces from Android and iOS.
+</p>
 
-**Your OpenCode server, in your pocket.**
+<p align="center">
+  <a href="https://play.google.com/store/apps/details?id=app.getopencode">
+    <img src="https://img.shields.io/badge/Get_it_on-Google_Play-4285F4?style=for-the-badge&logo=googleplay&logoColor=white" alt="Get it on Google Play">
+  </a>
+  <a href="https://testflight.apple.com/join/ddcE5Wzz">
+    <img src="https://img.shields.io/badge/Join_iOS_Beta-TestFlight-0D96F6?style=for-the-badge&logo=apple&logoColor=white" alt="Join iOS TestFlight">
+  </a>
+  <a href="https://github.com/alvarolorentedev/opencode-mobile/releases/latest/download/opencode-mobile.apk">
+    <img src="https://img.shields.io/badge/Download-APK-18A748?style=for-the-badge&logo=android&logoColor=white" alt="Download APK">
+  </a>
+</p>
 
-OpenCode Mobile brings the full power of your self-hosted OpenCode AI assistant to your Android and iOS devices. Chat with your models, manage conversations, and stay productive anywhere.
+<p align="center">
+  <a href="https://getopencode.app/">Website</a> ·
+  <a href="https://getopencode.app/docs/">Docs</a> ·
+  <a href="https://getopencode.app/support/">Support</a>
+</p>
 
-## Why OpenCode Mobile?
+---
 
-- **Stay Connected**: Access your OpenCode server from anywhere on your mobile device
-- **Seamless Conversations**: Pick up where you left off with synchronized chat history
-- **Full Control**: Connect to your own OpenCode server — your data, your rules
-- **Privacy-First**: Keep your conversations private on your self-hosted infrastructure
-- **Fast & Native**: Built with React Native for smooth, responsive performance
+## OpenCode, without being tied to your laptop
 
-## Quick Start
+OpenCode Mobile is an independent, community-built mobile companion for [OpenCode](https://opencode.ai/).
 
-1. **Download the app**:
-   - [Google Play](https://play.google.com/store/apps/details?id=app.getopencode)
-   - [TestFlight (Beta)](https://testflight.apple.com/join/ddcE5Wzz)
-   - [Direct APK Download](https://github.com/alvarolorentedev/opencode-mobile/releases/latest/download/opencode-mobile.apk)
+It connects to the OpenCode server you already run and gives you a focused mobile control surface for the moments when you need to check, guide, approve, or continue agent work away from your desk.
 
-2. **Connect to your server**: Open the app and enter your OpenCode server URL (default: `http://ip:4096`)
+It is not trying to put a desktop IDE on a smaller screen.
 
-3. **Start chatting**: Begin conversations with your AI models instantly
+It is designed around the things that actually matter on mobile.
 
-## Features
+## What you can do
 
-- Real-time chat with your OpenCode models
-- Conversation history and management
-- Multi-model support
-- Custom server configuration
-- Saved connections for switching between multiple OpenCode servers, each with its own sessions and model selection
-- Streamed responses for natural conversations
-- Clean, intuitive mobile interface
+- **Start and continue coding sessions**  
+  Pick an agent and model, send instructions, and keep working with the same OpenCode sessions from your phone.
 
-## Screenshots
+- **Watch agent progress**  
+  See what OpenCode is doing instead of waiting for a generic completion notification.
 
-Check out screenshots and more details on the [official website](https://getopencode.app/).
+- **Review and approve actions**  
+  Respond to permission requests and inspect the work before accepting changes.
 
-## For Developers
+- **Manage workspaces and sessions**  
+  Switch between multiple OpenCode servers, projects, sessions, and models.
 
-Want to build from source or contribute? See the [Development](docs/development.md) document.
+- **Use the terminal when needed**  
+  Run focused commands without reopening your laptop.
 
-## ❤️ Support
+- **Browse and patch files**  
+  Inspect project files and make targeted changes from mobile.
 
-OpenCode Mobile is free and open source. If you find it useful and want to support its continued development, you can sponsor the project through GitHub Sponsors, Ko-fi, or cryptocurrency (BTC/ETH).
+- **Use voice input**  
+  Dictate prompts or continue a conversation when typing is inconvenient.
 
-[Support OpenCode Mobile](https://getopencode.app/support)
+- **Understand model usage**  
+  Inspect context utilization, token activity, model usage, steps, and estimated cost.
+
+- **Stay connected to multiple servers**  
+  Save OpenCode connections with their own sessions and model selection.
+
+## How it works
+
+Your code stays on the machine running OpenCode.
+
+OpenCode Mobile connects to that server remotely:
+
+```text
+Your phone
+    │
+    │ HTTPS / secure tunnel
+    ▼
+OpenCode server
+    │
+    ▼
+Your workspace + models
+```
+
+A typical setup looks like this:
+
+### 1. Start OpenCode
+
+```bash
+opencode serve --port 4096
+```
+
+### 2. Expose it securely
+
+Keep the server protected with authentication and connect through a secure HTTPS tunnel, VPN, or reverse proxy.
+
+For example:
+
+```bash
+cloudflared tunnel --url localhost:4096
+```
+
+Tailscale, Cloudflare Tunnel, and other secure networking options work well.
+
+### 3. Connect from OpenCode Mobile
+
+Enter the protected server URL in the app, authenticate, choose your workspace, and continue your sessions.
+
+For the complete setup flow, see the [Getting Started guide](https://getopencode.app/docs/getting-started/).
+
+## Install
+
+### Android
+
+Recommended:
+
+[**Download from Google Play →**](https://play.google.com/store/apps/details?id=app.getopencode)
+
+Or install the latest APK directly:
+
+[**Download latest APK →**](https://github.com/alvarolorentedev/opencode-mobile/releases/latest/download/opencode-mobile.apk)
+
+### iOS
+
+OpenCode Mobile is currently available through TestFlight:
+
+[**Join the iOS beta →**](https://testflight.apple.com/join/ddcE5Wzz)
+
+For installation details and requirements, visit:
+
+[**getopencode.app/download →**](https://getopencode.app/download/)
+
+## Privacy and control
+
+OpenCode Mobile is designed around self-hosted OpenCode environments.
+
+- Your source code remains on your OpenCode host.
+- The app connects to infrastructure you control.
+- Server credentials are stored using secure device storage where appropriate.
+- You choose how your OpenCode instance is exposed.
+- No hosted OpenCode server is required.
+
+For remote access, prefer authenticated HTTPS, a VPN, or a secure tunnel rather than exposing an unauthenticated OpenCode port directly to the internet.
+
+## Community-built
+
+OpenCode Mobile is not an official OpenCode product.
+
+It is an independent open-source project built for people who already use OpenCode and want to keep their agent workflows reachable when they step away from their desk.
+
+OpenCode and its trademarks belong to their respective owners.
+
+## Development
+
+OpenCode Mobile is built with:
+
+- React Native
+- Expo
+- TypeScript
+- Expo Router
+- OpenCode SDK/client
+
+For local development, architecture, testing, and release instructions:
+
+[**Read the development guide →**](docs/development.md)
+
+## Contributing
+
+Contributions are welcome.
+
+You can help by:
+
+- opening bug reports
+- proposing features
+- improving documentation
+- testing Android and iOS builds
+- submitting pull requests
+- helping reproduce compatibility issues with new OpenCode releases
+
+Browse the [issue tracker](https://github.com/alvarolorentedev/opencode-mobile/issues) or open a PR.
+
+## ❤️ Support OpenCode Mobile
+
+OpenCode Mobile is free and open source.
+
+If the project is useful to you, you can help support continued development, testing, releases, and infrastructure through:
+
+- GitHub Sponsors
+- Ko-fi
+- PayPal
+- Bitcoin
+- Ethereum
+
+[**Support OpenCode Mobile →**](https://getopencode.app/support/)
 
 ## ✨ Contributors
 
@@ -59,3 +202,13 @@ OpenCode Mobile is free and open source. If you find it useful and want to suppo
 </a>
 
 Made with [contrib.rocks](https://contrib.rocks).
+
+---
+
+<p align="center">
+  <strong>Take your next OpenCode session with you.</strong>
+</p>
+
+<p align="center">
+  <a href="https://getopencode.app/">getopencode.app</a>
+</p>
