@@ -44,7 +44,7 @@ It is designed around the things that actually matter on mobile.
      preload="none"
      min-height="720"
      poster="https://github.com/user-attachments/assets/32c7526a-9b7f-4590-96eb-a0105003840d"
-     src="https://github.com/user-attachments/assets/254bc816-b422-470c-ac63-84006facac95"
+     src="https://github.com/user-attachments/assets/ea4a03dd-10b2-48f6-8fca-2e4cd76877e7"
    />
 
 ## What you can do
