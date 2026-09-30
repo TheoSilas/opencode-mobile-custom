@@ -256,6 +256,7 @@ Responsibility:
 
 - render one display transcript bubble
 - show copy state, optional TTS button, fork/revert actions for user messages, timestamp, markdown text, error, and summary chips
+- an explicit copy button keeps copying available without capturing table-scroll gestures; taps still dismiss the keyboard
 
 ## `components/chat/chat-markdown.tsx`
 

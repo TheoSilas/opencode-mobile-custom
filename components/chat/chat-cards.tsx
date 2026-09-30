@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { Appbar, Button, Card, Chip, Divider, IconButton, List, Surface, Switch, Text, TouchableRipple } from 'react-native-paper';
+import { Appbar, Button, Card, Chip, Divider, IconButton, List, Surface, Switch, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TextInput } from '@/components/ui/text-input';
@@ -394,7 +394,7 @@ function TranscriptMessageImpl({
 
   return (
     <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
-      <TouchableRipple borderless={false} rippleColor={`${palette.tint}22`} style={styles.messageTouchable} onPress={Keyboard.dismiss} onLongPress={onCopy}>
+      <View onTouchEnd={Keyboard.dismiss} style={styles.messageTouchable}>
         <Surface
           style={[
             styles.messageBubble,
@@ -409,6 +409,14 @@ function TranscriptMessageImpl({
           <View style={styles.messageMeta}>
             <Text variant="labelMedium" style={{ color: isUser ? palette.onBubbleUser : palette.muted }}>{isUser ? t('chat:cards.you') : t('chat:cards.opencode')}</Text>
             <View style={styles.messageMetaRight}>
+              <IconButton
+                accessibilityLabel={t('common:actions.copy')}
+                icon="content-copy"
+                size={16}
+                style={styles.messageActionButton}
+                iconColor={palette.muted}
+                onPress={onCopy}
+              />
               {copied ? (
                 <View style={[styles.copiedPill, { backgroundColor: isUser ? `${palette.onBubbleUser}20` : `${palette.tint}18` }]}> 
                   <MaterialCommunityIcons name="check" size={12} color={isUser ? palette.onBubbleUser : palette.tint} />
@@ -449,7 +457,7 @@ function TranscriptMessageImpl({
             </View>
           ) : null}
         </Surface>
-      </TouchableRipple>
+      </View>
     </View>
   );
 }
