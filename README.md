@@ -17,6 +17,15 @@ OpenCode Mobile brings the full power of your self-hosted OpenCode AI assistant 
 - **Privacy-First**: Keep your conversations private on your self-hosted infrastructure
 - **Fast & Native**: Built with React Native for smooth, responsive performance
 
+  <video
+     controls
+     playsinline
+     preload="none"
+     min-height="720"
+     poster="https://github.com/user-attachments/assets/32c7526a-9b7f-4590-96eb-a0105003840d"
+     src="https://github.com/user-attachments/assets/254bc816-b422-470c-ac63-84006facac95"
+   />
+
 ## Quick Start
 
 1. **Download the app**:
@@ -37,10 +46,6 @@ OpenCode Mobile brings the full power of your self-hosted OpenCode AI assistant 
 - Saved connections for switching between multiple OpenCode servers, each with its own sessions and model selection
 - Streamed responses for natural conversations
 - Clean, intuitive mobile interface
-
-## Screenshots
-
-Check out screenshots and more details on the [official website](https://getopencode.app/).
 
 ## For Developers
 
