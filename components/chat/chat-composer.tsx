@@ -7,7 +7,7 @@ import { Colors } from '@/constants/theme';
 import { TextInput } from '@/components/ui/text-input';
 import { ControlButton, SelectControl } from '@/components/chat/chat-controls';
 import { ModelPicker } from '@/components/chat/model-picker';
-import { styles } from '@/components/chat/chat-view-styles';
+import { styles, slimStyles } from '@/components/chat/chat-view-styles';
 import { getAutoApproveIcon, REASONING_OPTIONS } from '@/components/chat/chat-view-utils';
 import type { AgentOption, ChatPreferences, ModelOption } from '@/providers/opencode-provider';
 import type { Command } from '@/lib/opencode/types';
@@ -39,6 +39,7 @@ type ChatComposerProps = {
   palette: Palette;
   selectedAgentLabel: string;
   showSendAction: boolean;
+  slim?: boolean;
   currentSessionId?: string;
   visibleModels: ModelOption[];
   updateChatPreferences: (patch: Partial<ChatPreferences>) => void;
@@ -72,12 +73,13 @@ export function ChatComposer({
   palette,
   selectedAgentLabel,
   showSendAction,
+  slim = false,
   updateChatPreferences,
   visibleModels,
 }: ChatComposerProps) {
   const { t } = useTranslation();
-  const minInputHeight = 24;
-  const maxInputHeight = 110;
+  const minInputHeight = slim ? 22 : 24;
+  const maxInputHeight = slim ? 90 : 110;
   const hasComposerContent = Boolean(draft.trim()) || attachments.length > 0;
   const showOuterAction = showSendAction ? (hasComposerContent ? 'send' : 'attach') : 'stop';
   const outerActionIcon = showOuterAction === 'attach' ? 'plus' : showOuterAction;
@@ -98,9 +100,9 @@ export function ChatComposer({
 
   return (
     <Surface
-      style={[styles.composer, { backgroundColor: palette.surface, borderTopColor: palette.border, paddingBottom: Math.max(insetsBottom, 12) }]}
+      style={[styles.composer, slim && slimStyles.composer, { backgroundColor: palette.surface, borderTopColor: palette.border, paddingBottom: Math.max(insetsBottom, slim ? 8 : 12) }]}
       elevation={4}>
-      <View style={styles.controlsRow}>
+      <View style={[styles.controlsRow, slim && slimStyles.controlsRow]}>
         <SelectControl
           disabled={availableAgents.length === 0}
           grow
@@ -109,6 +111,7 @@ export function ChatComposer({
           onValueChange={(value) => updateChatPreferences({ mode: value })}
           options={availableAgents.map((agent) => ({ value: agent.id, label: agent.label }))}
           selectedValue={chatPreferences.mode}
+          slim={slim}
           title={t('chat:composer.chooseAssistantMode')}
         />
         <ModelPicker
@@ -119,6 +122,7 @@ export function ChatComposer({
           }}
           recentModelIds={chatPreferences.recentModelIds}
           selectedModelId={chatPreferences.modelId}
+          slim={slim}
         />
         <SelectControl
           grow
@@ -127,10 +131,11 @@ export function ChatComposer({
           onValueChange={(value) => updateChatPreferences({ reasoning: value })}
           options={REASONING_OPTIONS.map((option) => ({ value: option.id, label: t(option.labelKey) }))}
           selectedValue={chatPreferences.reasoning}
+          slim={slim}
           title={t('chat:composer.chooseReasoningLevel')}
         />
         {autoApproveAvailable ? (
-          <ControlButton active={chatPreferences.autoApprove} iconName={getAutoApproveIcon(chatPreferences.autoApprove)} iconOnly loading={isUpdatingAutoApprove} onPress={onToggleAutoApprove}>
+          <ControlButton active={chatPreferences.autoApprove} iconName={getAutoApproveIcon(chatPreferences.autoApprove)} iconOnly loading={isUpdatingAutoApprove} onPress={onToggleAutoApprove} slim={slim}>
             {chatPreferences.autoApprove ? t('chat:composer.autoApproveEnabled') : t('chat:composer.askPermission')}
           </ControlButton>
         ) : null}
@@ -186,7 +191,7 @@ export function ChatComposer({
       ) : null}
 
       <View style={styles.composerDockRow}>
-        <View style={[styles.inputShell, styles.inputShellFlex, { borderColor: palette.border, backgroundColor: palette.background }]}>
+        <View style={[styles.inputShell, styles.inputShellFlex, slim && slimStyles.inputShell, { borderColor: palette.border, backgroundColor: palette.background }]}>
           <View style={styles.composerRow}>
             <TextInput
                testID="chat-prompt-input"
@@ -203,7 +208,7 @@ export function ChatComposer({
                scrollEnabled={false}
                placeholder={t('chat:composer.placeholder')}
                placeholderTextColor={palette.muted}
-               style={[styles.input, { height: inputHeight, backgroundColor: 'transparent', color: palette.text }]}
+               style={[styles.input, slim && slimStyles.input, { height: inputHeight, backgroundColor: 'transparent', color: palette.text }]}
                contentStyle={styles.inputContentCompact}
                underlineColor="transparent"
                activeUnderlineColor="transparent"
@@ -213,7 +218,7 @@ export function ChatComposer({
             <IconButton
               testID="chat-secondary-button"
               icon={innerActionIcon}
-              size={20}
+              size={slim ? 18 : 20}
               selected={!hasComposerContent && isSpeechInputListening}
               style={styles.composerVoiceButton}
               disabled={innerActionDisabled}
@@ -226,8 +231,8 @@ export function ChatComposer({
           testID="chat-primary-button"
           mode="contained"
           icon={outerActionIcon}
-          size={20}
-          style={styles.composerPrimaryButton}
+          size={slim ? 18 : 20}
+          style={[styles.composerPrimaryButton, slim && slimStyles.composerPrimaryButton]}
           containerColor={palette.tint}
           iconColor={palette.surface}
           loading={showOuterAction === 'stop' && isStoppingSession}

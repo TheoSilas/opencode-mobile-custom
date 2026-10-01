@@ -475,7 +475,7 @@ Responsibilities:
 - choose model enablement defaults
 - inspect and enable notification setup
 - manage voice and response-style preferences
-- adjust the chat transcript text size and bubble/flat layout
+- adjust the chat transcript text size, bubble/flat layout, and slim interface density
 - choose the app interface language
 - launch the Setup assistant, which reopens the onboarding flow in review mode seeded from the current connection, workspace, preferences, and permissions without wiping any of them
 

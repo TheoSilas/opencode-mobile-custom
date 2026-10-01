@@ -13,7 +13,7 @@ import type { FileDiff, Session, SessionStatus, Todo } from '@/lib/opencode/type
 import type { DiffScope, DiffTurn } from '@/providers/opencode-provider-types';
 import type { PendingPermissionRequest, PendingQuestionAnswer, PendingQuestionRequest } from '@/lib/opencode/client';
 
-import { styles } from '@/components/chat/chat-view-styles';
+import { styles, slimStyles } from '@/components/chat/chat-view-styles';
 import { STARTER_PROMPT_KEYS } from '@/components/chat/chat-view-utils';
 
 type Palette = typeof Colors.light;
@@ -93,6 +93,7 @@ type ChatContentProps = {
   diffTurns: DiffTurn[];
   displayTranscript: TranscriptEntry[];
   flatTranscript: boolean;
+  slim: boolean;
   transcriptFontSize: number;
   expandedDiffId?: string;
   isRefreshingDiffs: boolean;
@@ -137,6 +138,7 @@ export function ChatContent({
   diffTurns,
   displayTranscript,
   flatTranscript,
+  slim,
   transcriptFontSize,
   expandedDiffId,
   isRefreshingDiffs,
@@ -212,6 +214,7 @@ export function ChatContent({
           style={styles.scroll}
           contentContainerStyle={[
             styles.content,
+            slim && slimStyles.content,
             currentTodos.length > 0 || pendingInteractions > 0 ? { paddingBottom: 110 } : null,
           ]}
           extraData={extraData}
@@ -228,13 +231,18 @@ export function ChatContent({
           }}
           refreshControl={<RefreshControl refreshing={isRefreshingMessages} onRefresh={onRefresh} tintColor={palette.tint} />}
           renderItem={({ item: entry }) => (
-            <View style={[styles.transcriptItem, flatTranscript && styles.transcriptItemFlat]}>
+            <View style={[
+              styles.transcriptItem,
+              slim && slimStyles.transcriptItem,
+              flatTranscript && (slim ? slimStyles.transcriptItemFlat : styles.transcriptItemFlat),
+            ]}>
               <TranscriptMessage
                 canSpeak={entry.role === 'assistant' && Boolean(entry.text.trim())}
                 copied={copiedMessageId === entry.id}
                 entry={entry}
                 flat={flatTranscript}
                 fontSize={transcriptFontSize}
+                slim={slim}
                 onCopy={() => onCopyMessage(entry)}
                 onFork={entry.role === 'user' ? () => onForkMessage(entry.id) : undefined}
                 onRevert={entry.role === 'user' ? () => onRevertMessage(entry.id) : undefined}

@@ -90,3 +90,20 @@ export const styles = StyleSheet.create({
   todoStatusIcon: { margin: 0 },
   todoTextWrap: { flex: 1 },
 });
+
+// Slim overrides applied on top of `styles` when the slim-interface preference
+// is on. Kept parallel to the base sheet so slim never changes the default UI.
+export const slimStyles = StyleSheet.create({
+  content: { padding: 8, gap: 8, paddingBottom: 14 },
+  transcriptItem: { marginBottom: 6 },
+  transcriptItemFlat: { marginBottom: 2 },
+  composer: {
+    paddingTop: 6,
+    paddingBottom: Platform.select({ ios: 14, default: 8 }),
+    gap: 6,
+  },
+  controlsRow: { gap: 4 },
+  inputShell: { borderRadius: 16, paddingLeft: 10, paddingRight: 4, minHeight: 40 },
+  input: { maxHeight: 96, fontSize: 15, lineHeight: 19 },
+  composerPrimaryButton: { width: 36, height: 36 },
+});

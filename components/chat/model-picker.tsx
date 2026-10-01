@@ -15,6 +15,7 @@ type ModelPickerProps = {
   onSelect: (model: ModelOption) => void;
   recentModelIds?: string[];
   selectedModelId?: string;
+  slim?: boolean;
 };
 
 function getSelectedModelLabel(models: ModelOption[], selectedModelId: string | undefined, fallback: string) {
@@ -22,7 +23,7 @@ function getSelectedModelLabel(models: ModelOption[], selectedModelId: string | 
   return selected ? `${selected.providerLabel} · ${selected.label}` : fallback;
 }
 
-export function ModelPicker({ disabled = false, models, onSelect, recentModelIds, selectedModelId }: ModelPickerProps) {
+export function ModelPicker({ disabled = false, models, onSelect, recentModelIds, selectedModelId, slim = false }: ModelPickerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
@@ -116,6 +117,7 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
         icon={(props) => renderProviderIcon(selected?.providerID, props.size, props.color)}
         maxWidth={220}
         onPress={() => setVisible(true)}
+        slim={slim}
         testID="chat-model-picker-trigger">
         {getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}
       </ControlButton>

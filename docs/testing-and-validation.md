@@ -59,7 +59,7 @@ values that fail safe instead of being guessed.
 
 The `test:chat-appearance` suite checks that the chat font-size preference
 defaults safely and stays within the supported 12–24 px range, and that the
-flat-transcript preference defaults to off.
+flat-transcript and slim-interface preferences default to off.
 
 The `test:i18n` suite guards translations: it checks that every language defines
 exactly the English key set, that interpolation variables match per key, that

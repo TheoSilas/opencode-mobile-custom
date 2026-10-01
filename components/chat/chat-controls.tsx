@@ -16,6 +16,7 @@ export function SelectControl<T extends string>({
   onValueChange,
   options,
   selectedValue,
+  slim = false,
   title,
 }: {
   disabled?: boolean;
@@ -27,6 +28,7 @@ export function SelectControl<T extends string>({
   onValueChange: (value: T) => void;
   options: NativeSelectOption<T>[];
   selectedValue?: T;
+  slim?: boolean;
   title?: string;
 }) {
   return (
@@ -44,7 +46,8 @@ export function SelectControl<T extends string>({
           icon={icon}
           iconName={iconName}
           maxWidth={maxWidth}
-          onPress={open}>
+          onPress={open}
+          slim={slim}>
           {label}
         </ControlButton>
       )}
@@ -63,6 +66,7 @@ export function ControlButton({
   loading = false,
   maxWidth,
   onPress,
+  slim = false,
   testID,
 }: {
   active?: boolean;
@@ -75,6 +79,7 @@ export function ControlButton({
   loading?: boolean;
   maxWidth?: number;
   onPress: () => void;
+  slim?: boolean;
   testID?: string;
 }) {
   const colorScheme = useColorScheme() ?? 'light';
@@ -82,6 +87,9 @@ export function ControlButton({
   const textColor = active ? palette.tint : palette.text;
   const borderColor = active ? 'transparent' : palette.border;
   const backgroundColor = active ? `${palette.tint}18` : palette.surface;
+  const iconSize = slim ? 14 : 16;
+  const controlSize = slim ? 32 : 40;
+  const innerHeight = slim ? 30 : 38;
 
   return (
     <Pressable
@@ -93,15 +101,16 @@ export function ControlButton({
         styles.controlButton,
         grow && !iconOnly ? styles.controlButtonGrow : null,
         iconOnly ? styles.controlButtonIconOnly : styles.controlButtonText,
+        slim && (iconOnly ? { width: controlSize, height: controlSize } : { minHeight: controlSize, paddingHorizontal: 8 }),
         !iconOnly && maxWidth ? { maxWidth } : null,
         { borderColor, backgroundColor, opacity: disabled ? 0.45 : pressed ? 0.82 : 1 },
       ]}>
-      <View style={[styles.controlButtonInner, iconOnly && styles.controlButtonInnerIconOnly]}>
-        {loading ? <ActivityIndicator size={16} color={textColor} /> : null}
-        {!loading && icon ? icon({ size: 16, color: textColor }) : null}
-        {!loading && !icon && iconName ? <MaterialCommunityIcons name={iconName} size={16} color={textColor} /> : null}
+      <View style={[styles.controlButtonInner, iconOnly && styles.controlButtonInnerIconOnly, slim && { minHeight: innerHeight, gap: 6 }]}>
+        {loading ? <ActivityIndicator size={iconSize} color={textColor} /> : null}
+        {!loading && icon ? icon({ size: iconSize, color: textColor }) : null}
+        {!loading && !icon && iconName ? <MaterialCommunityIcons name={iconName} size={iconSize} color={textColor} /> : null}
         {!iconOnly ? (
-          <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.controlButtonLabel, { color: textColor }]}>
+          <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.controlButtonLabel, slim && { fontSize: 13 }, { color: textColor }]}>
             {children}
           </Text>
         ) : null}
@@ -110,14 +119,14 @@ export function ControlButton({
   );
 }
 
-export function TopTab({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
+export function TopTab({ active, label, onPress, slim = false }: { active: boolean; label: string; onPress: () => void; slim?: boolean }) {
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
 
   return (
     <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} aria-selected={active} style={styles.topTab} onPress={onPress}>
-      <View style={[styles.topTabInner, active && { borderBottomColor: palette.tint, borderBottomWidth: 2 }]}> 
-        <Text style={[styles.topTabLabel, { color: active ? palette.text : palette.muted, fontWeight: active ? '700' : '500' }]}> 
+      <View style={[styles.topTabInner, active && { borderBottomColor: palette.tint, borderBottomWidth: 2 }, slim && { paddingVertical: 8 }]}> 
+        <Text style={[styles.topTabLabel, slim && { fontSize: 14 }, { color: active ? palette.text : palette.muted, fontWeight: active ? '700' : '500' }]}> 
           {label}
         </Text>
       </View>

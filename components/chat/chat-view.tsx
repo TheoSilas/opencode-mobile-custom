@@ -43,6 +43,7 @@ export function ChatView() {
   } = useSessions();
   const { availableAgents, availableModels, configuredProviders } = useCapabilities();
   const { chatPreferences, updateChatPreferences } = usePreferences();
+  const slim = chatPreferences.slimInterface === true;
   const { connection, settings, serverCapabilities } = useConnection();
   const { conversation, clearConversationFeedback, toggleConversationMode } = useConversation();
   const {
@@ -496,12 +497,13 @@ export function ChatView() {
           palette={palette}
           selectedSession={selectedSession}
           latestAssistantTurnUsage={latestAssistantTurnUsage}
+          slim={slim}
           usage={currentUsage}
         />
 
         <View style={[styles.tabsRow, { backgroundColor: palette.surface, borderBottomColor: palette.border }]}>
-          <TopTab active={activeTab === 'session'} label={t('chat:view.tabSession')} onPress={() => setActiveTab('session')} />
-          <TopTab active={activeTab === 'changes'} label={t('chat:view.tabFilesChanged', { files: diffCount })} onPress={() => setActiveTab('changes')} />
+          <TopTab active={activeTab === 'session'} label={t('chat:view.tabSession')} onPress={() => setActiveTab('session')} slim={slim} />
+          <TopTab active={activeTab === 'changes'} label={t('chat:view.tabFilesChanged', { files: diffCount })} onPress={() => setActiveTab('changes')} slim={slim} />
         </View>
 
         <ChatContent
@@ -521,6 +523,7 @@ export function ChatView() {
           diffTurns={diffTurns}
           displayTranscript={displayTranscript}
           flatTranscript={chatPreferences.flatTranscript === true}
+          slim={slim}
           transcriptFontSize={normalizeTranscriptFontSize(chatPreferences.transcriptFontSize)}
           expandedDiffId={expandedDiffId}
           isRefreshingDiffs={isRefreshingDiffs}
@@ -624,6 +627,7 @@ export function ChatView() {
           palette={palette}
           selectedAgentLabel={selectedAgentLabel}
           showSendAction={showSendAction}
+          slim={slim}
           updateChatPreferences={updateChatPreferences}
           visibleModels={visibleModels}
         />

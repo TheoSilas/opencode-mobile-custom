@@ -261,6 +261,10 @@
     "flatThread": {
       "title": "Conversación plana",
       "description": "Muestra los mensajes a todo el ancho sin burbujas para que quepa más conversación en pantalla."
+    },
+    "slimInterface": {
+      "title": "Interfaz compacta",
+      "description": "Reduce botones, espaciado y encabezados en chat, terminal y espacio de trabajo para que quepa más texto en pantalla."
     }
   }
 }

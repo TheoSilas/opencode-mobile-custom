@@ -36,6 +36,7 @@ type ChatHeaderProps = {
   contextLimit?: number;
   contextTokens?: number;
   latestAssistantTurnUsage?: SessionUsage;
+  slim?: boolean;
   usage: SessionUsage;
 };
 
@@ -54,6 +55,7 @@ export function ChatHeader({
   palette,
   selectedSession,
   latestAssistantTurnUsage,
+  slim = false,
   usage,
 }: ChatHeaderProps) {
   const { t } = useTranslation();
@@ -75,7 +77,7 @@ export function ChatHeader({
   return (
     <>
       <Appbar.Header
-        style={[styles.header, { backgroundColor: palette.surface, paddingTop: insetsTop, height: 64 + insetsTop }]}
+        style={[styles.header, { backgroundColor: palette.surface, paddingTop: insetsTop, height: (slim ? 52 : 64) + insetsTop }]}
         statusBarHeight={0}
         elevated>
         <View style={styles.headerMain}>

@@ -261,6 +261,10 @@
     "flatThread": {
       "title": "Flache Unterhaltung",
       "description": "Zeigt Nachrichten in voller Breite ohne Sprechblasen, damit mehr vom Gespräch auf den Bildschirm passt."
+    },
+    "slimInterface": {
+      "title": "Schlanke Oberfläche",
+      "description": "Verkleinert Schaltflächen, Abstände und Kopfzeilen in Chat, Terminal und Arbeitsbereich, damit mehr Text auf den Bildschirm passt."
     }
   }
 }

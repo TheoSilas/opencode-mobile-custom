@@ -544,6 +544,13 @@ export function AppearanceSection({
         palette={palette}
         value={chatPreferences.flatTranscript === true}
       />
+      <SettingSwitchRow
+        title={t('settings:appearance.slimInterface.title')}
+        description={t('settings:appearance.slimInterface.description')}
+        onValueChange={(slimInterface) => updateChatPreferences({ slimInterface })}
+        palette={palette}
+        value={chatPreferences.slimInterface === true}
+      />
     </View>
   );
 }

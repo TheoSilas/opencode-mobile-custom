@@ -110,6 +110,7 @@ Current fields:
 - `mode`
 - `transcriptFontSize` (global chat message text size in pixels; defaults to 16 and is clamped to 12–24)
 - `flatTranscript` (renders the transcript full-width without bubble chrome; defaults to `false`)
+- `slimInterface` (shrinks control sizes, spacing, and headers on the text-heavy screens; defaults to `false`)
 - `language` (optional; `undefined` follows the OS locale)
 - `providerId`
 - `modelId`

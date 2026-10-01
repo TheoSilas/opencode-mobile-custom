@@ -28,7 +28,7 @@ import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { SwipeRow } from '@/components/ui/swipe-row';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Pty } from '@/lib/opencode/types';
-import { useConnection, useTerminal, useWorkspace } from '@/providers/opencode-contexts';
+import { useConnection, usePreferences, useTerminal, useWorkspace } from '@/providers/opencode-contexts';
 
 export default function TerminalScreen() {
   const { t } = useTranslation();
@@ -39,6 +39,8 @@ export default function TerminalScreen() {
   const outputRef = useRef<ScrollView>(null);
   const { activeProject } = useWorkspace();
   const { connect, connection } = useConnection();
+  const { chatPreferences } = usePreferences();
+  const slim = chatPreferences.slimInterface === true;
   const {
     activeTerminalId,
     closeTerminal,
@@ -157,7 +159,7 @@ export default function TerminalScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}>
         <Appbar.Header
-          style={[styles.header, { backgroundColor: palette.surface, paddingTop: insets.top, height: 64 + insets.top }]}
+          style={[styles.header, { backgroundColor: palette.surface, paddingTop: insets.top, height: (slim ? 52 : 64) + insets.top }]}
           statusBarHeight={0}
           elevated>
           <View style={styles.headerMain}>
@@ -195,7 +197,7 @@ export default function TerminalScreen() {
           </View>
         </Appbar.Header>
 
-        <ScrollView ref={outputRef} style={styles.output} contentContainerStyle={styles.outputContent} keyboardDismissMode="on-drag" nestedScrollEnabled>
+        <ScrollView ref={outputRef} style={styles.output} contentContainerStyle={[styles.outputContent, slim && { padding: 10 }]} keyboardDismissMode="on-drag" nestedScrollEnabled>
           {activeTerminalId ? <Text testID="terminal-output" selectable style={[styles.outputText, { color: palette.text }]}>{terminalOutput || t('terminal:console.connectedWaiting')}</Text> : (
             <Card mode="contained" style={{ backgroundColor: palette.surface, borderRadius: 16 }}>
               <Card.Title title={t('terminal:screen.title')} subtitle={activeProject.label} />
@@ -204,9 +206,9 @@ export default function TerminalScreen() {
           )}
         </ScrollView>
 
-        <Surface style={[styles.composer, { backgroundColor: palette.surface, borderTopColor: palette.border, paddingBottom: Math.max(insets.bottom, 12) }]} elevation={4}>
-          <View style={styles.composerRow}>
-            <View style={[styles.inputShell, { backgroundColor: palette.background, borderColor: palette.border }]}> 
+        <Surface style={[styles.composer, { backgroundColor: palette.surface, borderTopColor: palette.border, paddingBottom: Math.max(insets.bottom, slim ? 8 : 12) }]} elevation={4}>
+          <View style={[styles.composerRow, slim && { gap: 6 }]}>
+            <View style={[styles.inputShell, slim && { minHeight: 40, borderRadius: 16 }, { backgroundColor: palette.background, borderColor: palette.border }]}> 
               <TextInput
                 testID="terminal-line-input"
                 mode="flat"
@@ -228,8 +230,8 @@ export default function TerminalScreen() {
               testID="terminal-send-button"
               mode="contained"
               icon="send"
-              size={20}
-              style={styles.sendButton}
+              size={slim ? 18 : 20}
+              style={[styles.sendButton, slim && { height: 36, width: 36 }]}
               containerColor={palette.tint}
               iconColor={palette.surface}
               accessibilityLabel={t('terminal:console.send')}

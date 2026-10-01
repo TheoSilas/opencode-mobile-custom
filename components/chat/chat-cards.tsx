@@ -375,6 +375,7 @@ type TranscriptMessageProps = {
   onFork?: () => void;
   onRevert?: () => void;
   onToggleSpeak: () => void;
+  slim?: boolean;
   speaking?: boolean;
 };
 
@@ -388,6 +389,7 @@ function TranscriptMessageImpl({
   onFork,
   onRevert,
   onToggleSpeak,
+  slim = false,
   speaking = false,
 }: TranscriptMessageProps) {
   const { t } = useTranslation();
@@ -398,6 +400,7 @@ function TranscriptMessageImpl({
   const textColor = flat ? palette.text : isUser ? palette.onBubbleUser : palette.onBubbleAssistant;
   const metaColor = flat ? palette.muted : isUser ? palette.onBubbleUser : palette.muted;
   const accentColor = flat ? palette.tint : isUser ? palette.onBubbleUser : palette.tint;
+  const slimSpacing = slim ? (flat ? { paddingVertical: 2, gap: 4 } : { borderRadius: 14, gap: 6, paddingHorizontal: 10, paddingVertical: 8 }) : null;
 
   return (
     <View style={[styles.messageRow, flat ? styles.messageRowFlat : isUser && styles.messageRowUser]}>
@@ -412,16 +415,17 @@ function TranscriptMessageImpl({
                   backgroundColor: isUser ? palette.bubbleUser : palette.bubbleAssistant,
                   borderColor: copied ? palette.tint : isUser ? palette.bubbleUser : palette.border,
                 },
+            slimSpacing,
             copied && !flat ? styles.messageBubbleCopied : null,
           ]}
           elevation={flat ? 0 : 1}>
-          <View style={styles.messageMeta}>
+          <View style={[styles.messageMeta, slim && { gap: 8 }]}>
             <Text variant="labelMedium" style={{ color: metaColor }}>{isUser ? t('chat:cards.you') : t('chat:cards.opencode')}</Text>
             <View style={styles.messageMetaRight}>
               <IconButton
                 accessibilityLabel={t('common:actions.copy')}
                 icon="content-copy"
-                size={16}
+                size={slim ? 14 : 16}
                 style={styles.messageActionButton}
                 iconColor={palette.muted}
                 onPress={onCopy}
@@ -435,14 +439,14 @@ function TranscriptMessageImpl({
               {canSpeak ? (
                 <IconButton
                   icon={speaking ? 'stop' : 'volume-high'}
-                  size={16}
+                  size={slim ? 14 : 16}
                   style={styles.messageActionButton}
                   iconColor={palette.muted}
                   onPress={onToggleSpeak}
                 />
               ) : null}
-              {onFork ? <IconButton icon="source-fork" size={16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onFork} /> : null}
-              {onRevert ? <IconButton icon="undo-variant" size={16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onRevert} /> : null}
+              {onFork ? <IconButton icon="source-fork" size={slim ? 14 : 16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onFork} /> : null}
+              {onRevert ? <IconButton icon="undo-variant" size={slim ? 14 : 16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onRevert} /> : null}
               <Text variant="labelSmall" style={{ color: metaColor, opacity: isUser && !flat ? 0.82 : 1 }}>
                 {formatTimestamp(entry.createdAt)}
               </Text>
@@ -480,6 +484,7 @@ function areTranscriptMessagePropsEqual(prev: TranscriptMessageProps, next: Tran
     prev.entry === next.entry &&
     prev.fontSize === next.fontSize &&
     prev.flat === next.flat &&
+    prev.slim === next.slim &&
     prev.copied === next.copied &&
     prev.speaking === next.speaking &&
     prev.canSpeak === next.canSpeak

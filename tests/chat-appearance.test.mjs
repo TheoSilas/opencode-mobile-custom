@@ -14,5 +14,6 @@ assert.equal(normalizeTranscriptFontSize(Number.NaN), 16);
 assert.equal(normalizeTranscriptFontSize(undefined), 16);
 
 assert.equal(defaultChatPreferences.flatTranscript, false);
+assert.equal(defaultChatPreferences.slimInterface, false);
 
 console.log('chat appearance tests passed');

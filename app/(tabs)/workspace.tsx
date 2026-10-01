@@ -20,7 +20,7 @@ import { TextInput } from '@/components/ui/text-input';
 import { TopTab } from '@/components/chat/chat-controls';
 import { WorkspacePicker } from '@/components/ui/workspace-picker';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useConnection, useWorkspace } from '@/providers/opencode-contexts';
+import { useConnection, usePreferences, useWorkspace } from '@/providers/opencode-contexts';
 
 export default function WorkspaceScreen() {
   const { t } = useTranslation();
@@ -30,6 +30,8 @@ export default function WorkspaceScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
   const { connection, serverCapabilities } = useConnection();
+  const { chatPreferences } = usePreferences();
+  const slim = chatPreferences.slimInterface === true;
   const {
     activeProject,
     addWorkspace,
@@ -86,7 +88,7 @@ export default function WorkspaceScreen() {
   return (
     <>
       <Appbar.Header
-        style={[styles.header, { backgroundColor: palette.surface, paddingTop: insets.top, height: 64 + insets.top }]}
+        style={[styles.header, { backgroundColor: palette.surface, paddingTop: insets.top, height: (slim ? 52 : 64) + insets.top }]}
         statusBarHeight={0}
         elevated>
         <View style={styles.headerMain}>
@@ -105,12 +107,12 @@ export default function WorkspaceScreen() {
       </Appbar.Header>
       <WorkspacePicker visible={workspacePickerVisible} testID="workspace-picker" projects={projects} activePath={activeProject?.path} onClose={() => setWorkspacePickerVisible(false)} onSelect={selectProject} onAdd={addWorkspace} />
       <View style={[styles.tabsRow, { backgroundColor: palette.surface, borderBottomColor: palette.border }]}>
-        <TopTab active={activePanel === 'files'} label={t('workspace:screen.filesTab')} onPress={() => setActivePanel('files')} />
-        <TopTab active={activePanel === 'tools'} label={t('workspace:screen.worktreesTab')} onPress={() => setActivePanel('tools')} />
+        <TopTab active={activePanel === 'files'} label={t('workspace:screen.filesTab')} onPress={() => setActivePanel('files')} slim={slim} />
+        <TopTab active={activePanel === 'tools'} label={t('workspace:screen.worktreesTab')} onPress={() => setActivePanel('tools')} slim={slim} />
       </View>
       <ScrollView
         style={[styles.screen, { backgroundColor: palette.background }]}
-        contentContainerStyle={[styles.content, styles.centeredContent]}
+        contentContainerStyle={[styles.content, styles.centeredContent, slim && { padding: 10, gap: 10 }]}
         keyboardDismissMode="on-drag"
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void handleRefresh()} tintColor={palette.tint} />}>
       {activePanel === 'files' ? <Card mode="contained" style={styles.panel}>
@@ -129,8 +131,8 @@ export default function WorkspaceScreen() {
                   <Appbar.BackAction accessibilityLabel={t('workspace:files.close')} onPress={() => setFileDetailsOpen(false)} />
                   <Appbar.Content title={selectedWorkspaceFile.path.split('/').pop() || selectedWorkspaceFile.path} subtitle={selectedWorkspaceFile.path} />
                 </Appbar.Header>
-                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom, 16) + 16 }}>
-            <View style={[styles.filePreview, { borderColor: palette.border, backgroundColor: palette.surface }]}>
+                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: slim ? 10 : 16, paddingBottom: Math.max(insets.bottom, slim ? 10 : 16) + (slim ? 10 : 16) }}>
+            <View style={[styles.filePreview, slim && { margin: 10, padding: 8 }, { borderColor: palette.border, backgroundColor: palette.surface }]}>
               <Text variant="labelLarge" style={{ color: palette.text }}>{selectedWorkspaceFile.path}</Text>
               {editingFile?.path === selectedWorkspaceFile.path ? (
                 <>

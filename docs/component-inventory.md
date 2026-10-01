@@ -256,6 +256,7 @@ Responsibility:
 
 - render one display transcript bubble
 - in flat mode (chat preference), drop the bubble chrome and side margins, render full-width rows with condensed spacing and a shared text color; the role label still distinguishes user and assistant
+- with the slim-interface preference, reduce bubble padding and action-button sizes
 - show copy state, optional TTS button, fork/revert actions for user messages, timestamp, markdown text, error, and summary chips
 - an explicit copy button keeps copying available without capturing table-scroll gestures; taps still dismiss the keyboard
 
@@ -299,6 +300,7 @@ Responsibility:
 ### Responsibility
 
 - small reusable controls for chat toolbar and tab strip
+- accept a `slim` prop that shrinks control height, icon size, and label size for the slim-interface preference
 
 ## `components/chat/chat-diff.ts`
 
@@ -331,6 +333,7 @@ Current values used by the UI:
 ### Responsibility
 
 - centralized style sheet for most chat surfaces
+- export `slimStyles`, parallel overrides applied on top of the base sheet when the slim-interface preference is on
 
 This is important to parity because the chat layout is intentionally dense and highly composed, especially around:
 
