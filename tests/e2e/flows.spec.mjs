@@ -1075,6 +1075,63 @@ test('rapid favorite taps across workspaces settle on the last target', async ({
   ).toBeVisible({ timeout: 20_000 });
 });
 
+test('chat library lists recently used sessions from other workspaces and switches on tap', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const fakeServer = 'http://127.0.0.1:44096';
+  const projectPath = '/workspace/secondary-project';
+
+  const createResponse = await request.post(`${fakeServer}/session?directory=${encodeURIComponent(projectPath)}`, {
+    data: { title: 'Recent Secondary Session' },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const { id: sessionId } = await createResponse.json();
+  await request.post(`${fakeServer}/session/${sessionId}/prompt_async`, {
+    data: { parts: [{ type: 'text', text: 'Recent secondary work' }] },
+  });
+  await sleep(1200);
+
+  await openReadyChat(page);
+  await openChatLibrary(page);
+
+  await expect(page.getByText('Active across workspaces', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('chat-library').getByText('Recent Secondary Session', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('chat-library').getByText('secondary-project', { exact: false }).first()).toBeVisible();
+
+  await page.getByTestId('chat-library').getByRole('button', { name: 'Open Recent Secondary Session' }).first().click();
+
+  await expect(page.locator('text=/Finished: Recent secondary work/ >> visible=true').first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('secondary-project', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+
+  // The group is connection-wide, so it is still listed after switching to the
+  // workspace that owns the session (and the session is not duplicated below).
+  await openChatLibrary(page);
+  await expect(page.getByText('Active across workspaces', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('chat-library').getByRole('button', { name: 'Open Recent Secondary Session' })).toHaveCount(1);
+});
+
+test('chat library lists running sessions from other workspaces', async ({ page, request }) => {
+  await resetScenario(request, 'permission');
+  const fakeServer = 'http://127.0.0.1:44096';
+  const projectPath = '/workspace/secondary-project';
+
+  const createResponse = await request.post(`${fakeServer}/session?directory=${encodeURIComponent(projectPath)}`, {
+    data: { title: 'Running Secondary Session' },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const { id: sessionId } = await createResponse.json();
+  await request.post(`${fakeServer}/session/${sessionId}/prompt_async`, {
+    data: { parts: [{ type: 'text', text: 'Running secondary work' }] },
+  });
+  await sleep(500);
+
+  await openReadyChat(page);
+  await openChatLibrary(page);
+
+  await expect(page.getByText('Active across workspaces', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('chat-library').getByText('Running Secondary Session', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('chat-library').getByText('secondary-project', { exact: false }).first()).toBeVisible();
+});
+
 test('saved connections keep sessions, caches, and model preferences separate', async ({ page, request }) => {
   // Two servers, two prompts, and two profile switches need more headroom than
   // a single-flow test.

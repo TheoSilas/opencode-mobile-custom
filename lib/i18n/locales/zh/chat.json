@@ -140,6 +140,7 @@
     "couldNotUpdate": "无法更新聊天。",
     "untitledChat": "未命名聊天",
     "favorites": "收藏",
+    "activeSessions": "其他工作区中的活动会话",
     "open": "打开 {{title}}",
     "swipeRemoveFavorite": "左滑取消收藏",
     "chats": "聊天",

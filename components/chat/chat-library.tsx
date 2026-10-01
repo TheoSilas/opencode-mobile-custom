@@ -1,12 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, StyleSheet, Switch, Text as NativeText, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
-import { SwipeRow } from '@/components/ui/swipe-row';
+import { SwipeRow, type SwipeRowAction } from '@/components/ui/swipe-row';
 import { TextInput } from '@/components/ui/text-input';
 import { WorkspacePicker, WorkspacePickerButton } from '@/components/ui/workspace-picker';
 import { Colors } from '@/constants/theme';
@@ -24,6 +24,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
     favoriteSessions, isFavoriteSession, openSession, openSessionInProject, refreshArchivedSessions,
     renameSession, restoreSession, sessionPreviewById, sessionStatuses, sessions, shareSession,
     toggleFavoriteSession, unshareSession,
+    activeSessions, refreshActiveSessions,
   } = useSessions();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const { serverCapabilities } = useConnection();
@@ -36,13 +37,16 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
   const [error, setError] = useState<string>();
   const needle = query.trim().toLowerCase();
   const matches = (title: string, detail = '') => `${title} ${detail}`.toLowerCase().includes(needle);
+  const activeSessionIds = new Set(activeSessions.map((session) => session.sessionId));
   const visibleSessions = sessions.filter((session) => !chatPreferences.hideSubagentChats || !session.parentID)
+    .filter((session) => !activeSessionIds.has(session.id))
     .filter((session) => matches(session.title || t('chat:library.untitledChat'), sessionPreviewById[session.id] || ''))
     .sort((left, right) => {
       const priority = (session: Session) => session.id === currentSessionId ? 0 : sessionStatuses[session.id]?.type === 'idle' ? 2 : 1;
       return priority(left) - priority(right) || right.time.updated - left.time.updated;
     });
   const visibleFavorites = favoriteSessions.filter((favorite) => matches(favorite.title || t('chat:library.untitledChat'), favorite.projectPath));
+  const visibleActiveSessions = activeSessions.filter((session) => matches(session.title || t('chat:library.untitledChat'), session.projectPath));
   const visibleArchived = archivedSessions.filter((session) => matches(session.title || t('chat:library.untitledChat'), session.directory));
 
   function confirm(title: string, message: string, action: string, run: () => void) {
@@ -56,6 +60,36 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
   }
   const close = () => { setWorkspaceVisible(false); setRenamingId(undefined); onClose(); };
   const open = (id: string) => void run(id, async () => { await openSession(id); close(); });
+  const openActive = (id: string, projectPath: string) => void run(id, async () => { await openSessionInProject(projectPath, id); close(); });
+
+  // Live current-workspace sessions win over the cross-workspace snapshot so a
+  // rename or share change is reflected immediately in the Active group.
+  const liveById = new Map(sessions.map((session) => [session.id, session]));
+
+  // Shared row actions for the Active group and the current-workspace Chat list.
+  // Project-scoped actions (rename/share/archive/delete) are only offered for
+  // sessions in the active workspace; the scoped client cannot manage another
+  // workspace's session, so cross-workspace rows stay open/favorite only.
+  const sessionActions = (id: string, title: string | undefined, projectPath: string, shareUrl: string | undefined, manage: boolean): SwipeRowAction[] => {
+    const favorite = isFavoriteSession(id);
+    return [
+      ...(manage ? [{ label: t('chat:library.rename'), icon: 'pencil-outline' as const, onPress: () => { setRenamingId(id); setRenameValue(title || ''); } }] : []),
+      { label: favorite ? t('chat:library.unfavorite') : t('chat:library.favorite'), icon: favorite ? 'star-off-outline' : 'star-outline', onPress: () => toggleFavoriteSession(id, projectPath, title) },
+      ...(manage && serverCapabilities.share ? [{ label: shareUrl ? t('chat:library.unshare') : t('chat:library.share'), icon: 'share-variant-outline' as const, onPress: () => {
+        const share = () => void run(id, async () => { if (shareUrl) await unshareSession(id); else { const result = await shareSession(id); if (result.share?.url) await Clipboard.setStringAsync(result.share.url); } });
+        if (shareUrl) share(); else confirm(t('chat:library.shareConfirmTitle'), t('chat:library.shareConfirmMessage'), t('chat:library.share'), share);
+      } }] : []),
+      ...(manage && serverCapabilities.archive ? [{ label: t('chat:library.archive'), icon: 'archive-outline' as const, onPress: () => void run(id, () => archiveSession(id)) }] : []),
+      ...(manage ? [{ label: t('common:actions.delete'), icon: 'delete-outline' as const, onPress: () => confirm(t('chat:library.deleteConfirmTitle'), t('chat:library.deleteConfirm', { title: title || t('chat:library.untitledChat') }), t('common:actions.delete'), () => void run(id, () => deleteSession(id))) }] : []),
+    ];
+  };
+
+  // Cross-workspace running/recent sessions are connection-scoped, not
+  // workspace-scoped, so they are re-seeded whenever the overlay opens.
+  useEffect(() => {
+    if (!visible) return;
+    void refreshActiveSessions().catch(() => undefined);
+  }, [refreshActiveSessions, visible]);
 
   return <>
     <OverlaySheet visible={visible && !workspaceVisible} title={t('chat:library.title')} testID="chat-library" onClose={close} headerAction={<WorkspacePickerButton onPress={() => { void refreshWorkspaceCatalog(); setWorkspaceVisible(true); }} />}>
@@ -68,6 +102,34 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
       </View>
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
       {section === 'active' ? <>
+        {visibleActiveSessions.length > 0 ? <>
+          <View style={styles.sectionHeader}>
+            <Text variant="labelLarge" style={{ color: palette.muted }}>{t('chat:library.activeSessions')}</Text>
+          </View>
+          {visibleActiveSessions.map((session) => {
+            const live = liveById.get(session.sessionId);
+            const title = live?.title ?? session.title;
+            const manage = session.projectPath === activeProject?.path;
+            const running = session.status.type !== 'idle';
+            return <View key={session.sessionId}>
+              <SwipeRow title={title || t('chat:library.untitledChat')} actions={sessionActions(session.sessionId, title, session.projectPath, live?.share?.url, manage)}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat:library.open', { title: title || t('chat:library.untitledChat') })}
+                  accessibilityHint={t('chat:library.swipeChatActions')}
+                  onPress={() => openActive(session.sessionId, session.projectPath)}
+                  style={[styles.sessionItem, { backgroundColor: session.isCurrent ? palette.background : 'transparent', borderColor: session.isCurrent ? palette.tint : palette.border }]}>
+                  <MaterialCommunityIcons name={running ? 'progress-clock' : 'history'} size={20} color={running ? palette.tint : palette.muted} />
+                  <View style={styles.sessionText}>
+                    <NativeText numberOfLines={1} style={[styles.sessionTitle, { color: palette.text }]}>{title || t('chat:library.untitledChat')}</NativeText>
+                    <NativeText numberOfLines={1} style={{ color: palette.muted }}>{session.projectPath.split('/').filter(Boolean).pop() || session.projectPath} · {formatRelativeTime(live?.time.updated ?? session.updatedAt)}</NativeText>
+                  </View>
+                </Pressable>
+              </SwipeRow>
+              {renamingId === session.sessionId ? <View style={styles.renameRow}><TextInput testID="chat-library-title-input" mode="outlined" value={renameValue} onChangeText={setRenameValue} style={styles.renameInput} /><Button onPress={() => void run(session.sessionId, async () => { await renameSession(session.sessionId, renameValue); setRenamingId(undefined); })}>{t('common:actions.save')}</Button><Button onPress={() => setRenamingId(undefined)}>{t('common:actions.cancel')}</Button></View> : null}
+            </View>;
+          })}
+        </> : null}
         {visibleFavorites.length > 0 ? <Text variant="labelLarge" style={{ color: palette.muted }}>{t('chat:library.favorites')}</Text> : null}
         {visibleFavorites.map((favorite) => <SwipeRow key={`${favorite.connectionScope}:${favorite.sessionId}`} title={favorite.title || t('chat:library.untitledChat')} actions={[{ label: t('chat:library.unfavorite'), icon: 'star-off-outline', onPress: () => clearFavoriteSession(favorite.sessionId) }]}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('chat:library.open', { title: favorite.title || t('chat:library.untitledChat') })} accessibilityHint={t('chat:library.swipeRemoveFavorite')} onPress={() => void run(favorite.sessionId, async () => { await openSessionInProject(favorite.projectPath, favorite.sessionId, favorite.connectionScope); close(); })} style={[styles.sessionItem, { borderColor: palette.border }]}>
@@ -77,16 +139,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
         <Text variant="labelLarge" style={{ color: palette.muted }}>{t('chat:library.chats')}</Text>
         {visibleSessions.length === 0 ? <Text style={{ color: palette.muted }}>{t('chat:library.noChats')}</Text> : null}
         {visibleSessions.map((session) => <View key={session.id}>
-          <SwipeRow title={session.title || t('chat:library.untitledChat')} actions={[
-            { label: t('chat:library.rename'), icon: 'pencil-outline', onPress: () => { setRenamingId(session.id); setRenameValue(session.title || ''); } },
-            { label: isFavoriteSession(session.id) ? t('chat:library.unfavorite') : t('chat:library.favorite'), icon: isFavoriteSession(session.id) ? 'star-off-outline' : 'star-outline', onPress: () => toggleFavoriteSession(session.id, activeProject?.path || '', session.title) },
-            ...(serverCapabilities.share ? [{ label: session.share?.url ? t('chat:library.unshare') : t('chat:library.share'), icon: 'share-variant-outline' as const, onPress: () => {
-              const share = () => void run(session.id, async () => { if (session.share?.url) await unshareSession(session.id); else { const result = await shareSession(session.id); if (result.share?.url) await Clipboard.setStringAsync(result.share.url); } });
-              if (session.share?.url) share(); else confirm(t('chat:library.shareConfirmTitle'), t('chat:library.shareConfirmMessage'), t('chat:library.share'), share);
-            } }] : []),
-            ...(serverCapabilities.archive ? [{ label: t('chat:library.archive'), icon: 'archive-outline' as const, onPress: () => void run(session.id, () => archiveSession(session.id)) }] : []),
-            { label: t('common:actions.delete'), icon: 'delete-outline', onPress: () => confirm(t('chat:library.deleteConfirmTitle'), t('chat:library.deleteConfirm', { title: session.title || t('chat:library.untitledChat') }), t('common:actions.delete'), () => void run(session.id, () => deleteSession(session.id))) },
-          ]}>
+          <SwipeRow title={session.title || t('chat:library.untitledChat')} actions={sessionActions(session.id, session.title, activeProject?.path || '', session.share?.url, true)}>
             <Pressable accessibilityRole="button" accessibilityLabel={t('chat:library.open', { title: session.title || t('chat:library.untitledChat') })} accessibilityHint={t('chat:library.swipeChatActions')} onPress={() => open(session.id)} style={[styles.sessionItem, { backgroundColor: currentSessionId === session.id ? palette.background : 'transparent', borderColor: currentSessionId === session.id ? palette.tint : palette.border }]}>
               <MaterialCommunityIcons name={currentSessionId === session.id ? 'check-circle' : 'message-outline'} size={20} color={currentSessionId === session.id ? palette.tint : palette.muted} /><View style={styles.sessionText}><NativeText numberOfLines={1} style={[styles.sessionTitle, { color: palette.text }]}>{session.parentID ? '↳ ' : ''}{session.title || t('chat:library.untitledChat')}</NativeText><NativeText numberOfLines={1} style={{ color: palette.muted }}>{sessionPreviewById[session.id] || getSessionSubtitle(session)}</NativeText></View>
             </Pressable>
@@ -109,9 +162,10 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
 
 const styles = StyleSheet.create({
   sectionTabs: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   filterToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
   sessionItem: { minHeight: 68, borderRadius: 16, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sessionText: { flex: 1, gap: 3 },
+  sessionText: { flex: 1, minWidth: 0, gap: 3 },
   sessionTitle: { fontSize: 16, fontWeight: '600' },
   renameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   renameInput: { flex: 1 },

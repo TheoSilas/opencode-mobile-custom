@@ -43,6 +43,7 @@ From `TESTING.md`, those gates include:
   - `npm run test:connection-scope`
   - `npm run test:connection-profiles`
   - `npm run test:last-session`
+  - `npm run test:active-sessions`
   - `npm run test:notifications`
   - `npm run test:notifications-background`
   - `npm run test:onboarding`
@@ -223,6 +224,16 @@ The SSE endpoint intentionally fails, forcing the app to complete the workflow t
   project paths, switch between them, and verify each connection shows only its
   own sessions and restores its own model selection (the session cache,
   remembered session, and model preferences can never leak across servers)
+
+### Cross-Workspace Active Sessions
+
+- list a recently used session from another workspace in the Chat Library
+  "Active across workspaces" group and switch to its project on tap
+- list a session that is still running (busy) in another workspace
+- the group is connection-wide, capped at four, and listed sessions are removed
+  from the Chat list below (covered by the flow assertions and `test:active-sessions`)
+- `test:active-sessions` unit-tests the selection: running-first ordering, recent
+  tail, the four-item cap, and archived/subagent filtering
 
 ### Onboarding Flows
 

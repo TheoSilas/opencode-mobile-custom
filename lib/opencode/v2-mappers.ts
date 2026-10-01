@@ -18,6 +18,7 @@ export function sessionToV1(session: SessionInfo): Record<string, unknown> {
   return {
     id: session.id,
     title: session.title ?? '',
+    directory: session.location?.directory,
     time: { created: session.time.created, updated: session.time.updated },
     parentID: session.parentID,
     revert: session.revert,

@@ -170,6 +170,9 @@ Session list behavior:
 
 - search filters the active, favorite, or archived list
 - favorites remain accessible across workspaces; choosing one switches to its project
+- the Active tab opens with an "Active across workspaces" group above Favorites listing up to four sessions from the whole connected server: running (busy/retry) sessions first, then the most recently updated idle ones. It is connection-wide, so it stays the same while switching workspaces. Subagent chats are hidden by the same switch as the rest of the library, and listed sessions are removed from the Chat list below so they never appear twice
+- picking a session from that group switches to its project and opens it in one tap, reusing the deep-link flow; the group is refreshed when the library opens and polled while a session is running
+- project-scoped row actions (rename, share, archive, delete) are offered only for sessions in the active workspace, where the scoped client can act on them; other-workspace rows offer open and favorite
 - each session row shows title, preview/subtitle, and status
 - active session rows are visually emphasized
 - the `Hide subagent chats` switch sits beside the Active and Archived filters in the library

@@ -307,6 +307,30 @@ Context utilization is derived separately by `getLatestContextTokens()`: it walk
 
 Derived from message history using `getHistoryPreview()`.
 
+### Active Sessions Across Workspaces
+
+`providers/use-active-sessions.ts` keeps a connection-scoped snapshot of every
+session on the connected server (sessions + statuses) fetched through the
+unscoped catalog client. The snapshot is tagged with its connection scope; a
+scope change therefore hides it immediately without a reset pass.
+`getActiveSessions()` (`providers/active-sessions.ts`) derives the Chat Library
+group from it:
+
+- the group is connection-wide, not filtered by the active workspace, so it is
+  stable across workspace switches
+- archived sessions are always excluded; subagent chats are excluded when
+  `hideSubagentChats` is on
+- running (busy/retry) sessions sort first by most recent update, followed by the
+  most recently updated idle sessions, and the whole list is capped at
+  `maxTotal` (4)
+
+The Chat Library removes these session IDs from the current-workspace Chat list so
+a session never appears in both places. The snapshot seeds on connect and on every
+catalog-client change, refreshes when the library opens, and polls every 5
+seconds only while a session is running. A transient fetch failure keeps the
+previous snapshot. The snapshot is in-memory only and does not share the
+per-connection+project session cache.
+
 ### Current Pending Requests
 
 Derived by preferring:

@@ -140,6 +140,7 @@
     "couldNotUpdate": "チャットを更新できませんでした。",
     "untitledChat": "無題のチャット",
     "favorites": "お気に入り",
+    "activeSessions": "他のワークスペースでアクティブ",
     "open": "{{title}}を開く",
     "swipeRemoveFavorite": "左にスワイプしてお気に入りから削除",
     "chats": "チャット",

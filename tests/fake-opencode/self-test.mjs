@@ -188,7 +188,12 @@ try {
   assert(sessionId, 'Session creation failed');
   const secondarySession = await request('/session?directory=%2Fworkspace%2Fsecondary-project', json('POST', { title: 'Secondary session' }));
   assert((await request('/session?directory=%2Fworkspace%2Fsecondary-project')).some((entry) => entry.id === secondarySession.id), 'Secondary session was not scoped to its project');
-  assert(!(await request('/session')).some((entry) => entry.id === secondarySession.id), 'Secondary session leaked into the default project');
+  assert(!(await request('/session?directory=%2Fworkspace%2Fdemo-project')).some((entry) => entry.id === secondarySession.id), 'Secondary session leaked into the default project');
+  assert((await request('/session')).some((entry) => entry.id === secondarySession.id), 'Unscoped session list did not include the secondary project session');
+  const scopedStatuses = await request('/session/status?directory=%2Fworkspace%2Fdemo-project');
+  assert(!(secondarySession.id in scopedStatuses), 'Scoped status leaked another project session');
+  const unscopedStatuses = await request('/session/status');
+  assert(secondarySession.id in unscopedStatuses, 'Unscoped status missing another project session');
   const renamed = await request(`/session/${sessionId}`, json('PATCH', { title: 'Renamed smoke session' }));
   assert(renamed.title === 'Renamed smoke session', 'Session rename failed');
 

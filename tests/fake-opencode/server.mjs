@@ -517,8 +517,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && pathname === '/session') {
-      const directory = requestUrl.searchParams.get('directory') || state.project.worktree;
-      sendJson(res, 200, state.sessions.filter((session) => session.directory === directory && !session.time.archived));
+      // No directory query = unscoped call (cross-workspace listing). Match the
+      // real server: return every non-archived session, each with its directory.
+      const directory = requestUrl.searchParams.get('directory');
+      sendJson(res, 200, state.sessions.filter((session) => (!directory || session.directory === directory) && !session.time.archived));
       return;
     }
 
@@ -541,10 +543,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && pathname === '/session/status') {
-      const directory = requestUrl.searchParams.get('directory') || state.project.worktree;
+      // Unscoped call returns statuses for every project on the server.
+      const directory = requestUrl.searchParams.get('directory');
       sendJson(res, 200, Object.fromEntries(
         state.sessions
-          .filter((session) => session.directory === directory)
+          .filter((session) => !directory || session.directory === directory)
           .map((session) => [session.id, state.sessionStatuses[session.id]]),
       ));
       return;

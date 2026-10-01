@@ -46,6 +46,16 @@ export async function listSessions(client: OpencodeClient) {
   return { sessions: nextSessions, statuses: requireData(statusesResponse.data, 'session status request') };
 }
 
+// Cross-workspace session snapshot for the Chat Library "Active" group. Uses an
+// unscoped client (empty directory) so both contracts return sessions and
+// statuses for every project on the active connection, not just the active one.
+export async function listActiveSessions(client: OpencodeClient) {
+  const [sessionsResponse, statusesResponse] = await Promise.all([client.session.list(), client.session.status()]);
+
+  const sessions = requireData(sessionsResponse.data, 'session list request').filter((session) => !session.time.archived);
+  return { sessions, statuses: requireData(statusesResponse.data, 'session status request') };
+}
+
 export async function listArchivedSessions(client: OpencodeClient) {
   const MAX_ARCHIVED_PAGES = 10;
   const sessions: GlobalSession[] = [];

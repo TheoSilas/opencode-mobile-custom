@@ -170,6 +170,15 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
   MCP server status plus its lifecycle actions.
 - `providers/use-worktree-state.ts`
   Experimental worktree list plus its lifecycle actions.
+- `providers/use-active-sessions.ts`
+  Connection-wide running/recent session snapshot for the Chat Library. Reads the
+  unscoped catalog client, seeds on connect and on library open, polls while a
+  session is running, and tags the snapshot with its connection scope so a server
+  switch hides the previous server's sessions.
+- `providers/active-sessions.ts`
+  Pure selection of the active-session group (running-first ordering, recent tail
+  capped at four, subagent/archived filtering). The Chat Library de-duplicates
+  these IDs out of the current-workspace Chat list.
 
 These domain hooks are composed by `OpencodeProvider`, which stays the single
 orchestrator. Each hook receives the current client (and, when it must call a
@@ -181,7 +190,7 @@ they cannot silently regrow.
 ### Services
 
 - `providers/services/session-service.ts`
-  Fetch sessions, messages, diffs, todos, commands, and perform session lifecycle actions.
+  Fetch sessions, messages, diffs, todos, commands, and perform session lifecycle actions. Also lists the cross-workspace active-session snapshot through an unscoped client.
 - `providers/services/capabilities-service.ts`
   Discover config, providers, provider auth methods, model capabilities, and agents.
 - `providers/services/workspace-service.ts`
@@ -355,6 +364,7 @@ The provider fetches and caches:
 - providers, models, and agents
 - commands, workspace file status/search/read data, VCS information, and diagnostics
 - archived sessions, worktrees, MCP statuses, PTYs, terminal connection state, and terminal output
+- a connection-wide session snapshot (all sessions + statuses) from the unscoped catalog client, used by the Chat Library "Active" group. The global SSE stream still filters events to the active project, so this snapshot is refreshed on connect, when the library opens, and by a short poll while a session is running.
 
 ### Provider -> Derived State
 

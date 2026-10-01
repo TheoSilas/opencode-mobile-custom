@@ -92,6 +92,18 @@ export type FavoriteSession = {
 
 export const FAVORITE_SESSIONS_MAX = 50;
 
+// A session outside the active workspace, surfaced in the Chat Library "Active"
+// group. `projectPath` is the server directory used to switch workspaces; the
+// status drives the running indicator and ordering.
+export type ActiveSessionItem = {
+  sessionId: string;
+  projectPath: string;
+  title?: string;
+  status: SessionStatus;
+  isCurrent: boolean;
+  updatedAt: number;
+};
+
 export type ConnectionState = {
   status: 'idle' | 'connecting' | 'connected' | 'error';
   message: string;
@@ -204,6 +216,8 @@ export type SessionContextValue = {
   isRefreshingSessions: boolean;
   refreshSessions: (silent?: boolean) => Promise<void>;
   openSession: (sessionId: string) => Promise<void>;
+  activeSessions: ActiveSessionItem[];
+  refreshActiveSessions: () => Promise<void>;
   ensureActiveSession: () => Promise<string | undefined>;
   openDeepLinkSession: (target: SessionDeepLinkTarget, signal?: AbortSignal) => Promise<{ ok: boolean; error?: string }>;
   createSession: (title?: string) => Promise<Session>;

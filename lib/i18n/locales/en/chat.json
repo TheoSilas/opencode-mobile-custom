@@ -140,6 +140,7 @@
     "couldNotUpdate": "Could not update chat.",
     "untitledChat": "Untitled chat",
     "favorites": "Favorites",
+    "activeSessions": "Active across workspaces",
     "open": "Open {{title}}",
     "swipeRemoveFavorite": "Swipe left to remove from favorites",
     "chats": "Chats",

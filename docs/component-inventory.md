@@ -201,6 +201,8 @@ type ChatHeaderProps = {
 ## `components/chat/chat-library.tsx`
 
 - Chats overlay with search, favorites, archived sessions, and swipe-left session actions
+- "Active across workspaces" group above Favorites listing up to four running/recent sessions from the whole connection; listed IDs are removed from the Chat list below, and tapping one switches project and opens it through `openSessionInProject`. Project-scoped actions (rename/share/archive/delete) appear only on the current-workspace rows
+- re-seeds the cross-workspace snapshot when the overlay opens
 - keeps the Hide subagents switch alongside the Active and Archived filters
 - header action opening the shared workspace picker overlay
 - uses provider actions for switching workspaces, opening chats, and persistence

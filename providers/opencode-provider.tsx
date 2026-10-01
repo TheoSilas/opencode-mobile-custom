@@ -144,6 +144,7 @@ import {
 } from '@/providers/onboarding-state';
 import { useConversationKeepAwake } from '@/providers/use-conversation-keep-awake';
 import { useConversationScreenDim } from '@/providers/use-conversation-screen-dim';
+import { useActiveSessions } from '@/providers/use-active-sessions';
 import { useMcpState } from '@/providers/use-mcp-state';
 import { useOpencodePersistence } from '@/providers/use-opencode-persistence';
 import { useTerminalState } from '@/providers/use-terminal-state';
@@ -484,6 +485,28 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     isCurrentClient,
     refreshChatCapabilities: () => refreshChatCapabilitiesRef.current(),
   });
+
+  const {
+    activeSessions,
+    refreshActiveSessions,
+  } = useActiveSessions({
+    catalogClient,
+    isCurrentCatalogClient,
+    connectionScope,
+    connected: connection.status === 'connected',
+    currentSessionId,
+    hideSubagentChats: chatPreferences.hideSubagentChats === true,
+  });
+
+  // Seed the cross-workspace active-session snapshot on connect and after a
+  // server switch. The hook itself only polls; effect-driven seeding lives here
+  // because the provider's effect policy permits it.
+  useEffect(() => {
+    if (connection.status !== 'connected') {
+      return;
+    }
+    void refreshActiveSessions().catch(() => undefined);
+  }, [catalogClient, connection.status, refreshActiveSessions]);
 
   const clearProjectState = useCallback(() => {
     bootstrapPromiseRef.current = null;
@@ -943,9 +966,9 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       if (currentSessionId === sessionId) {
         setCurrentSessionId(undefined);
       }
-      await refreshSessions(true);
+      await Promise.all([refreshSessions(true), refreshActiveSessions()]);
     },
-    [client, currentSessionId, isCurrentClient, refreshSessions],
+    [client, currentSessionId, isCurrentClient, refreshActiveSessions, refreshSessions],
   );
 
   const refreshArchivedSessions = useCallback(async () => {
@@ -959,8 +982,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     await svcArchiveSession(client, sessionId);
     if (!isCurrentClient(client)) return;
     if (currentSessionId === sessionId) setCurrentSessionId(undefined);
-    await Promise.all([refreshSessions(true), refreshArchivedSessions()]);
-  }, [client, currentSessionId, isCurrentClient, refreshArchivedSessions, refreshSessions]);
+    await Promise.all([refreshSessions(true), refreshArchivedSessions(), refreshActiveSessions()]);
+  }, [client, currentSessionId, isCurrentClient, refreshActiveSessions, refreshArchivedSessions, refreshSessions]);
 
   // Favorites always belong to the active connection; the scope is derived
   // from the current settings instead of being passed in by the UI.
@@ -3064,8 +3087,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   );
 
   const sessionValue = useMemo<SessionContextValue>(
-    () => ({ sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject }),
-    [sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject],
+    () => ({ sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, activeSessions, refreshActiveSessions, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject }),
+    [sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, activeSessions, refreshActiveSessions, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject],
   );
 
   const chatValue = useMemo<ChatContextValue>(

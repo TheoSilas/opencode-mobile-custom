@@ -140,6 +140,7 @@
     "couldNotUpdate": "Não foi possível atualizar o chat.",
     "untitledChat": "Chat sem título",
     "favorites": "Favoritos",
+    "activeSessions": "Ativas em outros espaços",
     "open": "Abrir {{title}}",
     "swipeRemoveFavorite": "Deslize para a esquerda para remover dos favoritos",
     "chats": "Chats",

@@ -140,6 +140,7 @@
     "couldNotUpdate": "चैट अपडेट नहीं की जा सकी।",
     "untitledChat": "बिना शीर्षक चैट",
     "favorites": "पसंदीदा",
+    "activeSessions": "अन्य वर्कस्पेस में सक्रिय",
     "open": "{{title}} खोलें",
     "swipeRemoveFavorite": "पसंदीदा से हटाने के लिए बाएँ स्वाइप करें",
     "chats": "चैट",
