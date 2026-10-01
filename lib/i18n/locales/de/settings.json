@@ -5,7 +5,8 @@
       "ai": "KI & Anbieter",
       "notifications": "Benachrichtigungen",
       "voice": "Sprache & Antworten",
-      "advanced": "Erweitert"
+      "advanced": "Erweitert",
+      "appearance": "Darstellung"
     },
     "summaries": {
       "configuredCount": "{{value}} konfiguriert",
@@ -253,5 +254,13 @@
   "language": {
     "title": "Sprache",
     "description": "Verwende die Systemsprache oder wähle eine für die App-Oberfläche."
+  },
+  "appearance": {
+    "chatTextSize": "Chat-Textgröße",
+    "chatTextSizeDescription": "Passe die Textgröße der Nachrichten an. Kleinere Schrift zeigt mehr vom Gespräch auf einmal.",
+    "flatThread": {
+      "title": "Flache Unterhaltung",
+      "description": "Zeigt Nachrichten in voller Breite ohne Sprechblasen, damit mehr vom Gespräch auf den Bildschirm passt."
+    }
   }
 }

@@ -5,7 +5,8 @@
       "ai": "AI とプロバイダー",
       "notifications": "通知",
       "voice": "音声と応答",
-      "advanced": "詳細設定"
+      "advanced": "詳細設定",
+      "appearance": "表示"
     },
     "summaries": {
       "configuredCount": "{{value}} 件設定済み",
@@ -253,5 +254,13 @@
   "language": {
     "title": "言語",
     "description": "システム言語を使用するか、アプリインターフェース用に1つ選択します。"
+  },
+  "appearance": {
+    "chatTextSize": "チャットの文字サイズ",
+    "chatTextSizeDescription": "チャットメッセージの文字サイズを調整します。小さくすると、一度により多くの会話を表示できます。",
+    "flatThread": {
+      "title": "フラットな会話",
+      "description": "吹き出しなしでメッセージを全幅表示し、画面により多くの会話を表示します。"
+    }
   }
 }

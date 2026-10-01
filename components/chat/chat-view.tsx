@@ -14,6 +14,7 @@ import { TopTab } from '@/components/chat/chat-controls';
 import { styles } from '@/components/chat/chat-view-styles';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { normalizeTranscriptFontSize } from '@/providers/opencode-preferences';
 import { type TranscriptEntry } from '@/lib/opencode/format';
 import { getTranscriptActivityLabel, isTranscriptDisplayMessage } from '@/lib/opencode/transcript';
 import { getLatestContextTokens } from '@/lib/opencode/usage';
@@ -519,6 +520,8 @@ export function ChatView() {
           diffDetails={diffDetails}
           diffTurns={diffTurns}
           displayTranscript={displayTranscript}
+          flatTranscript={chatPreferences.flatTranscript === true}
+          transcriptFontSize={normalizeTranscriptFontSize(chatPreferences.transcriptFontSize)}
           expandedDiffId={expandedDiffId}
           isRefreshingDiffs={isRefreshingDiffs}
           isRefreshingMessages={isRefreshingMessages}

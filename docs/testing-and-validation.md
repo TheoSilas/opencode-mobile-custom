@@ -30,6 +30,7 @@ From `TESTING.md`, those gates include:
 
 - `npm run test:ci:static`, which chains lint, typecheck, and the transpiled static suites:
   - `npm run test:usage`
+  - `npm run test:chat-appearance`
   - `npm run test:v2-mappers`
   - `npm run test:format`
   - `npm run test:i18n`
@@ -55,6 +56,10 @@ connection scopes, fully validated profile metadata, connection+project session
 cache isolation, connection-scoped last sessions, non-secret pending
 notification records with per-connection credential resolution, and legacy
 values that fail safe instead of being guessed.
+
+The `test:chat-appearance` suite checks that the chat font-size preference
+defaults safely and stays within the supported 12–24 px range, and that the
+flat-transcript preference defaults to off.
 
 The `test:i18n` suite guards translations: it checks that every language defines
 exactly the English key set, that interpolation variables match per key, that

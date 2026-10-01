@@ -5,7 +5,8 @@
       "ai": "AI 与提供商",
       "notifications": "通知",
       "voice": "语音与回复",
-      "advanced": "高级"
+      "advanced": "高级",
+      "appearance": "外观"
     },
     "summaries": {
       "configuredCount": "已配置 {{value}} 个",
@@ -253,5 +254,13 @@
   "language": {
     "title": "语言",
     "description": "使用系统语言或为应用界面选择一种语言。"
+  },
+  "appearance": {
+    "chatTextSize": "聊天文字大小",
+    "chatTextSizeDescription": "调整聊天消息的文字大小。较小的文字可一次显示更多对话。",
+    "flatThread": {
+      "title": "扁平对话",
+      "description": "以全宽显示消息，不显示气泡，从而在一屏内显示更多对话。"
+    }
   }
 }

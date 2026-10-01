@@ -5,7 +5,8 @@
       "ai": "IA et fournisseurs",
       "notifications": "Notifications",
       "voice": "Voix et réponses",
-      "advanced": "Avancé"
+      "advanced": "Avancé",
+      "appearance": "Apparence"
     },
     "summaries": {
       "configuredCount": "{{value}} configurés",
@@ -253,5 +254,13 @@
   "language": {
     "title": "Langue",
     "description": "Utilise la langue du système ou choisis-en une pour l'interface de l'app."
+  },
+  "appearance": {
+    "chatTextSize": "Taille du texte des messages",
+    "chatTextSizeDescription": "Ajustez la taille du texte des messages. Une taille plus petite permet d’afficher davantage de conversation à la fois.",
+    "flatThread": {
+      "title": "Conversation à plat",
+      "description": "Affiche les messages sur toute la largeur sans bulles pour afficher davantage de conversation à l'écran."
+    }
   }
 }

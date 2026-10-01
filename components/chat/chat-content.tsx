@@ -92,6 +92,8 @@ type ChatContentProps = {
   diffDetails: DiffDetail[];
   diffTurns: DiffTurn[];
   displayTranscript: TranscriptEntry[];
+  flatTranscript: boolean;
+  transcriptFontSize: number;
   expandedDiffId?: string;
   isRefreshingDiffs: boolean;
   isRefreshingMessages: boolean;
@@ -134,6 +136,8 @@ export function ChatContent({
   diffDetails,
   diffTurns,
   displayTranscript,
+  flatTranscript,
+  transcriptFontSize,
   expandedDiffId,
   isRefreshingDiffs,
   isRefreshingMessages,
@@ -224,11 +228,13 @@ export function ChatContent({
           }}
           refreshControl={<RefreshControl refreshing={isRefreshingMessages} onRefresh={onRefresh} tintColor={palette.tint} />}
           renderItem={({ item: entry }) => (
-            <View style={styles.transcriptItem}>
+            <View style={[styles.transcriptItem, flatTranscript && styles.transcriptItemFlat]}>
               <TranscriptMessage
                 canSpeak={entry.role === 'assistant' && Boolean(entry.text.trim())}
                 copied={copiedMessageId === entry.id}
                 entry={entry}
+                flat={flatTranscript}
+                fontSize={transcriptFontSize}
                 onCopy={() => onCopyMessage(entry)}
                 onFork={entry.role === 'user' ? () => onForkMessage(entry.id) : undefined}
                 onRevert={entry.role === 'user' ? () => onRevertMessage(entry.id) : undefined}

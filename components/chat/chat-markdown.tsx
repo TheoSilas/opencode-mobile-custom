@@ -16,23 +16,24 @@ function openMarkdownLink(url: string) {
   void Linking.openURL(url).catch(() => undefined);
 }
 
-function MarkdownTextImpl({ text, color, mutedColor }: { text: string; color: string; mutedColor: string }) {
+function MarkdownTextImpl({ text, color, fontSize, mutedColor }: { text: string; color: string; fontSize: number; mutedColor: string }) {
+  const scale = fontSize / 16;
   const markdownStyle = useMemo<MarkdownStyle>(() => ({
-    paragraph: { fontSize: 16, color, lineHeight: 26 },
-    h1: { fontSize: 24, fontWeight: '700', color },
-    h2: { fontSize: 18, fontWeight: '700', color },
-    h3: { fontSize: 16, fontWeight: '700', color },
-    h4: { fontSize: 15, fontWeight: '700', color },
-    h5: { fontSize: 14, fontWeight: '700', color },
-    h6: { fontSize: 13, fontWeight: '700', color },
-    list: { fontSize: 16, color, lineHeight: 26, bulletColor: color, markerColor: color, gapWidth: 10 },
+    paragraph: { fontSize, color, lineHeight: 26 * scale },
+    h1: { fontSize: 24 * scale, fontWeight: '700', color },
+    h2: { fontSize: 18 * scale, fontWeight: '700', color },
+    h3: { fontSize: 16 * scale, fontWeight: '700', color },
+    h4: { fontSize: 15 * scale, fontWeight: '700', color },
+    h5: { fontSize: 14 * scale, fontWeight: '700', color },
+    h6: { fontSize: 13 * scale, fontWeight: '700', color },
+    list: { fontSize, color, lineHeight: 26 * scale, bulletColor: color, markerColor: color, gapWidth: 10 },
     link: { color, underline: true },
-    code: { fontFamily: 'monospace', fontSize: 15, color, backgroundColor: 'rgba(0,0,0,0.08)' },
-    codeBlock: { fontFamily: 'monospace', fontSize: 15, lineHeight: 18, color, backgroundColor: 'rgba(0,0,0,0.08)', padding: 14, borderRadius: 14 },
-    blockquote: { color, fontSize: 15, borderColor: mutedColor, borderWidth: 3 },
+    code: { fontFamily: 'monospace', fontSize: 15 * scale, color, backgroundColor: 'rgba(0,0,0,0.08)' },
+    codeBlock: { fontFamily: 'monospace', fontSize: 15 * scale, lineHeight: 18 * scale, color, backgroundColor: 'rgba(0,0,0,0.08)', padding: 14, borderRadius: 14 },
+    blockquote: { color, fontSize: 15 * scale, borderColor: mutedColor, borderWidth: 3 },
     table: {
-      fontSize: 15,
-      lineHeight: 20,
+      fontSize: 15 * scale,
+      lineHeight: 20 * scale,
       color,
       borderColor: mutedColor,
       borderRadius: 8,
@@ -44,7 +45,7 @@ function MarkdownTextImpl({ text, color, mutedColor }: { text: string; color: st
       cellPaddingVertical: 6,
     },
     thematicBreak: { color: mutedColor },
-  }), [color, mutedColor]);
+  }), [color, fontSize, mutedColor, scale]);
 
   return (
     <EnrichedMarkdownText

@@ -369,6 +369,8 @@ type TranscriptMessageProps = {
   canSpeak?: boolean;
   copied?: boolean;
   entry: TranscriptEntry;
+  flat?: boolean;
+  fontSize: number;
   onCopy: () => void;
   onFork?: () => void;
   onRevert?: () => void;
@@ -380,6 +382,8 @@ function TranscriptMessageImpl({
   canSpeak = false,
   copied = false,
   entry,
+  flat = false,
+  fontSize,
   onCopy,
   onFork,
   onRevert,
@@ -391,23 +395,28 @@ function TranscriptMessageImpl({
   const palette = Colors[colorScheme];
   const isUser = entry.role === 'user';
   const detailSummary = summarizeTranscriptDetails(entry.details);
+  const textColor = flat ? palette.text : isUser ? palette.onBubbleUser : palette.onBubbleAssistant;
+  const metaColor = flat ? palette.muted : isUser ? palette.onBubbleUser : palette.muted;
+  const accentColor = flat ? palette.tint : isUser ? palette.onBubbleUser : palette.tint;
 
   return (
-    <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
+    <View style={[styles.messageRow, flat ? styles.messageRowFlat : isUser && styles.messageRowUser]}>
       <View onTouchEnd={Keyboard.dismiss} style={styles.messageTouchable}>
         <Surface
           style={[
             styles.messageBubble,
-            isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant,
-            {
-              backgroundColor: isUser ? palette.bubbleUser : palette.bubbleAssistant,
-              borderColor: copied ? palette.tint : isUser ? palette.bubbleUser : palette.border,
-            },
-            copied ? styles.messageBubbleCopied : null,
+            flat ? styles.messageFlat : isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant,
+            flat
+              ? null
+              : {
+                  backgroundColor: isUser ? palette.bubbleUser : palette.bubbleAssistant,
+                  borderColor: copied ? palette.tint : isUser ? palette.bubbleUser : palette.border,
+                },
+            copied && !flat ? styles.messageBubbleCopied : null,
           ]}
-          elevation={1}>
+          elevation={flat ? 0 : 1}>
           <View style={styles.messageMeta}>
-            <Text variant="labelMedium" style={{ color: isUser ? palette.onBubbleUser : palette.muted }}>{isUser ? t('chat:cards.you') : t('chat:cards.opencode')}</Text>
+            <Text variant="labelMedium" style={{ color: metaColor }}>{isUser ? t('chat:cards.you') : t('chat:cards.opencode')}</Text>
             <View style={styles.messageMetaRight}>
               <IconButton
                 accessibilityLabel={t('common:actions.copy')}
@@ -418,9 +427,9 @@ function TranscriptMessageImpl({
                 onPress={onCopy}
               />
               {copied ? (
-                <View style={[styles.copiedPill, { backgroundColor: isUser ? `${palette.onBubbleUser}20` : `${palette.tint}18` }]}> 
-                  <MaterialCommunityIcons name="check" size={12} color={isUser ? palette.onBubbleUser : palette.tint} />
-                  <Text variant="labelSmall" style={{ color: isUser ? palette.onBubbleUser : palette.tint }}>{t('chat:cards.copied')}</Text>
+                <View style={[styles.copiedPill, { backgroundColor: flat ? `${palette.tint}18` : isUser ? `${palette.onBubbleUser}20` : `${palette.tint}18` }]}> 
+                  <MaterialCommunityIcons name="check" size={12} color={accentColor} />
+                  <Text variant="labelSmall" style={{ color: accentColor }}>{t('chat:cards.copied')}</Text>
                 </View>
               ) : null}
               {canSpeak ? (
@@ -434,7 +443,7 @@ function TranscriptMessageImpl({
               ) : null}
               {onFork ? <IconButton icon="source-fork" size={16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onFork} /> : null}
               {onRevert ? <IconButton icon="undo-variant" size={16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onRevert} /> : null}
-              <Text variant="labelSmall" style={{ color: isUser ? palette.onBubbleUser : palette.muted, opacity: isUser ? 0.82 : 1 }}>
+              <Text variant="labelSmall" style={{ color: metaColor, opacity: isUser && !flat ? 0.82 : 1 }}>
                 {formatTimestamp(entry.createdAt)}
               </Text>
             </View>
@@ -442,8 +451,9 @@ function TranscriptMessageImpl({
           {entry.text ? (
             <MarkdownText
               text={entry.text}
-              color={isUser ? palette.onBubbleUser : palette.onBubbleAssistant}
-              mutedColor={isUser ? palette.onBubbleUser : palette.muted}
+              color={textColor}
+              fontSize={fontSize}
+              mutedColor={flat ? palette.muted : isUser ? palette.onBubbleUser : palette.muted}
             />
           ) : null}
           {entry.error ? <Text variant="bodyMedium" style={{ color: palette.danger }}>{entry.error}</Text> : null}
@@ -468,6 +478,8 @@ function TranscriptMessageImpl({
 function areTranscriptMessagePropsEqual(prev: TranscriptMessageProps, next: TranscriptMessageProps) {
   return (
     prev.entry === next.entry &&
+    prev.fontSize === next.fontSize &&
+    prev.flat === next.flat &&
     prev.copied === next.copied &&
     prev.speaking === next.speaking &&
     prev.canSpeak === next.canSpeak
@@ -539,6 +551,7 @@ const styles = StyleSheet.create({
   code: { fontFamily: 'monospace', fontSize: 12, lineHeight: 18 },
   messageRow: { alignItems: 'flex-start' },
   messageRowUser: { alignItems: 'flex-end' },
+  messageRowFlat: { alignItems: 'stretch' },
   messageTouchable: { alignSelf: 'stretch', borderRadius: 24 },
   messageBubble: {
     borderRadius: 24,
@@ -549,6 +562,16 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minWidth: 0,
     overflow: 'hidden',
+  },
+  messageFlat: {
+    borderRadius: 0,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 4,
+    gap: 6,
+    alignSelf: 'stretch',
+    minWidth: 0,
+    backgroundColor: 'transparent',
   },
   messageBubbleUser: { borderBottomRightRadius: 10, marginLeft: '8%', marginRight: 8 },
   messageBubbleAssistant: { borderBottomLeftRadius: 10, marginRight: '8%', marginLeft: 8 },

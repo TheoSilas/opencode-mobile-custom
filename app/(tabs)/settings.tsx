@@ -15,6 +15,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { McpSection } from '@/components/settings/mcp-section';
 import {
   AiDefaultsSection,
+  AppearanceSection,
   ConnectionSection,
   DiagnosticsSection,
   LanguageSection,
@@ -32,6 +33,7 @@ import {
 } from '@/components/settings/settings-utils';
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { normalizeTranscriptFontSize } from '@/providers/opencode-preferences';
 import { getSpeechVoiceOptions, type SpeechVoiceOption } from '@/lib/voice/speech-output';
 import { useCapabilities, useConnection, useMcp, useOnboarding, usePreferences } from '@/providers/opencode-contexts';
 
@@ -183,6 +185,14 @@ export default function SettingsScreen() {
           <DiagnosticsSection diagnostics={diagnostics} eventStreamStatus={eventStreamStatus} formatterAvailable={serverCapabilities.formatter} lspAvailable={serverCapabilities.lsp} onRefresh={() => void refreshDiagnostics()} palette={palette} />
         </>
       ),
+    },
+    {
+      id: 'appearance',
+      icon: 'format-size',
+      title: t('settings:screen.categories.appearance'),
+      summary: `${normalizeTranscriptFontSize(chatPreferences.transcriptFontSize)} px`,
+      onPress: () => setOpenSection('appearance'),
+      render: () => <AppearanceSection chatPreferences={chatPreferences} palette={palette} updateChatPreferences={updateChatPreferences} />,
     },
     {
       id: 'language',

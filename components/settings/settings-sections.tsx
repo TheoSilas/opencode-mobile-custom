@@ -21,6 +21,7 @@ import type { VoiceCapabilities } from '@/lib/voice/capabilities';
 import type { SpeechVoiceOption } from '@/lib/voice/speech-output';
 import type { WorkingSoundVariant } from '@/lib/voice/working-sound';
 import type { ChatPreferences, ModelOption, ProviderOption, ResponseScope } from '@/providers/opencode-provider';
+import { normalizeTranscriptFontSize, TRANSCRIPT_FONT_SIZE_MAX, TRANSCRIPT_FONT_SIZE_MIN } from '@/providers/opencode-preferences';
 import type { Diagnostics } from '@/providers/services/diagnostics-service';
 import { getProviderCopy, LANGUAGE_OPTIONS, RESPONSE_SCOPE_OPTIONS, WORKING_SOUND_OPTIONS } from '@/components/settings/settings-utils';
 
@@ -507,6 +508,42 @@ export function LanguageSection({
         valueLabel={valueLabel}
       />
       <HelperText type="info">{t('settings:language.description')}</HelperText>
+    </View>
+  );
+}
+
+export function AppearanceSection({
+  chatPreferences,
+  palette,
+  updateChatPreferences,
+}: {
+  chatPreferences: ChatPreferences;
+  palette: Palette;
+  updateChatPreferences: (patch: Partial<ChatPreferences>) => void;
+}) {
+  const { t } = useTranslation();
+  const fontSize = normalizeTranscriptFontSize(chatPreferences.transcriptFontSize);
+
+  return (
+    <View style={styles.section}>
+      <NumericSlider
+        label={t('settings:appearance.chatTextSize')}
+        minimum={TRANSCRIPT_FONT_SIZE_MIN}
+        maximum={TRANSCRIPT_FONT_SIZE_MAX}
+        step={1}
+        value={fontSize}
+        valueLabel={`${fontSize} px`}
+        onValueChange={(transcriptFontSize) => updateChatPreferences({ transcriptFontSize })}
+        palette={palette}
+      />
+      <HelperText type="info">{t('settings:appearance.chatTextSizeDescription')}</HelperText>
+      <SettingSwitchRow
+        title={t('settings:appearance.flatThread.title')}
+        description={t('settings:appearance.flatThread.description')}
+        onValueChange={(flatTranscript) => updateChatPreferences({ flatTranscript })}
+        palette={palette}
+        value={chatPreferences.flatTranscript === true}
+      />
     </View>
   );
 }

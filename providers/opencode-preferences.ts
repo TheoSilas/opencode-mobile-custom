@@ -4,9 +4,22 @@
 
 export type ReasoningLevel = 'low' | 'default' | 'high';
 export type ResponseScope = 'brief' | 'balanced' | 'detailed';
+export const TRANSCRIPT_FONT_SIZE_MIN = 12;
+export const TRANSCRIPT_FONT_SIZE_MAX = 24;
+export const DEFAULT_TRANSCRIPT_FONT_SIZE = 16;
+
+export function normalizeTranscriptFontSize(value: number | undefined) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(TRANSCRIPT_FONT_SIZE_MAX, Math.max(TRANSCRIPT_FONT_SIZE_MIN, Math.round(value)))
+    : DEFAULT_TRANSCRIPT_FONT_SIZE;
+}
 
 export type ChatPreferences = {
   mode: string;
+  transcriptFontSize: number;
+  // Flat transcript renders messages full-width without bubble chrome so more
+  // of the conversation is visible at once. Defaults to the bubble layout.
+  flatTranscript: boolean;
   // App UI language preference. `undefined` follows the OS locale; it is stored
   // alongside chat preferences because it is global and not connection-scoped.
   language?: string;
@@ -33,6 +46,8 @@ export type ChatPreferences = {
 
 export const defaultChatPreferences: ChatPreferences = {
   mode: 'build',
+  transcriptFontSize: DEFAULT_TRANSCRIPT_FONT_SIZE,
+  flatTranscript: false,
   enabledModelIds: [],
   providerModelSelections: {},
   recentModelIds: [],

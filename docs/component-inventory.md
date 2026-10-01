@@ -255,6 +255,7 @@ Responsibility:
 Responsibility:
 
 - render one display transcript bubble
+- in flat mode (chat preference), drop the bubble chrome and side margins, render full-width rows with condensed spacing and a shared text color; the role label still distinguishes user and assistant
 - show copy state, optional TTS button, fork/revert actions for user messages, timestamp, markdown text, error, and summary chips
 - an explicit copy button keeps copying available without capturing table-scroll gestures; taps still dismiss the keyboard
 
@@ -267,6 +268,7 @@ Responsibility:
 
 ### Supported formatting
 
+- Transcript Markdown text and line spacing follow the persisted chat text-size preference.
 - GitHub-flavored Markdown, including tables, ordered and unordered lists, links, emphasis, blockquotes, and fenced code blocks
 - native text selection and link handling on iOS/Android, plus semantic HTML rendering on web
 
@@ -393,6 +395,7 @@ This is important to parity because the chat layout is intentionally dense and h
 
 ### Exported sections
 
+- `AppearanceSection`
 - `ConnectionSection`
 - `AiDefaultsSection`
 - `NotificationsSection`

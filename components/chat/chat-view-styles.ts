@@ -23,6 +23,7 @@ export const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 12, gap: 12, paddingBottom: 20 },
   transcriptItem: { marginBottom: 12 },
+  transcriptItemFlat: { marginBottom: 4 },
   transcriptFooter: { gap: 12 },
   skeletonRow: { height: 14, borderRadius: 7, marginTop: 8 },
   skeletonUser: { alignSelf: 'flex-end' },
