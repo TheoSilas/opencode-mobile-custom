@@ -23,7 +23,7 @@ export default function PairScreen() {
   }, [acceptLink, params, router]);
   if (!connectSetup.enabled) return null;
   return <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20 }}>
         <ConnectPanel setup={connectSetup} onConnected={() => router.replace(!onboardingCompleted || onboardingActive ? '/onboarding/workspace' : '/(tabs)/workspace')} onClose={() => router.replace(!onboardingCompleted || onboardingActive ? '/onboarding/connect' : '/(tabs)/settings')} />
       </ScrollView>

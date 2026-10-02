@@ -47,7 +47,7 @@ export function ProviderConfigDialog({
   const { t } = useTranslation();
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
-      <KeyboardAvoidingView style={[styles.screen, { backgroundColor: palette.background }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={[styles.screen, { backgroundColor: palette.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Appbar.Header statusBarHeight={0} style={{ backgroundColor: palette.surface, paddingTop: insets.top, height: 64 + insets.top }}>
         <Appbar.BackAction accessibilityLabel={t('settings:providers.cancelSetup')} onPress={onDismiss} />
         <Appbar.Content title={t('settings:providers.configureProvider', { provider: selectedProviderLabel })} />

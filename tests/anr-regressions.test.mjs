@@ -65,6 +65,7 @@ assert.equal(allocations, 1);
 // disposable, so the opt-out must survive clean and repeated prebuilds.
 for (const variant of ['production', 'development']) {
   const { default: appConfig } = await load('../app.config.ts', {}, { process: { env: { EXPO_APP_VARIANT: variant } } });
+  assert.equal(appConfig.android.softwareKeyboardLayoutMode, 'resize');
   const plugin = appConfig.plugins.find((entry) => typeof entry === 'function');
   const config = plugin({ name: 'Test', slug: 'test' });
   const apply = (contents, language = 'kt') => config.mods.android.mainActivity({

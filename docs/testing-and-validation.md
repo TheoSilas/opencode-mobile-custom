@@ -81,6 +81,18 @@ provider file size, the combined domain-context surface, and a rule that
 `app/` and `components/` never call the network directly. It fails with a
 pointed message when a limit is outgrown, so the fix is to extract a domain or
 move code to the right layer rather than raise the number.
+It also evaluates each input surface's keyboard-avoidance policy for Android,
+iOS, and web: native Android resizing must not be combined with JS height
+adjustment, while iOS keeps padding. `test:anr` verifies that both app variants
+retain the native `resize` configuration. These are configuration checks; they
+do not reproduce a physical keyboard or prove that issue #62 is resolved.
+
+For keyboard-layout changes, validate Android with a Bluetooth keyboard and
+the soft keyboard disabled, then forced visible: focus and type in Chat,
+switch sessions/tabs, and check Terminal and full-screen forms for flicker or
+covered inputs. Repeat with the hardware keyboard disconnected and verify iOS
+soft-keyboard avoidance. The reported Pixel 9 and Galaxy Tab S9 remain the
+device-validation targets.
 
 `test:anr` exercises repeated discovery of a 2,003-model catalog and voice-label
 sorting with one shared collator, preserving locale-aware ordering and default

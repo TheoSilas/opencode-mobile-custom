@@ -79,7 +79,7 @@ export function ConnectionProfileDialog({
 
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={saving ? undefined : onDismiss}>
-      <KeyboardAvoidingView style={[styles.screen, { backgroundColor: palette.background }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={[styles.screen, { backgroundColor: palette.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Appbar.Header statusBarHeight={0} style={{ backgroundColor: palette.surface, paddingTop: insets.top, height: 64 + insets.top }}>
           <Appbar.BackAction accessibilityLabel={t('common:actions.cancel')} disabled={saving} onPress={onDismiss} />
           <Appbar.Content title={title} />
