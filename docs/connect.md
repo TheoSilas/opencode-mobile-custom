@@ -1,138 +1,181 @@
-# OpenCode Connect development pilot
+# OpenCode Connect
 
-Connect is an optional alternative to manual server setup, enabled only with
-`EXPO_APP_VARIANT=development` on iOS/Android. Production builds expose no pairing
-route, scanner, or account request execution. Both native
-development variants have separate app IDs and credential stores.
+Connect is an optional native alternative to manual server setup. Settings,
+onboarding and the independent `pair` route reuse the same provider flow.
+Account creation is invisible: a verified App Store or Google Play subscription
+issues the Connect session. There is no signup, login or token-entry step.
 
-## Setup and flow
+## Environment and native prerequisites
 
-The only trusted control plane is `https://api.getopencode.app`. Other origins,
-paths, and HTTP URLs are rejected, even if supplied in configuration. Connector
-URLs must use HTTPS. Rebuild after camera/plugin or app identity changes.
+The default trusted control plane is `https://api.getopencode.app`.
+`EXPO_CONNECT_CONTROL_PLANE_URL` can pin a different HTTPS environment at build
+or Metro start time. Only that exact normalized URL is trusted; QR links cannot
+add origins. Never put product IDs or private verification credentials in Expo
+configuration. The environment's `GET /v1/subscriptions/catalog` supplies plans,
+Apple products and Google product/base-plan/offer IDs. Missing configuration or
+native product metadata shows an unavailable error.
 
-Settings → Connection and onboarding expose Pair with Connect (development).
-Configure an existing contract-issued pilot bearer token with
-`EXPO_CONNECT_TEST_USER_TOKEN` before starting/building the development app.
-Keep it in a local, ignored `.env.local` or the shell environment, never in
-source control. `.env*` files are already excluded by `.gitignore`.
-It is imported into SecureStore automatically; users enter no token or device
-identifier. This value is embedded in the development bundle, so use only
-disposable pilot accounts. Production configuration excludes it completely.
-The app never invokes admin endpoints or fabricates a bearer token. Scan the
-connector QR or open/paste its exact version-1 link:
+`expo-iap` 5.8.2 requires a native development/store build. Rebuild after adding
+its plugin. Expo Go and ordinary web cannot purchase or restore. Keep Expo SDK
+57's generated native deployment targets and toolchain; don't replace them with the
+standalone IAP library's compiler. Android requires Java and an Android SDK.
+The separate development app IDs must match the backend/store configuration
+for that environment; a production store product cannot be tested under an
+unregistered development bundle/package ID.
+
+Apple prerequisites: auto-renewable subscription group, In-App Purchase
+capability, sandbox/TestFlight testers, backend verification credentials and V2
+notifications. **Keep Family Sharing disabled.** Shared Connect ownership is not
+supported. Family-shareable native products are not offered by the app.
+Google prerequisites: active auto-renewing base plan, eligible offers when
+advertised, license testers/test-track build, backend verification credentials
+and authenticated RTDN. Local StoreKit simulation is not server-verifiable.
+Store-console setup and backend deployment are external to this mobile change.
+
+**Backend release blocker:** the sibling backend inspected for this change still
+acknowledges Google purchases. Mobile is the sole finalization owner under the
+corrected contract. Remove backend acknowledgement from claim, notifications,
+reconciliation and recovery before full Android contract validation. Mobile
+calls only `finishTransaction`, not a second acknowledgement operation. Backend
+claim must safely recover the same store ownership when repeated.
+
+## Purchase, Restore and pairing
+
+The app renders native localized pricing, periods and eligible advertised offers.
+Only an explicit Purchase tap invokes `requestPurchase`. Pending approval and
+cancellation grant nothing. Google replacement purchases include the previous
+subscription token and explicit `deferred` replacement parameters.
+
+Only an explicit Restore tap calls `restorePurchases`, followed by
+`getAvailablePurchases`. Startup, foreground, session recovery and reconnect
+may query available purchases, but never synchronize StoreKit interactively or
+open a purchase dialog. iOS queries explicitly use
+`onlyIncludeActiveItemsIOS: true` and `alsoPublishToEventListenerIOS: false`.
+Unfinished iOS transactions are inspected through the native pending-transaction
+API. Client metadata never authorizes Connect access.
+
+Both stores follow this order:
+
+1. Obtain a purchased/recovered native transaction. Apple uses the exact native
+   StoreKit signed JWS (`purchaseToken`, or native `getTransactionJwsIOS` when
+   needed); Google uses its purchase token.
+2. Submit the proof to unauthenticated `/v1/subscriptions/claim`.
+3. Validate the returned session and durably write it to SecureStore.
+4. Call `finishTransaction({ purchase, isConsumable: false })`, finishing StoreKit
+   on iOS and acknowledging Google on Android.
+5. Automatically continue a pending QR, or recover owned machines.
+
+A failed backend claim or secure write never finalizes the transaction.
+Finalization retries reuse the saved session without buying again. After app
+termination, the unfinished native transaction can be rediscovered, exchanged
+again through the idempotent claim and finalized. Store proofs are not stored
+permanently. Session validity and paid-through entitlement are separate.
+
+Scan the connector QR or open its version-1 link:
 
 ```text
-opencodemobile://pair?v=1&cp=<control-plane-url>&id=<pairing_id>&t=<pairing_token>&n=<machine_name>
+opencodemobile://pair?v=1&cp=<trusted-control-plane>&id=<pairing_id>&t=<pairing_token>&n=<machine_name>
 ```
 
-Pairing is available before onboarding completion. The route ingests parameters
-into provider state, then strips them from navigation. Scanner permission is
-requested only in the scan flow; losing focus or backgrounding unmounts the preview.
-Missing iOS camera lenses and startup timeouts show unavailable/retry recovery. Claim
-taps and scanner callbacks are guarded. Claims are never automatically replayed.
+The route ingests parameters into provider state and strips them from navigation.
+Pending QR data lives only in secure storage for continuation, never AsyncStorage.
+Purchase/Restore resumes that exact pending pairing after finalization. Claim
+sends the bearer session and JSON `{pairing_token,device_name}`. Default device
+names are iPhone or Android phone; the backend assigns credential identifiers.
 
-The app uses the default `device_name` iPhone or Android phone, without user input.
-It creates no device identifier or account. The control plane assigns
-`device_id`/`device_secret` on each claim; its current handler ignores `device_name`.
-Automatic user account creation requires a backend provisioning/token-issuance contract.
+Completed pairing/access responses are saved before normal connection switching.
+Secure-save retries retain the completed response in memory and do not redeem or
+purchase again. Restart during an ambiguous pairing can repeat the same claim;
+owner-visible `machine_id` in `409`/`503` recovers through authenticated machine
+access. Provisioning locks remain retryable. Explicit expiry/invalid-token errors
+clear pending QR data and request a fresh scan, preserving the subscription and
+session. The older backend's combined conflict/expiry/lock message is ambiguous;
+retain that QR for explicit retry or replacement rather than guessing its age.
+A new scan replaces pending QR data; closing the pairing flow clears it.
 
-Saving precedes `switchConnection()`, which reuses normal workspace/session
-bootstrap. Re-pairing replaces profiles for the same control-plane/machine and
-deletes superseded secrets. Metadata-write failure rolls back the new secret;
-the response stays in memory so Retry secure saving does not redeem again.
-Restart during that failure requires a fresh pairing. An offline/not-yet-ready
-tunnel preserves the saved profile and offers Reconnect.
+Scanner permission is requested only in the scan flow. Losing focus or
+backgrounding unmounts the preview. Missing iOS lenses and startup timeout retain
+deep-link recovery. Pairing remains available before onboarding completion.
 
-## Ownership, credentials, and transport
+## Machines, secure profiles and transport
 
-- `use-connect-state.ts` is composed by `OpencodeProvider` and exposed through
-  `useConnection().connectSetup`. It owns token readiness, pairing progress,
-  machine listing, and local/remote removal.
-- `lib/connect.ts` owns parsing, response validation, account wrappers, token
-  storage, and build/expiry gating. Only the fixed API origin is trusted.
-- Existing profile and active-settings DTOs retain non-secret `connect` metadata:
-  `{controlPlaneUrl, machineId, machineName, deviceId, expiresAt}`. AsyncStorage
-  never receives pairing tokens, user tokens, or device secrets.
-- `device_id` becomes the existing username; `device_secret` uses the existing
-  per-profile and active-password SecureStore keys. Connect credentials use
-device-only iOS accessibility after first unlock, without biometric prompts,
-  for background notification reads. Origin-scoped user tokens require an
-  unlocked device. Existing Android backup exclusions remain in place.
+`machine_id` is durable ownership identity. `/v1/machines/:id/access` must return
+that exact ID; a mismatch is rejected before credentials are saved or state is
+migrated. Existing machine hostnames and profile IDs/names/model preferences are
+preserved. Device credentials may rotate. The provider copies validated
+connection-scoped caches and migrates remembered sessions, favorites and pending
+notification references to the new credential scope before switching. Old
+non-secret cache/remembered-session copies remain for interruption-safe recovery.
 
-Expiry/missing credentials are checked on activation, every OpenCode SDK fetch,
-background resolution, and while active, including foreground resume. Expiry
-closes SSE and terminal sockets and stops ordinary polling. OpenCode traffic
-uses only `server_url` with Basic auth; account bearer tokens never reach it.
-Connect uses Expo's bundled native fetch for streaming and redirect rejection;
-React Native's default XHR fetch ignores redirect mode. The SDK, SSE/polling
-orchestration, and manual connection transport are reused.
-Native terminal upgrades send Basic headers alongside upstream ticket, cursor,
-and directory parameters. Device credentials never enter WebSocket URLs. Existing
-SSE reconnect and polling fallback remain in place.
+`GET /v1/machines` exposes owned machines and `access_enabled`, including after
+subscription expiry. Second-device Restore recovers store ownership and obtains
+machine access without a new QR. Expiry preserves machine/profile records;
+Purchase/Restore reactivates the same machine/tunnel/hostname. Reconnect paths
+prepare Connect credentials centrally. Foreground access refresh starts five
+minutes before expiry, avoids repeatedly refreshing unchanged paid-through
+credentials, and retries transient failures. Expiry still closes SSE/terminal
+sockets and blocks all SDK/polling/background traffic.
 
-Forget locally removes this device's profile/credentials, disconnecting first.
-Revoke machine deletes all matching local profiles after server acknowledgement.
-The UI distinguishes acknowledgement from guaranteed remote tunnel cleanup.
-Machine lists lack credentials, so another device must pair independently.
-Only profiles with present, unexpired local credentials offer machine connection.
+Sessions are SecureStore records scoped by trusted environment and store; Apple
+and Google identities never merge. Session/pending-QR storage requires an
+unlocked device and uses device-only iOS accessibility. Profile credentials use
+the existing device-only, after-first-unlock storage for background notifications.
+Native backup exclusions remain. AsyncStorage contains only profile metadata:
+`{controlPlaneUrl,machineId,machineName,deviceId,expiresAt}` plus ordinary
+connection metadata/preferences, never bearer/proof/pairing/device secrets.
 
-## Pinned contract and gaps
+HTTP, SSE and native WebSockets talk directly to `server_url` using device
+Basic auth. User sessions never reach the data plane and credentials never enter
+WebSocket URLs. Existing SSE reconnect/polling fallback and manual connections
+remain. Forget removes local credentials only; explicit machine deletion removes
+local records only after the backend acknowledges successful cleanup.
 
-Reference: the sibling `opencode-mobile-connect` working tree inspected on
-2026-10-02, based on `715da5f1bcbd437bb854e6cbc61a2538339818af`. It has uncommitted
-changes; the actual reviewed files are pinned by these SHA-256 hashes:
+## Validation
 
-| File | SHA-256 |
-| --- | --- |
-| `protocol/README.md` | `4ce7219a13607d492e52677470c279af2099cd779e0e58169b5bf6304bbfef7c` |
-| `control-plane/src/index.ts` | `a7bf82e556fb00cb755e5516565abe752749552fcf750b4d292436460415ff36` |
-| `connector/core/src/proxy.rs` | `adaeb6d44fcf3281c633e93daeb86c638a80869193d670e38985bdb4c5b878eb` |
-| `connector/core/tests/compatibility.rs` | `e94e11162fc97cfbb02badc2417908fc5e0074ec3f65229a463db79c30b75c04` |
+`test:connect` covers trusted catalog/API/proof/session contracts and the actual
+claim → secure-write → finalization aggregation on both stores, including
+failures, retries and rediscovered transactions. It also tests catalog/base-plan/
+offer selection, native JWS forwarding, Family Sharing exclusion, DEFERRED
+replacement, URL safety, app identity/camera/build variants and WebSocket headers.
+`test:connection-profiles` checks stable profile identity, credential rotation,
+hostname preservation, rollback, secret exclusion and expiry.
 
-Claim sends `{device_name}` with the user bearer. The handler currently ignores
-QR `t` and does not persist the device name. No expiry countdown is invented:
-links contain no timestamp. Expected claim errors are 401/403/404/409; 429 and
-network/server failures permit explicit retry. A lost response cannot recover
-its credential; retry may return 409 and require a new pairing. Renewal and
-per-device revocation do not exist. Machine deletion suppresses remote cleanup
-failures. Production needs a specified token issuer/login flow, entitlement
-integration, and reliable revocation. No production authentication was added.
+`tests/e2e/connect.spec.mjs` intercepts the trusted API, supplies deterministic
+native-store metadata/events and forwards HTTPS connector REST to the existing
+fake OpenCode server. SSE deliberately falls back to polling. The development
+E2E build substitutes memory for secure storage; reload loses credentials.
+Production web has neither this store driver nor credential persistence.
 
-## Verification and human validation
+Run `test:ci:static`, `test:fake-server:self`, `test:e2e:web`, the Android
+development build and an iOS development build. E2E changes require explicit
+human validation under AGENTS.md, even when automated checks pass.
 
-`test:connect` covers parsing, endpoint trust, exact account requests/errors,
-production gating, token scope, app identity, and native WebSocket headers.
-`test:connection-profiles` covers replacement, storage rollback, secret exclusion,
-and expiry without active-password fallback. Both run in `test:ci:static`.
+Validation recorded on 2026-10-02:
 
-`tests/e2e/connect.spec.mjs` intercepts the fixed API origin and an HTTPS connector
-fixture, forwarding REST to the existing fake OpenCode server with deterministic
-SSE failure/polling fallback. It never calls the real API or adds a trusted origin.
-Only the explicit development E2E web build
-substitutes in-memory credentials; reload loses secrets and requires re-pairing.
-Product web has no Connect support. The E2E changes require explicit human
-validation under AGENTS.md, even when automation passes.
+- Static checks and both fake-server self-tests passed.
+- Chromium: all 61 E2E flows passed, including subscription recovery, save-only
+  retries and credential rotation. Mobile/desktop screenshots showed no overflow;
+  the purchase flow reported no browser runtime errors.
+- Android development `assembleDebug` passed for ARM64, using the existing JDK 17
+  and a temporary command-line Android SDK. Other Android ABIs were not built.
+- iOS development prebuild/CocoaPods and unsigned Debug simulator compilation
+  passed, including the native IAP integration. Device signing was not tested.
+- Explicit human E2E validation and live store/tunnel acceptance remain pending.
 
-Run `test:ci:static`, `test:fake-server:self`, `test:e2e:web`, and
-`build:development:android`, plus the iOS development simulator build.
-Physical iOS and Android checks remain required: cold/warm links and fresh
-onboarding, camera allow/deny/unavailable, secure relaunch/locked-device access,
-expiry while streaming, re-pair, manual/Connect switching, named-tunnel SSE and
-polling fallback, authenticated terminal input/output, and global revocation.
-Use a reachable tunnel: loopback refers to the phone itself.
-Verify link routing when both variants are installed: they share the existing
-`opencodemobile` scheme.
+For the simulator compilation after a development prebuild:
 
-Local verification on 2026-10-02: static checks, fake-server self-checks, and all
-54 web E2E flows passed. The iOS development app built successfully; a bundled
-development variant verified cold/warm pairing links before onboarding and
-camera-unavailable recovery on iPhone 17 Pro Simulator. The synthetic camera
-feed renders QR frames but does not supply AVFoundation QR metadata events,
-so physical QR recognition remains unverified. No live API token was supplied
-for native claiming. Android Gradle reached SDK discovery but could not build
-because this machine has no configured Android SDK. Human validation of the
-new E2E tests and the physical-device checklist remain pending.
+```bash
+EXPO_APP_VARIANT=development CI=1 npx expo prebuild --platform ios
+EXPO_APP_VARIANT=development xcodebuild -workspace ios/OpenCodeMobileDev.xcworkspace \
+  -scheme OpenCodeMobileDev -configuration Debug -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+```
 
-Pilot labels use English in all shipped locales. Existing translations stay in
-their existing languages; production localization follows production sign-in.
+Native acceptance remains separate: real sandbox/license-test purchase and
+second-device Restore in each store, secure cold/locked-device relaunch,
+finalization after interruption, Google plan replacement/lineage, renewal of the
+same machine/tunnel/hostname, expiry/refund termination of active SSE/WebSockets,
+camera allow/deny/unavailable, cold/warm deep links, manual/Connect switching and
+background notifications. Both variants share `opencodemobile`; verify routing
+when both are installed. Mocked checks and simulator compilation do not establish
+live purchase, Restore, acknowledgement or tunnel behavior.

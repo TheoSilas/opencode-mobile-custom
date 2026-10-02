@@ -1323,6 +1323,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
 
 
 
+  const prepareConnectSettingsRef = useRef<(settings: OpencodeConnectionSettings) => Promise<OpencodeConnectionSettings>>(async (value) => value);
+
   // Connects using the settings passed in explicitly. Profile switches call
   // this directly with the target settings instead of relying on `settingsRef`
   // being updated by a render, so a switch can never connect with the previous
@@ -1331,6 +1333,23 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     // Any explicit connect (including the onboarding assistant) satisfies the
     // one-time boot connect, so completing onboarding never reconnects again.
     initialConnectStartedRef.current = true;
+    if (targetSettings.connect) {
+      try {
+        const prepared = await prepareConnectSettingsRef.current(targetSettings);
+        if (prepared.username !== targetSettings.username || prepared.password !== targetSettings.password || prepared.connect?.expiresAt !== targetSettings.connect.expiresAt) {
+          settingsRef.current = prepared;
+          setSettings(prepared);
+          scopeGenerationRef.current += 1;
+          serverGenerationRef.current += 1;
+          clearProjectState();
+        }
+        targetSettings = prepared;
+      } catch (reason) {
+        const failed: ConnectionState = { status: 'error', message: reason instanceof Error ? reason.message : 'Could not recover Connect access.', checkedAt: Date.now() };
+        setConnection(failed);
+        return failed;
+      }
+    }
     const credentialError = getConnectCredentialError(targetSettings.connect, targetSettings.password);
     if (credentialError) {
       const failed: ConnectionState = { status: 'error', message: credentialError, checkedAt: Date.now() };
@@ -1434,7 +1453,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     }
 
     return connected;
-  }, [activeProjectPath, isCurrentCatalogClient, loadWorkspaceCatalog]);
+  }, [activeProjectPath, clearProjectState, isCurrentCatalogClient, loadWorkspaceCatalog]);
 
   const connect = useCallback(() => runConnect(settingsRef.current), [runConnect]);
 
@@ -1501,6 +1520,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       connect: connectMetadata,
     };
     updateSettings({ ...next, connect: connectMetadata });
+    settingsRef.current = targetSettings;
     if (modelPreferences) {
       // Applied raw; the catalog refresh after connecting validates it against
       // the new server's models.
@@ -1515,11 +1535,34 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     updateSettings({ serverUrl: '', username: '', password: '', connect: undefined });
     await saveConnectionPassword('');
   }, [updateSettings]);
-  const connectSetup = useConnectState({ switchConnection, disconnect: disconnectConnectProfile });
+  const onConnectProfileRefreshed = useCallback((previous: import('@/lib/connection-profiles').ConnectionProfile, next: import('@/lib/connection-profiles').ConnectionProfile) => {
+    const oldScope = getConnectionScope(previous), newScope = getConnectionScope(next);
+    if (oldScope === newScope) return;
+    setFavoriteSessions((current) => current.map((entry) => entry.connectionScope === oldScope ? { ...entry, connectionScope: newScope } : entry));
+    setLastSessionByConnection((current) => ({ ...current, [newScope]: { ...current[oldScope], ...current[newScope] } }));
+  }, []);
+  const connectSetup = useConnectState({ switchConnection, disconnect: disconnectConnectProfile, isHydrated, activeMachineId: settings.connect?.machineId, beforeProfileRefresh: captureActiveProfilePreferences, onProfileRefreshed: onConnectProfileRefreshed });
+  prepareConnectSettingsRef.current = connectSetup.prepareSettings;
 
+  const connectAccessRefreshRef = useRef('');
   useEffect(() => {
     if (!isHydrated || !settings.connect) return;
     let timer: ReturnType<typeof setTimeout>;
+    let refreshTimer: ReturnType<typeof setTimeout>;
+    const scheduleRefresh = () => {
+      clearTimeout(refreshTimer);
+      const remaining = Date.parse(settings.connect!.expiresAt) - Date.now();
+      const refreshKey = `${settings.connect!.machineId}:${settings.connect!.expiresAt}`;
+      if (connectAccessRefreshRef.current === refreshKey) return;
+      if (remaining > 0) refreshTimer = setTimeout(() => {
+        if (AppState.currentState === 'active') {
+          connectAccessRefreshRef.current = refreshKey;
+          void connect().then((result) => {
+            if (result.status !== 'connected') { connectAccessRefreshRef.current = ''; refreshTimer = setTimeout(scheduleRefresh, 60_000); }
+          });
+        }
+      }, Math.min(Math.max(remaining - 5 * 60_000, 1000), 2_147_483_647));
+    };
     const check = () => {
       const message = getConnectCredentialError(settings.connect, settings.password);
       if (message) {
@@ -1533,9 +1576,10 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       timer = setTimeout(check, Math.min(Date.parse(settings.connect!.expiresAt) - Date.now(), 2_147_483_647));
     };
     check();
-    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') { clearTimeout(timer); check(); } });
-    return () => { clearTimeout(timer); subscription.remove(); };
-  }, [clearProjectState, isHydrated, settings.connect, settings.password]);
+    scheduleRefresh();
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') { clearTimeout(timer); check(); scheduleRefresh(); } });
+    return () => { clearTimeout(timer); clearTimeout(refreshTimer); subscription.remove(); };
+  }, [clearProjectState, connect, isHydrated, settings.connect, settings.password]);
 
   const ensureActiveSessionRef = useRef(ensureActiveSession);
   ensureActiveSessionRef.current = ensureActiveSession;
@@ -1675,7 +1719,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
         username: profile.username,
         password,
       }, profile.modelPreferences);
-      if (!await waitForConnectionScope(targetConnectionScope)) {
+      if (!await waitForConnectionScope(getConnectionScope(settingsRef.current))) {
         throw new Error('Could not switch to the connection that owns this favorite.');
       }
     }

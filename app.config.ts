@@ -124,10 +124,10 @@ const config: ExpoConfig = {
     'expo-notifications',
     'expo-background-task',
     'expo-web-browser',
-    ...(isDevelopmentVariant ? [['expo-camera', {
+    ['expo-camera', {
       cameraPermission: 'Allow $(PRODUCT_NAME) to scan an OpenCode Connect pairing QR code.',
       recordAudioAndroid: false,
-    }] as [string, object]] : []),
+    }],
     [
       // Exposes the shipped app languages to the OS so iOS/Android surface the
       // correct per-app language choices. Extend both lists with every language
@@ -163,6 +163,7 @@ const config: ExpoConfig = {
     ],
     'expo-image',
     'expo-secure-store',
+    'expo-iap',
     'expo-status-bar',
     withAndroidAppConfig as unknown as string,
   ],
@@ -174,13 +175,9 @@ const config: ExpoConfig = {
     router: {},
     e2eMode: isE2EMode,
     e2eServerUrl,
+    connectControlPlaneUrl: env('EXPO_CONNECT_CONTROL_PLANE_URL') ?? 'https://api.getopencode.app',
     connectPilot: {
-      enabled: isDevelopmentVariant,
       testing: isDevelopmentVariant && isE2EMode,
-      testUserToken: isDevelopmentVariant ? env('EXPO_CONNECT_TEST_USER_TOKEN') : undefined,
-      controlPlanes: isDevelopmentVariant
-        ? ['https://api.getopencode.app']
-        : [],
     },
   },
 };

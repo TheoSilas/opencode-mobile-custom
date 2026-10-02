@@ -17,7 +17,7 @@ export default function PairScreen() {
   const { acceptLink } = connectSetup;
   useEffect(() => {
     if (params.v || params.cp || params.id || params.t || params.n) {
-      acceptLink(params);
+      void acceptLink(params);
       router.replace('/pair');
     }
   }, [acceptLink, params, router]);

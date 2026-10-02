@@ -74,8 +74,8 @@ export function ConnectionSection({ connection, palette, onPair }: ConnectionSec
     <View style={styles.section}>
         <Text variant="bodyMedium" style={{ color: palette.muted }}>{connection.message}</Text>
         {connection.checkedAt ? <Text variant="bodySmall" style={{ color: palette.muted }}>{t('settings:connection.lastChecked', { time: formatTimestamp(connection.checkedAt) })}</Text> : null}
-        <ConnectionProfiles palette={palette} onManageConnect={onPair} />
         {onPair ? <Button testID="connection-pair-connect" mode="outlined" icon="qrcode-scan" onPress={onPair}>{t('settings:connect.entry')}</Button> : null}
+        <ConnectionProfiles palette={palette} onManageConnect={onPair} />
     </View>
   );
 }

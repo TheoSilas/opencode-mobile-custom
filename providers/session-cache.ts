@@ -6,6 +6,18 @@ import { loadPersistedValue, type PersistenceStorage } from '@/providers/persist
 
 type SessionCacheStorage = PersistenceStorage & Pick<typeof AsyncStorage, 'setItem'>;
 
+export async function migrateConnectionSessionCaches(previousScope: string, nextScope: string) {
+  const keys = await AsyncStorage.getAllKeys();
+  for (const prefix of ['opencode-mobile.sessions.', 'opencode-mobile.session-statuses.']) {
+    for (const key of keys.filter((entry) => entry.startsWith(`${prefix}${previousScope}.`))) {
+      const raw = await AsyncStorage.getItem(key);
+      if (!raw) continue;
+      try { if (prefix.includes('session-statuses')) parseCachedStatuses(raw); else parseCachedSessions(raw); } catch { continue; }
+      await AsyncStorage.setItem(`${prefix}${nextScope}.${key.slice(`${prefix}${previousScope}.`.length)}`, raw);
+    }
+  }
+}
+
 // Smallest set of session fields the workspace needs to paint the chat list
 // before the server answers. SDK/server Session objects are mapped down to
 // this at write time, so a future upstream field is never persisted by

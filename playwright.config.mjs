@@ -39,7 +39,6 @@ export default defineConfig({
         CI: '1',
         EXPO_PUBLIC_E2E_MODE: '1',
         EXPO_APP_VARIANT: 'development',
-        EXPO_CONNECT_TEST_USER_TOKEN: 'test-user-token',
         EXPO_PUBLIC_E2E_SERVER_URL: 'http://127.0.0.1:44096',
       },
     },

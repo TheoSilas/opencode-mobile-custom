@@ -176,6 +176,7 @@ run('./gradlew', [
   ...(detectedStoreType ? [`-Pandroid.injected.signing.store.type=${detectedStoreType}`] : []),
 ], {
   cwd: androidDir,
+  env: { ...process.env, EXPO_APP_VARIANT: 'production' },
 });
 
 console.log('Android production build complete.');

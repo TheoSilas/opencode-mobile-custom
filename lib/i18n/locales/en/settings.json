@@ -268,9 +268,9 @@
     }
   },
   "connect": {
-    "entry": "Pair with Connect (development)",
+    "entry": "Pair with Connect",
     "title": "OpenCode Connect",
-    "developmentOnly": "Development pilot. Device naming is automatic; manual connections remain available.",
+    "description": "Scan your machine’s connector QR code or open its pairing link. Manual connections remain available.",
     "controlPlane": "Trusted control plane",
     "scan": "Scan connector QR code",
     "pairingLink": "Pairing deep link",
@@ -280,9 +280,9 @@
     "machines": "Your machines",
     "refreshMachines": "Refresh machines",
     "noMachines": "No machines registered for this user.",
-    "pairRequired": "Pair this device to obtain credentials.",
+    "pairRequired": "Restore access to obtain credentials for this machine.",
     "revoke": "Revoke machine",
-    "revokeConfirm": "Revoke this machine for every device? The public tunnel will be deleted. Remote cleanup may require verification.",
+    "revokeConfirm": "Delete this machine for every device? Its public tunnel will be deleted.",
     "forget": "Forget locally",
     "forgetConfirm": "Remove this connection and its credentials from this device? Other devices will keep access.",
     "expiresAt": "Credentials expire: {{date}}",
@@ -298,8 +298,20 @@
       "claiming": "Claiming pairing…",
       "saving": "Saving credentials securely…",
       "connecting": "Connecting to the machine…",
-      "paired": "Loading…"
+      "paired": "Loading…",
+      "catalog": "Loading store subscriptions…",
+      "purchasing": "Waiting for the store…",
+      "pending": "Waiting for purchase approval…",
+      "restoring": "Restoring purchases…",
+      "verifying": "Verifying subscription…",
+      "savingSession": "Saving the Connect session securely…",
+      "finalizing": "Finalizing the store transaction…"
     },
-    "tokenRequired": "This development build needs an issued test token. Configure EXPO_CONNECT_TEST_USER_TOKEN and restart the app."
+    "subscription": "Connect subscription",
+    "subscriptionActive": "Your Connect subscription is active.",
+    "subscriptionRequired": "Purchase or Restore your store subscription to enable Connect.",
+    "purchase": "Purchase",
+    "restore": "Restore purchases",
+    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine."
   }
 }

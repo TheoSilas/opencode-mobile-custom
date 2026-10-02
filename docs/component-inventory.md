@@ -397,7 +397,7 @@ This is important to parity because the chat layout is intentionally dense and h
 
 ## Settings Components
 
-`connect-panel.tsx` renders development-only pairing, scanner, profile,
+`connect-panel.tsx` renders native pairing, scanner, profile,
 and machine-management UI. `app/pair.tsx` ingests links and navigates only.
 Domain state/actions come from `useConnection().connectSetup`; see [Connect](connect.md).
 

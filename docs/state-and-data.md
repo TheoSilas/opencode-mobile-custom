@@ -269,12 +269,15 @@ Hydration rules:
 Credentials:
 
 - Connect profiles and active settings carry non-secret metadata (control-plane
-  URL, machine ID/name, device ID, expiry). Secrets and origin-scoped test user
-  tokens use SecureStore. Expired/missing Connect credentials never fall back to
+  URL, machine ID/name, device ID, expiry). Secrets and environment/store-scoped subscription
+  sessions use SecureStore. Expired/missing Connect credentials never fall back to
   active passwords; expiry stops streams/sockets. Development web E2E substitutes
   memory only. See [Connect pilot](connect.md).
-- Connect uses a default phone name and the backend-issued device ID. The pilot
-  user token comes from local development configuration and is imported into SecureStore.
+- Connect uses a default phone name and backend-issued device credentials.
+  Native purchase/Restore verifies ownership, securely saves the issued session,
+  then finalizes the store transaction. Pending QR continuation is secure;
+  subscription expiry preserves profiles, and access refresh keeps machine/profile
+  identity while migrating credential-scoped remembered state.
 
 - the active connection password is stored in Keychain/Keystore-backed secure storage via `lib/connection-password.ts`; legacy plaintext `settings.password` is migrated to secure storage and stripped from AsyncStorage on hydration
 - each saved profile's password is stored under its own SecureStore key in `lib/connection-profiles.ts`; profile metadata in AsyncStorage never contains it

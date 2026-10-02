@@ -4,7 +4,7 @@ import * as Linking from 'expo-linking';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, AppState, Platform, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Button, HelperText, Text } from 'react-native-paper';
+import { ActivityIndicator, Button, HelperText, RadioButton, Text } from 'react-native-paper';
 
 import { TextInput } from '@/components/ui/text-input';
 import type { ConnectSetup } from '@/providers/use-connect-state';
@@ -64,7 +64,19 @@ export function ConnectPanel({ setup, onConnected, onClose }: { setup: ConnectSe
   const [link, setLink] = useState('');
   const [scanning, setScanning] = useState(false);
   const focused = useIsFocused();
-  const runConnect = (action: Promise<boolean>) => { void action.then((ok) => { if (ok) onConnected(); }); };
+  const [selectedOffer, setSelectedOffer] = useState('');
+  const connected = useRef(setup.phase === 'paired');
+  useEffect(() => {
+    if (setup.phase !== 'paired') { connected.current = false; return; }
+    if (!connected.current && !setup.error) { connected.current = true; onConnected(); }
+  }, [onConnected, setup.error, setup.phase]);
+  const runConnect = (action: Promise<boolean>) => { void action; };
+  const purchasePending = setup.busy || ['purchasing', 'pending', 'verifying', 'savingSession', 'finalizing'].includes(setup.phase);
+  const selected = setup.offers.find((offer) => offer.key === selectedOffer) ?? setup.offers[0];
+  const period = (value: number, unit: string) => {
+    try { return new Intl.NumberFormat(undefined, { style: 'unit', unit, unitDisplay: 'long' }).format(value); }
+    catch { return `${value} ${unit}`; }
+  };
   function confirm(title: string, message: string, action: () => void) {
     if (Platform.OS === 'web') { if (globalThis.confirm(message)) action(); return; }
     Alert.alert(title, message, [
@@ -75,13 +87,23 @@ export function ConnectPanel({ setup, onConnected, onClose }: { setup: ConnectSe
   return (
     <View testID="connect-panel" style={styles.section}>
       <Text variant="titleLarge">{t('settings:connect.title')}</Text>
-      <Text>{t('settings:connect.developmentOnly')}</Text>
+      <Text>{t('settings:connect.description')}</Text>
       <Text variant="titleMedium">{t('settings:connect.controlPlane')}</Text>
       <Text>{setup.controlPlaneUrl}</Text>
-      {!setup.hasToken ? <HelperText testID="connect-token-required" type="info">{t('settings:connect.tokenRequired')}</HelperText> : null}
+      <Text variant="titleMedium">{t('settings:connect.subscription')}</Text>
+      {setup.entitled ? <Text testID="connect-subscription-active">{t('settings:connect.subscriptionActive')}</Text> : <Text>{t('settings:connect.subscriptionRequired')}</Text>}
+      {setup.offers.length ? <RadioButton.Group value={selected?.key ?? ''} onValueChange={setSelectedOffer}>
+        {setup.offers.map((offer) => <View key={offer.key}>
+          <RadioButton.Item testID={`connect-offer-${offer.key}`} label={`${offer.title} — ${offer.displayPrice}${offer.period ? ` / ${period(offer.period.value, offer.period.unit)}` : ''}`} value={offer.key} disabled={purchasePending} />
+          {offer.phases.map((phase, index) => <Text key={index}>{phase.price} / {phase.period ? period(phase.period.value, phase.period.unit) : ''}{phase.cycles > 0 ? ` × ${phase.cycles}` : ''}</Text>)}
+        </View>)}
+      </RadioButton.Group> : null}
+      <Button testID="connect-purchase" mode="contained" disabled={purchasePending || !setup.storeReady || !selected} onPress={() => { if (selected) void setup.purchase(selected.key); }}>{t('settings:connect.purchase')}</Button>
+      <Button testID="connect-restore" mode="outlined" disabled={purchasePending || !setup.storeReady} onPress={() => { void setup.restore(); }}>{t('settings:connect.restore')}</Button>
+      {setup.canRetry ? <Button testID="connect-retry" disabled={setup.busy} onPress={() => { void setup.retry(); }}>{t('common:actions.retry')}</Button> : null}
       {scanning && focused ? <ConnectScanner onScan={(value) => { setScanning(false); setup.acceptLink(value); }} onClose={() => setScanning(false)} /> : (
         <>
-          {Platform.OS !== 'web' ? <Button testID="connect-scan-qr" mode="outlined" icon="qrcode-scan" disabled={setup.busy || setup.phase === 'saving'} onPress={() => setScanning(true)}>{t('settings:connect.scan')}</Button> : null}
+          {Platform.OS !== 'web' ? <Button testID="connect-scan-qr" mode="outlined" icon="qrcode-scan" disabled={setup.busy || setup.phase === 'saving' || purchasePending} onPress={() => setScanning(true)}>{t('settings:connect.scan')}</Button> : null}
           <TextInput testID="connect-pairing-link" label={t('settings:connect.pairingLink')} value={link} onChangeText={setLink} autoCapitalize="none" autoCorrect={false} disabled={setup.busy} />
           <Button testID="connect-open-link" disabled={setup.busy || !link.trim()} onPress={() => { setup.acceptLink(link); setLink(''); }}>{t('settings:connect.openLink')}</Button>
         </>
@@ -89,7 +111,7 @@ export function ConnectPanel({ setup, onConnected, onClose }: { setup: ConnectSe
       {setup.pairing ? <>
         <Text testID="connect-machine-name" variant="titleMedium">{setup.pairing.machineName}</Text>
         <Text>{setup.pairing.controlPlaneUrl}</Text>
-        {!setup.savedProfile ? <Button testID="connect-claim" mode="contained" loading={setup.busy} disabled={setup.busy || !setup.hasToken} onPress={() => runConnect(setup.claim())}>{setup.phase === 'saving' ? t('settings:connect.retrySaving') : t('settings:connect.claim')}</Button> : null}
+        {!setup.savedProfile ? <Button testID="connect-claim" mode="contained" loading={setup.busy} disabled={setup.busy || !setup.hasToken || !setup.entitled} onPress={() => runConnect(setup.claim())}>{setup.phase === 'saving' ? t('settings:connect.retrySaving') : t('settings:connect.claim')}</Button> : null}
       </> : null}
       {setup.busy ? <Text testID="connect-progress">{t(`settings:connect.progress.${setup.phase}`)}</Text> : null}
       {setup.error ? <HelperText testID="connect-error" type="error">{setup.error}</HelperText> : null}
@@ -105,7 +127,7 @@ export function ConnectPanel({ setup, onConnected, onClose }: { setup: ConnectSe
         const profile = setup.profiles.find((item) => item.connect?.controlPlaneUrl === setup.controlPlaneUrl && item.connect.machineId === machine.id);
         return <View key={machine.id} testID={`connect-machine-${machine.id}`} style={styles.machine}>
           <Text variant="titleMedium">{machine.name}</Text><Text>{machine.public_url}</Text>
-          {profile && setup.usableProfileIds.includes(profile.id) ? <Button disabled={setup.busy} onPress={() => runConnect(setup.connectProfile(profile))}>{t('common:actions.connect')}</Button> : <Text>{t('settings:connect.pairRequired')}</Text>}
+          {machine.access_enabled && setup.entitled ? <Button testID={`connect-access-${machine.id}`} disabled={setup.busy} onPress={() => runConnect(profile ? setup.connectProfile(profile) : setup.connectMachine(machine.id))}>{t('common:actions.connect')}</Button> : <Text>{t('settings:connect.accessUnavailable')}</Text>}
           <Button testID={`connect-revoke-${machine.id}`} disabled={setup.busy} onPress={() => confirm(t('settings:connect.revoke'), t('settings:connect.revokeConfirm'), () => { void setup.revokeMachine(machine.id); })}>{t('settings:connect.revoke')}</Button>
         </View>;
       })}
@@ -114,7 +136,7 @@ export function ConnectPanel({ setup, onConnected, onClose }: { setup: ConnectSe
         <Text>{t('settings:connect.expiresAt', { date: new Date(profile.connect!.expiresAt).toLocaleString() })}</Text>
         <Button disabled={setup.busy} onPress={() => confirm(t('settings:connect.forget'), t('settings:connect.forgetConfirm'), () => { void setup.forgetProfile(profile); })}>{t('settings:connect.forget')}</Button>
       </View>)}
-      <Button disabled={setup.busy} onPress={onClose}>{t('common:actions.close')}</Button>
+      <Button disabled={setup.busy} onPress={() => { void setup.cancelPairing().then((ok) => { if (ok) onClose(); }); }}>{t('common:actions.close')}</Button>
     </View>
   );
 }

@@ -36,6 +36,7 @@ run('npx', ['expo', 'prebuild', '--platform', 'android', '--clean'], {
 
 run('./gradlew', ['assembleDebug', ...extraGradleArgs], {
   cwd: androidDir,
+  env: { ...process.env, EXPO_APP_VARIANT: 'development' },
 });
 
 console.log('Android development build complete.');

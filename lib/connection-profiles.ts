@@ -233,18 +233,20 @@ export async function deleteProfilePassword(profileId: string) {
 export async function saveConnectProfile(controlPlaneUrl: string, claim: import('@/lib/connect').ConnectClaim) {
   const profiles = await loadConnectionProfiles(true);
   const previous = profiles.filter((profile) => profile.connect?.controlPlaneUrl === controlPlaneUrl && profile.connect.machineId === claim.machine_id);
+  if (previous[0] && new URL(previous[0].serverUrl).hostname !== new URL(claim.server_url).hostname) throw new Error('machine_hostname_mismatch: Access returned a different hostname.');
   const profile: ConnectionProfile = {
-    id: createProfileId(), name: claim.machine_name, serverUrl: claim.server_url, username: claim.device_id,
+    id: previous[0]?.id ?? createProfileId(), name: previous[0]?.name ?? claim.machine_name, serverUrl: claim.server_url, username: claim.device_id,
     ...(previous[0]?.modelPreferences ? { modelPreferences: previous[0].modelPreferences } : {}),
     connect: { controlPlaneUrl, machineId: claim.machine_id, machineName: claim.machine_name, deviceId: claim.device_id, expiresAt: claim.expires_at },
   };
+  const oldPassword = previous[0] ? await getProfilePassword(profile.id) : '';
   await saveProfilePassword(profile.id, claim.device_secret, true);
   try {
     await saveConnectionProfiles([...profiles.filter((item) => !previous.includes(item)), profile]);
   } catch (error) {
-    await deleteProfilePassword(profile.id).catch(() => undefined);
+    await saveProfilePassword(profile.id, oldPassword, true).catch(() => undefined);
     throw error;
   }
-  await Promise.all(previous.map((item) => deleteProfilePassword(item.id)));
+  await Promise.all(previous.filter((item) => item.id !== profile.id).map((item) => deleteProfilePassword(item.id)));
   return profile;
 }

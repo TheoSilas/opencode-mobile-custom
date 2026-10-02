@@ -1,67 +1,62 @@
+import type { Purchase } from 'expo-iap';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import {
-  claimConnectPairing, getConnectControlPlanes, getConnectCredentialError, getConnectUserToken,
-  isConnectEnabled, listConnectMachines, parseConnectPairing, revokeConnectMachine,
-  type ConnectClaim, type ConnectMachine, type ConnectPairing,
+  accessConnectMachine, claimConnectPairing, ConnectApiError,
+  getConnectCatalog, getConnectControlPlanes, getConnectCredentialError, getConnectSession, getConnectStore,
+  getPendingConnectPairing, hasConnectEntitlement, hasConnectSession, isConnectEnabled, listConnectMachines,
+  parseConnectPairing, revokeConnectMachine, savePendingConnectPairing,
+  type ConnectCatalog, type ConnectClaim, type ConnectMachine, type ConnectPairing, type ConnectSession,
 } from '@/lib/connect';
+import { AVAILABLE_CONNECT_PURCHASES, connectPurchaseRequest, isConnectPurchase, loadConnectStore, selectConnectOffers, type ConnectOffer, type ConnectStoreApi } from '@/lib/connect-store';
 import { deleteProfilePassword, getProfilePassword, loadConnectionProfiles, saveConnectProfile, saveConnectionProfiles, type ConnectionProfile } from '@/lib/connection-profiles';
+import { migrateConnectConnectionScope } from '@/providers/connection-refresh';
+import type { OpencodeConnectionSettings } from '@/lib/opencode/client';
 import type { ConnectionContextValue } from '@/providers/opencode-provider-types';
 
-export function useConnectState({ switchConnection, disconnect }: {
+import { finalizeConnectPurchase, type PendingConnectPurchase } from '@/providers/services/connect-subscription-service';
+type PendingAccess = { controlPlaneUrl: string; response: ConnectClaim; previous?: ConnectionProfile; fromPairing?: boolean };
+
+export function useConnectState({ switchConnection, disconnect, isHydrated, onProfileRefreshed, activeMachineId, beforeProfileRefresh }: {
   switchConnection: ConnectionContextValue['switchConnection'];
   disconnect: (profile: ConnectionProfile) => Promise<void>;
+  isHydrated: boolean;
+  activeMachineId?: string;
+  beforeProfileRefresh: () => Promise<void>;
+  onProfileRefreshed: (previous: ConnectionProfile, next: ConnectionProfile) => void;
 }) {
   const enabled = isConnectEnabled();
+  const store = getConnectStore();
   const [controlPlaneUrl, setControlPlaneUrl] = useState(() => getConnectControlPlanes()[0] ?? '');
-  const [hasToken, setHasToken] = useState(false);
+  const [session, setSession] = useState<ConnectSession>();
   const [pairing, setPairing] = useState<ConnectPairing>();
-  const [phase, setPhase] = useState<'idle' | 'claiming' | 'saving' | 'connecting' | 'paired'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'catalog' | 'purchasing' | 'pending' | 'restoring' | 'verifying' | 'savingSession' | 'finalizing' | 'claiming' | 'saving' | 'connecting' | 'paired'>('idle');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [offers, setOffers] = useState<ConnectOffer[]>([]);
   const [machines, setMachines] = useState<ConnectMachine[]>();
   const [profiles, setProfiles] = useState<ConnectionProfile[]>([]);
-  const [usableProfileIds, setUsableProfileIds] = useState<string[]>([]);
   const [savedProfile, setSavedProfile] = useState<ConnectionProfile>();
-  const tokenRef = useRef('');
+  const [storeReady, setStoreReady] = useState(false);
+  const [initializationAttempt, setInitializationAttempt] = useState(0);
+  const [canRetry, setCanRetry] = useState(false);
+  const sessionRef = useRef<ConnectSession | undefined>(undefined);
+  const pairingRef = useRef<ConnectPairing | undefined>(undefined);
+  const apiRef = useRef<ConnectStoreApi | undefined>(undefined);
+  const catalogRef = useRef<ConnectCatalog | undefined>(undefined);
   const lock = useRef(false);
-  const pendingClaim = useRef<{ controlPlaneUrl: string; response: ConnectClaim } | undefined>(undefined);
+  const pendingClaim = useRef<PendingAccess | undefined>(undefined);
+  const pendingPurchase = useRef<PendingConnectPurchase | undefined>(undefined);
   const scopeGeneration = useRef(0);
-
-  useEffect(() => {
-    const generation = ++scopeGeneration.current;
-    tokenRef.current = '';
-    if (!enabled || !controlPlaneUrl) return;
-    void Promise.all([getConnectUserToken(controlPlaneUrl), loadConnectionProfiles()]).then(([token, stored]) => {
-      if (scopeGeneration.current !== generation) return;
-      tokenRef.current = token;
-      setHasToken(Boolean(token));
-      setProfiles(stored);
-    }).catch(() => { if (scopeGeneration.current === generation) setError('Could not prepare secure storage. Restart the development app and try again.'); });
-    return () => { scopeGeneration.current += 1; };
-  }, [controlPlaneUrl, enabled]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    let active = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const check = async () => {
-      const usable = await Promise.all(profiles.filter((profile) => profile.connect).map(async (profile) => {
-        try { return getConnectCredentialError(profile.connect, await getProfilePassword(profile.id)) ? undefined : profile.id; }
-        catch { return undefined; }
-      }));
-      if (!active) return;
-      setUsableProfileIds(usable.filter((id): id is string => Boolean(id)));
-      const remaining = profiles.map((profile) => Date.parse(profile.connect?.expiresAt ?? '') - Date.now()).filter((delay) => delay > 0);
-      clearTimeout(timer);
-      if (remaining.length) timer = setTimeout(() => { void check(); }, Math.min(...remaining, 2_147_483_647));
-    };
-    void check();
-    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void check(); });
-    return () => { active = false; clearTimeout(timer); subscription.remove(); };
-  }, [enabled, profiles]);
+  const purchaseQueue = useRef(new Map<string, Purchase>());
+  const finishedPurchases = useRef(new Set<string>());
+  const lastAccess = useRef(new Map<string, number>());
+  const drainRef = useRef<() => void>(() => undefined);
+  const recoveryMachineId = useRef<string | undefined>(undefined);
+  const resumeRef = useRef<() => Promise<boolean | void>>(async () => undefined);
+  const refreshRef = useRef<() => Promise<boolean | void>>(async () => undefined);
 
   const perform = useCallback(async (action: () => Promise<boolean | void>) => {
     if (!enabled || lock.current) return false;
@@ -69,83 +64,312 @@ export function useConnectState({ switchConnection, disconnect }: {
     setBusy(true);
     setError(undefined);
     setNotice(undefined);
+    setCanRetry(false);
     try { return (await action()) !== false; }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Connect setup failed. Try again.'); return false; }
-    finally { lock.current = false; setBusy(false); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Connect setup failed. Try again.'); setCanRetry(true); return false; }
+    finally { lock.current = false; setBusy(false); drainRef.current(); }
   }, [enabled]);
 
-  const selectControlPlane = useCallback((url: string) => {
-    if (lock.current || pendingClaim.current || url === controlPlaneUrl || !getConnectControlPlanes().includes(url)) return;
-    setControlPlaneUrl(url);
-    setHasToken(false);
+  const clearPairing = useCallback(async () => {
+    await savePendingConnectPairing(controlPlaneUrl, store);
+    pairingRef.current = undefined;
     setPairing(undefined);
-    setMachines(undefined);
-    setSavedProfile(undefined);
-    setPhase('idle');
-    setError(undefined);
-    setNotice(undefined);
-  }, [controlPlaneUrl]);
+  }, [controlPlaneUrl, store]);
 
-  const acceptLink = useCallback((link: Parameters<typeof parseConnectPairing>[0]) => {
-    if (lock.current) return false;
-    if (pendingClaim.current) { setError('Finish saving the claimed connection before opening another pairing.'); return false; }
-    try {
-      const next = parseConnectPairing(link);
-      if (next.controlPlaneUrl !== controlPlaneUrl) {
-        tokenRef.current = '';
-        setHasToken(false);
-        setMachines(undefined);
-        setControlPlaneUrl(next.controlPlaneUrl);
-      }
-      setPairing(next);
-      setSavedProfile(undefined);
-      setPhase('idle');
-      setError(undefined);
-      setNotice(undefined);
-      return true;
-    } catch (reason) { setError((reason as Error).message); return false; }
-  }, [controlPlaneUrl]);
+  const finishPurchase = useCallback(async (purchase: Purchase) => {
+    const api = apiRef.current;
+    if (!api) throw new Error('The native store is not ready. Retry or restart the app.');
+    if (purchase.purchaseState !== 'purchased') {
+      setPhase('pending'); setNotice('Purchase is pending store approval. No access has been granted.'); return false;
+    }
+    let pending = pendingPurchase.current;
+    if (!pending || pending.purchase.id !== purchase.id) pendingPurchase.current = pending = { purchase };
+    try { await finalizeConnectPurchase(controlPlaneUrl, store, pending, api, setPhase); }
+    finally {
+      if (pending.persisted) { sessionRef.current = pending.session; setSession(pending.session); }
+    }
+    finishedPurchases.current.add(purchase.id);
+    pendingPurchase.current = undefined;
+    setPhase('idle');
+    return true;
+  }, [controlPlaneUrl, store]);
+
+  const availablePurchases = useCallback(async () => {
+    const api = apiRef.current;
+    if (!api) throw new Error('Purchases and Restore require a native development/store build.');
+    const purchases = await api.getAvailablePurchases(AVAILABLE_CONNECT_PURCHASES);
+    return purchases.filter((purchase) => isConnectPurchase(catalogRef.current, purchase, store) && purchase.purchaseState === 'purchased').sort((a, b) => b.transactionDate - a.transactionDate);
+  }, [store]);
+
+  const recoverSession = useCallback(async () => {
+    const purchases = await availablePurchases();
+    if (!purchases.length) throw new Error('No Connect subscription is available in this store. Purchase or use Restore with the original store account.');
+    await finishPurchase(pendingPurchase.current?.purchase ?? purchases[0]);
+    return sessionRef.current!;
+  }, [availablePurchases, finishPurchase]);
+
+  const authenticated = useCallback(async <T,>(request: (token: string) => Promise<T>): Promise<T> => {
+    if (pendingPurchase.current) await finishPurchase(pendingPurchase.current.purchase);
+    let current = sessionRef.current ?? await getConnectSession(controlPlaneUrl, store);
+    if (!hasConnectSession(current)) current = await recoverSession();
+    sessionRef.current = current;
+    setSession(current);
+    try { return await request(current!.user_token); }
+    catch (reason) {
+      if (!(reason instanceof ConnectApiError) || reason.status !== 401 || reason.invalidPairingToken) throw reason;
+      const recovered = await recoverSession();
+      return request(recovered.user_token);
+    }
+  }, [controlPlaneUrl, finishPurchase, recoverSession, store]);
+
+  const saveAccess = useCallback(async () => {
+    const pending = pendingClaim.current;
+    if (!pending) throw new Error('No connection is waiting to be saved.');
+    setPhase('saving');
+    let rollbackScope: (() => Promise<void>) | undefined;
+    if (pending.previous) {
+      const next = { ...pending.previous, serverUrl: pending.response.server_url, username: pending.response.device_id };
+      if (new URL(next.serverUrl).hostname !== new URL(pending.previous.serverUrl).hostname) throw new Error('machine_hostname_mismatch: Access returned a different hostname.');
+      rollbackScope = await migrateConnectConnectionScope(pending.previous, next);
+    }
+    let profile: ConnectionProfile;
+    try { profile = await saveConnectProfile(pending.controlPlaneUrl, pending.response); }
+    catch { await rollbackScope?.(); throw new Error('Access succeeded, but secure saving failed. Retry saving without claiming or purchasing again.'); }
+    if (pending.previous) onProfileRefreshed(pending.previous, profile);
+    // Clear QR only after saving, so restart can reconcile an ambiguous claim.
+    if (pending.fromPairing) await clearPairing();
+    pendingClaim.current = undefined;
+    setProfiles(await loadConnectionProfiles());
+    setSavedProfile(profile);
+    lastAccess.current.set(profile.connect!.machineId, Date.now());
+    return profile;
+  }, [clearPairing, onProfileRefreshed]);
+
+  const requestAccess = useCallback(async (machineId: string, fromPairing = false) => {
+    recoveryMachineId.current = machineId;
+    await beforeProfileRefresh();
+    const previous = (await loadConnectionProfiles(true)).find((profile) => profile.connect?.controlPlaneUrl === controlPlaneUrl && profile.connect.machineId === machineId);
+    const response = await authenticated((token) => accessConnectMachine(controlPlaneUrl, machineId, token));
+    if (previous && new URL(previous.serverUrl).hostname !== new URL(response.server_url).hostname) throw new Error('machine_hostname_mismatch: Access returned a different hostname.');
+    pendingClaim.current = { controlPlaneUrl, response, previous, fromPairing };
+    const saved = await saveAccess();
+    recoveryMachineId.current = undefined;
+    return saved;
+  }, [authenticated, beforeProfileRefresh, controlPlaneUrl, saveAccess]);
+
+  const prepareSettings = useCallback(async (settings: OpencodeConnectionSettings): Promise<OpencodeConnectionSettings> => {
+    if (!settings.connect) return settings;
+    if (pendingPurchase.current) throw new Error('Finish securing and finalizing your subscription before reconnecting.');
+    const profile = (await loadConnectionProfiles(true)).find((entry) => entry.connect?.machineId === settings.connect!.machineId && entry.connect.controlPlaneUrl === settings.connect!.controlPlaneUrl);
+    let password = profile ? await getProfilePassword(profile.id) : settings.password;
+    let connect = profile?.connect ?? settings.connect;
+    if (getConnectCredentialError(connect, password) || (Date.parse(connect.expiresAt) - Date.now() <= 5 * 60_000 && Date.now() - (lastAccess.current.get(connect.machineId) ?? 0) > 60_000)) {
+      if (connect.controlPlaneUrl !== controlPlaneUrl) throw new Error('Select this machine’s trusted Connect environment to recover access.');
+      if (pendingClaim.current && pendingClaim.current.response.machine_id !== connect.machineId) throw new Error('Finish saving the pending machine before reconnecting another machine.');
+      const next = pendingClaim.current ? await saveAccess() : await requestAccess(connect.machineId);
+      password = await getProfilePassword(next.id);
+      connect = next.connect!;
+      return { ...settings, serverUrl: next.serverUrl, username: next.username, password, connect };
+    }
+    return { ...settings, serverUrl: profile?.serverUrl ?? settings.serverUrl, username: profile?.username ?? settings.username, password, connect };
+  }, [controlPlaneUrl, requestAccess, saveAccess]);
 
   const activate = useCallback(async (profile: ConnectionProfile) => {
     const password = await getProfilePassword(profile.id);
-    const credentialError = getConnectCredentialError(profile.connect, password);
-    if (credentialError) throw new Error(credentialError);
     setSavedProfile(profile);
     setPhase('connecting');
     const result = await switchConnection({ serverUrl: profile.serverUrl, username: profile.username, password, connect: profile.connect }, profile.modelPreferences);
-    setPhase('paired');
     if (result.status !== 'connected') throw new Error(result.message);
+    setPhase('paired');
     return true;
   }, [switchConnection]);
 
-  const claim = useCallback(() => perform(async () => {
-    if (!pairing) throw new Error('Scan or open a pairing link first.');
-    if (!pendingClaim.current) {
-      setPhase('claiming');
+  const claimAction = useCallback(async () => {
+    if (pendingClaim.current) return activate(await saveAccess());
+    const current = pairingRef.current;
+    if (!current) throw new Error('Scan or open a pairing link first.');
+    if (pendingPurchase.current) await finishPurchase(pendingPurchase.current.purchase);
+    setPhase('claiming');
+    let response: ConnectClaim;
+    try {
       const deviceName = Platform.OS === 'ios' ? 'iPhone' : Platform.OS === 'android' ? 'Android phone' : 'Web test device';
-      const response = await claimConnectPairing(pairing, tokenRef.current, deviceName);
-      pendingClaim.current = { controlPlaneUrl: pairing.controlPlaneUrl, response };
+      response = await authenticated((token) => claimConnectPairing(current, token, deviceName));
+    } catch (reason) {
+      if (reason instanceof ConnectApiError && reason.machineId) return activate(await requestAccess(reason.machineId, true));
+      if (reason instanceof ConnectApiError && (reason.status === 404 || reason.invalidPairingToken || reason.pairingExpired)) await clearPairing();
+      // An unclaimed expired QR has the same 409 status as a live provisioning
+      // lock. Clear only the exact contract expiry response, not a retryable lock.
+      throw reason;
     }
-    setPhase('saving');
-    let profile: ConnectionProfile;
-    try { profile = await saveConnectProfile(pendingClaim.current.controlPlaneUrl, pendingClaim.current.response); }
-    catch { throw new Error('Pairing succeeded, but secure saving failed. Retry saving without claiming again; do not close the app.'); }
-    pendingClaim.current = undefined;
-    setPairing(undefined);
-    setProfiles(await loadConnectionProfiles());
-    return activate(profile);
-  }), [activate, pairing, perform]);
+    const previous = (await loadConnectionProfiles(true)).find((profile) => profile.connect?.controlPlaneUrl === current.controlPlaneUrl && profile.connect.machineId === response.machine_id);
+    pendingClaim.current = { controlPlaneUrl: current.controlPlaneUrl, response, previous, fromPairing: true };
+    return activate(await saveAccess());
+  }, [activate, authenticated, clearPairing, finishPurchase, requestAccess, saveAccess]);
 
-  const refreshMachines = useCallback(() => perform(async () => {
-    const [next, stored] = await Promise.all([listConnectMachines(controlPlaneUrl, tokenRef.current), loadConnectionProfiles()]);
+  const refreshMachinesAction = useCallback(async () => {
+    const next = await authenticated((token) => listConnectMachines(controlPlaneUrl, token));
     setMachines(next);
-    setProfiles(stored);
-  }), [controlPlaneUrl, perform]);
+    setProfiles(await loadConnectionProfiles());
+  }, [authenticated, controlPlaneUrl]);
 
+  const continueAfterPurchase = useCallback(async () => {
+    if (pairingRef.current || pendingClaim.current) return claimAction();
+    const owned = await authenticated((token) => listConnectMachines(controlPlaneUrl, token));
+    setMachines(owned);
+    const stored = await loadConnectionProfiles();
+    let active: ConnectionProfile | undefined;
+    for (const profile of stored.filter((entry) => entry.connect?.controlPlaneUrl === controlPlaneUrl && owned.some((machine) => machine.id === entry.connect!.machineId))) {
+      const refreshed = await requestAccess(profile.connect!.machineId);
+      if (refreshed.connect!.machineId === activeMachineId) active = refreshed;
+    }
+    if (active) return activate(active);
+    setPhase('idle');
+    return true;
+  }, [activate, activeMachineId, authenticated, claimAction, controlPlaneUrl, requestAccess]);
+  useEffect(() => { resumeRef.current = continueAfterPurchase; }, [continueAfterPurchase]);
+
+  useEffect(() => { drainRef.current = () => {
+    if (lock.current || !catalogRef.current || !purchaseQueue.current.size) return;
+    const [id, purchase] = purchaseQueue.current.entries().next().value!;
+    if (pendingPurchase.current && pendingPurchase.current.purchase.id !== id) return;
+    purchaseQueue.current.delete(id);
+    if (finishedPurchases.current.has(id)) { drainRef.current(); return; }
+    if (!isConnectPurchase(catalogRef.current, purchase, store)) { drainRef.current(); return; }
+    void perform(async () => { if (await finishPurchase(purchase)) return resumeRef.current(); return false; });
+  }; }, [finishPurchase, perform, store]);
+
+  const loadCatalog = useCallback(async () => {
+    const api = apiRef.current;
+    if (!api) throw new Error('Purchases and Restore require a native development/store build.');
+    setPhase('catalog');
+    const catalog = await getConnectCatalog(controlPlaneUrl);
+    catalogRef.current = catalog;
+    const products = catalog.plans.filter((plan) => plan.entitlements.includes('connect')).flatMap((plan) => plan.products.filter((product) => product.store === store));
+    if (!products.length) throw new Error('Connect subscriptions are not configured for this store.');
+    const native = await api.fetchProducts({ skus: [...new Set(products.map((product) => product.productId))], type: 'subs' });
+    const subscriptions = native as import('expo-iap').ProductSubscription[];
+    const eligible = new Set<string>();
+    if (store === 'apple') await Promise.all(subscriptions.map(async (product) => {
+      if (product.platform === 'ios' && product.subscriptionGroupIdIOS && product.subscriptionOffers?.some((offer) => offer.type === 'introductory')) {
+        if (await api.isEligibleForIntroOfferIOS(product.subscriptionGroupIdIOS).catch(() => false)) eligible.add(product.id);
+      }
+    }));
+    const choices = selectConnectOffers(catalog, subscriptions, store, eligible);
+    if (!choices.length) throw new Error('No matching Connect products, base plans, or eligible offers are available in this store.');
+    setOffers(choices);
+    setPhase('idle');
+  }, [controlPlaneUrl, store]);
+
+  useEffect(() => {
+    if (!enabled || !isHydrated || !controlPlaneUrl) return;
+    const generation = ++scopeGeneration.current;
+    let subscriptions: { remove(): void }[] = [];
+    const current = () => generation === scopeGeneration.current;
+    void perform(async () => {
+      const [stored, pending, saved] = await Promise.all([getConnectSession(controlPlaneUrl, store), getPendingConnectPairing(controlPlaneUrl, store), loadConnectionProfiles()]);
+      if (!current()) return false;
+      sessionRef.current = stored; setSession(stored);
+      if (!pairingRef.current) { pairingRef.current = pending; setPairing(pending); }
+      setProfiles(saved);
+      const api = await loadConnectStore();
+      if (!current()) return false;
+      apiRef.current = api;
+      subscriptions = [api.purchaseUpdatedListener((purchase) => {
+        if (!current() || finishedPurchases.current.has(purchase.id)) return;
+        purchaseQueue.current.set(purchase.id, purchase); drainRef.current();
+      }), api.purchaseErrorListener((reason) => {
+        if (!current()) return;
+        setPhase('idle');
+        if (reason.code === 'user-cancelled') setNotice('Purchase canceled. No new access was granted.');
+        else setError('The store could not complete the purchase. Try again or Restore.');
+      })];
+      if (!await api.initConnection()) throw new Error('Could not connect to the native store. Retry.');
+      setStoreReady(true);
+      await loadCatalog();
+      const available = await availablePurchases();
+      const unfinished = store === 'apple' ? await api.getPendingTransactionsIOS() : available.filter((purchase) => 'isAcknowledgedAndroid' in purchase && !purchase.isAcknowledgedAndroid);
+      // Available purchases never authorize locally. A fresh store response is
+      // exchanged again to recover unfinished transactions and session expiry.
+      const recoverable = unfinished.find((purchase) => isConnectPurchase(catalogRef.current, purchase, store) && purchase.purchaseState === 'purchased') ?? (!hasConnectEntitlement(stored) ? available[0] : undefined);
+      if (recoverable) {
+        if (await finishPurchase(recoverable)) await resumeRef.current();
+      }
+    });
+    return () => { scopeGeneration.current += 1; subscriptions.forEach((subscription) => subscription.remove()); void apiRef.current?.endConnection(); apiRef.current = undefined; };
+  }, [availablePurchases, controlPlaneUrl, enabled, finishPurchase, isHydrated, initializationAttempt, loadCatalog, perform, store]);
+
+  useEffect(() => { refreshRef.current = async () => {
+    if (pendingPurchase.current) { await finishPurchase(pendingPurchase.current.purchase); return resumeRef.current(); }
+    if (apiRef.current && catalogRef.current) {
+      const available = await availablePurchases();
+      const pending = store === 'apple' ? await apiRef.current.getPendingTransactionsIOS() : available.filter((purchase) => 'isAcknowledgedAndroid' in purchase && !purchase.isAcknowledgedAndroid);
+      const unfinished = pending.find((purchase) => isConnectPurchase(catalogRef.current, purchase, store) && purchase.purchaseState === 'purchased' && !finishedPurchases.current.has(purchase.id));
+      const recoverable = unfinished ?? (!hasConnectEntitlement(sessionRef.current) ? available[0] : undefined);
+      if (recoverable) { await finishPurchase(recoverable); return resumeRef.current(); }
+    }
+  }; }, [availablePurchases, finishPurchase, store]);
+  useEffect(() => {
+    if (!enabled) return;
+    const listener = AppState.addEventListener('change', (state) => { if (state === 'active') void perform(() => refreshRef.current()); });
+    return () => listener.remove();
+  }, [enabled, perform]);
+
+  const selectControlPlane = useCallback((url: string) => {
+    if (lock.current || pendingClaim.current || url === controlPlaneUrl || !getConnectControlPlanes().includes(url)) return;
+    setControlPlaneUrl(url); sessionRef.current = undefined; setSession(undefined); pairingRef.current = undefined;
+    setPairing(undefined); setMachines(undefined); setSavedProfile(undefined); setOffers([]); setStoreReady(false);
+    setPhase('idle'); setError(undefined); setNotice(undefined);
+  }, [controlPlaneUrl]);
+
+  const acceptLink = useCallback(async (link: Parameters<typeof parseConnectPairing>[0]) => {
+    if (pendingClaim.current) { setError('Finish saving the claimed connection before opening another pairing.'); return false; }
+    try {
+      const next = parseConnectPairing(link);
+      await savePendingConnectPairing(next.controlPlaneUrl, store, next);
+      if (next.controlPlaneUrl !== controlPlaneUrl) selectControlPlane(next.controlPlaneUrl);
+      pairingRef.current = next; setPairing(next); setSavedProfile(undefined);
+      setPhase('idle'); setError(undefined); setNotice(undefined);
+      return true;
+    } catch (reason) { setError((reason as Error).message); return false; }
+  }, [controlPlaneUrl, selectControlPlane, store]);
+
+  const purchase = useCallback((key: string) => perform(async () => {
+    if (pendingPurchase.current || phase === 'purchasing' || phase === 'pending') throw new Error('Wait for or retry your unfinished subscription before purchasing again.');
+    const offer = offers.find((entry) => entry.key === key);
+    if (!offer || !apiRef.current) throw new Error('Choose an available subscription first.');
+    const previous = (await availablePurchases())[0];
+    setPhase('purchasing');
+    // Only this user action may invoke requestPurchase.
+    try { await apiRef.current.requestPurchase(connectPurchaseRequest(offer, previous, store)); }
+    catch { setPhase('idle'); throw new Error('The native store could not start the purchase. Choose Purchase again or Restore.'); }
+  }), [availablePurchases, offers, perform, phase, store]);
+
+  const restore = useCallback(() => perform(async () => {
+    if (!apiRef.current) throw new Error('Restore requires a native development/store build.');
+    setPhase('restoring');
+    // This is intentionally separate from every silent-recovery path.
+    await apiRef.current.restorePurchases();
+    await recoverSession();
+    return continueAfterPurchase();
+  }), [continueAfterPurchase, perform, recoverSession]);
+
+  const retry = useCallback(() => {
+    if (!apiRef.current) { setInitializationAttempt((current) => current + 1); return Promise.resolve(false); }
+    return perform(async () => {
+    if (pendingPurchase.current) { await finishPurchase(pendingPurchase.current.purchase); return continueAfterPurchase(); }
+    if (pendingClaim.current || pairingRef.current) return claimAction();
+    if (recoveryMachineId.current) return activate(await requestAccess(recoveryMachineId.current));
+    if (!catalogRef.current || !offers.length) return loadCatalog();
+    return refreshMachinesAction();
+    });
+  }, [activate, claimAction, continueAfterPurchase, finishPurchase, loadCatalog, offers.length, perform, refreshMachinesAction, requestAccess]);
+  const claim = useCallback(() => perform(claimAction), [claimAction, perform]);
+  const refreshMachines = useCallback(() => perform(refreshMachinesAction), [perform, refreshMachinesAction]);
   const connectProfile = useCallback((profile: ConnectionProfile) => perform(() => activate(profile)), [activate, perform]);
+  const connectMachine = useCallback((id: string) => perform(async () => activate(await requestAccess(id))), [activate, perform, requestAccess]);
+  const cancelPairing = useCallback(() => perform(async () => { await clearPairing(); setPhase('idle'); }), [clearPairing, perform]);
+
   const removeProfiles = useCallback(async (removed: ConnectionProfile[]) => {
-    // Disconnect before removing metadata so background resolution cannot fall
-    // back to an active credential after the saved profile has gone.
     for (const profile of removed) await disconnect(profile);
     const stored = await loadConnectionProfiles(true);
     const next = stored.filter((profile) => !removed.some((item) => item.id === profile.id));
@@ -154,21 +378,17 @@ export function useConnectState({ switchConnection, disconnect }: {
     setProfiles(next);
     if (removed.some((profile) => profile.id === savedProfile?.id)) { setSavedProfile(undefined); setPhase('idle'); }
   }, [disconnect, savedProfile?.id]);
-
   const forgetProfile = useCallback((profile: ConnectionProfile) => perform(async () => {
-    await removeProfiles([profile]);
-    setNotice('Connection forgotten on this device. The machine is still available to other devices.');
+    await removeProfiles([profile]); setNotice('Connection forgotten on this device. The machine is still available to other devices.');
   }), [perform, removeProfiles]);
   const revokeMachine = useCallback((id: string) => perform(async () => {
-    await revokeConnectMachine(controlPlaneUrl, id, tokenRef.current);
-    const stored = await loadConnectionProfiles(true);
-    await removeProfiles(stored.filter((profile) => profile.connect?.controlPlaneUrl === controlPlaneUrl && profile.connect.machineId === id));
-    setMachines((current) => current?.filter((machine) => machine.id !== id));
-    setNotice('Machine deletion acknowledged; local credentials removed. Remote tunnel cleanup is not guaranteed by the current backend.');
-  }), [controlPlaneUrl, perform, removeProfiles]);
+    await authenticated((token) => revokeConnectMachine(controlPlaneUrl, id, token));
+    await removeProfiles((await loadConnectionProfiles(true)).filter((profile) => profile.connect?.controlPlaneUrl === controlPlaneUrl && profile.connect.machineId === id));
+    setMachines((current) => current?.filter((machine) => machine.id !== id)); setNotice('Machine deleted; local credentials removed.');
+  }), [authenticated, controlPlaneUrl, perform, removeProfiles]);
 
-  return { enabled, controlPlaneUrl, hasToken, pairing, phase, busy, error, notice, machines, profiles, usableProfileIds, savedProfile,
-    selectControlPlane, acceptLink, claim, refreshMachines, connectProfile, forgetProfile, revokeMachine };
+  return { enabled, controlPlaneUrl, hasToken: hasConnectSession(session), entitled: hasConnectEntitlement(session), pairing, phase, busy, error, notice, machines, profiles, savedProfile, offers, storeReady, canRetry,
+    selectControlPlane, acceptLink, purchase, restore, retry, claim, cancelPairing, refreshMachines, connectProfile, connectMachine, forgetProfile, revokeMachine, prepareSettings };
 }
 
 export type ConnectSetup = ReturnType<typeof useConnectState>;

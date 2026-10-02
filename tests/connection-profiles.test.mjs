@@ -256,7 +256,10 @@ async function setActiveConnection(settings) {
   assert.equal(await resolveConnectionPassword(first), 'signed-secret-1');
   assert.deepEqual(await resolveConnectionCredentials(first), { password: 'signed-secret-1', connect: first.connect }, 'Background clients must carry expiry metadata into their fetch guard.');
   const next = await saveConnectProfile('https://api.getopencode.app', { ...claim, device_id: 'device-2', device_secret: 'signed-secret-2' });
-  assert.equal(await getProfilePassword(first.id), '');
+  assert.equal(next.id, first.id, 'Credential rotation preserves user-visible profile identity.');
+  assert.equal(next.connect.machineId, first.connect.machineId);
+  assert.equal(next.serverUrl, first.serverUrl);
+  assert.equal(await getProfilePassword(first.id), 'signed-secret-2');
   assert.deepEqual(await loadConnectionProfiles(), [next]);
   assert.equal(await resolveConnectionPassword(next), 'signed-secret-2');
   for (const value of globalThis.__profilesTestAsyncStorage.values()) assert.ok(!value.includes('signed-secret'));
@@ -264,6 +267,8 @@ async function setActiveConnection(settings) {
   assert.equal(toConnectionProfile({ ...next, username: 'another-device' }), undefined);
   await setActiveConnection({ serverUrl: next.serverUrl, username: next.username, connect: next.connect });
   await secureStore.setItemAsync(passwordStorageKey, 'signed-secret-2');
+  await assert.rejects(saveConnectProfile('https://api.getopencode.app', { ...claim, server_url: 'https://replacement.example.test' }), /machine_hostname_mismatch/);
+
   await saveConnectionProfiles([{ ...next, connect: { ...next.connect, expiresAt: '2000-01-01T00:00:00Z' } }]);
   assert.equal(await resolveConnectionPassword(next), undefined, 'Expired profiles cannot fall back to active credentials.');
   await saveConnectionProfiles([]);

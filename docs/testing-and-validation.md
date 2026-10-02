@@ -303,7 +303,12 @@ This strategy gives confidence in:
 
 ## Coverage Gaps
 
-Connect development checks are described in [connect.md](connect.md). Native
+Connect subscription checks are described in [connect.md](connect.md). Static
+checks validate claim/secure-write/finalization ordering on both stores. Mocked
+E2E validates explicit Purchase/Restore, silent unfinished-purchase recovery,
+pending/cancellation, exact QR continuation, transient/save/finalization retries,
+existing-machine access, identity mismatch, rotation and expiry. These do not
+prove native store acceptance. Native
 camera, secure relaunch/locked-device access, real tunnel upgrades, and
 revocation still require explicit physical-device validation.
 

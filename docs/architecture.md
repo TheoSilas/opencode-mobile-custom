@@ -226,9 +226,12 @@ they cannot silently regrow.
 
 ### Connection Identity And Credentials
 
-The optional development-only Connect method composes `use-connect-state.ts`
-inside the provider, validates pairing/account protocol in `lib/connect.ts`, and
-activates Basic-auth profiles through `switchConnection()`. The `pair` route is
+The optional native Connect method composes `use-connect-state.ts`
+inside the provider, verifies native subscriptions through the Connect service,
+validates catalog/session/pairing protocol in `lib/connect.ts`, and
+activates Basic-auth profiles through `switchConnection()`. Shared connection
+preparation refreshes credentials on the same owned machine; expiry preserves
+profiles and renewal migrates state to the rotated credential scope. The `pair` route is
 independent of onboarding completion. See [Connect pilot](connect.md).
 
 - `lib/connection-scope.ts`
