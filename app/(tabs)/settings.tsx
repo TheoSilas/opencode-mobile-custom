@@ -57,7 +57,7 @@ export default function SettingsScreen() {
   const { availableModels, availableProviders, configuredProviders, currentConfig, removeProvider } = useCapabilities();
   const { addMcpServer, completeMcpOAuth, connectMcpServer, disconnectMcpServer, mcpStatuses, refreshMcpServers, setMcpServerEnabled, startMcpOAuth } = useMcp();
   const { chatPreferences, updateChatPreferences } = usePreferences();
-  const { connect, connection, diagnostics, eventStreamStatus, refreshDiagnostics, serverCapabilities } = useConnection();
+  const { connect, connection, diagnostics, eventStreamStatus, refreshDiagnostics, serverCapabilities, connectSetup } = useConnection();
   const { startOnboardingReview } = useOnboarding();
   const router = useRouter();
   const notifications = useNotificationSetup();
@@ -147,7 +147,7 @@ export default function SettingsScreen() {
       title: t('settings:screen.categories.connection'),
       summary: connection.status === 'connected' ? t('common:labels.connected') : connection.message,
       onPress: () => setOpenSection('connection'),
-      render: () => <ConnectionSection connection={connection} palette={palette} />,
+      render: () => <ConnectionSection connection={connection} palette={palette} onPair={connectSetup.enabled ? () => { setOpenSection(undefined); router.push('/pair'); } : undefined} />,
     },
     {
       id: 'ai',

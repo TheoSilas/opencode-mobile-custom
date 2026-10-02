@@ -142,10 +142,11 @@ export type OnboardingContextValue = {
 };
 
 export type ConnectionContextValue = {
+  connectSetup: import('@/providers/use-connect-state').ConnectSetup;
   settings: OpencodeConnectionSettings;
   updateSettings: (patch: Partial<OpencodeConnectionSettings>) => void;
   switchConnection: (
-    next: Pick<OpencodeConnectionSettings, 'serverUrl' | 'username' | 'password'>,
+    next: Pick<OpencodeConnectionSettings, 'serverUrl' | 'username' | 'password' | 'connect'>,
     modelPreferences?: Partial<ChatPreferences>,
   ) => Promise<ConnectionState>;
   connection: ConnectionState;

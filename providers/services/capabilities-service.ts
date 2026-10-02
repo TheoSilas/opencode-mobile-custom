@@ -1,5 +1,6 @@
 import type { OpencodeClient, ProviderListResponse } from '@opencode-ai/sdk/v2/client';
 
+import { compareLabels } from '@/lib/compare-labels';
 import { getConfiguredProviderIds, toAgentOption, type ModelOption } from '@/providers/opencode-model-selection';
 import { requireData } from '@/providers/services/require-data';
 
@@ -64,7 +65,7 @@ export async function discoverChatCapabilities(client: OpencodeClient, activePro
     .sort((left, right) => {
       const leftDefault = providerData.default[left.providerID] === left.modelID;
       const rightDefault = providerData.default[right.providerID] === right.modelID;
-      return Number(rightDefault) - Number(leftDefault) || left.label.localeCompare(right.label);
+      return Number(rightDefault) - Number(leftDefault) || compareLabels(left.label, right.label);
     }));
 
   const configuredProviderIds = getConfiguredProviderIds(nextConfig, providerData.connected, nextModels);
@@ -76,7 +77,7 @@ export async function discoverChatCapabilities(client: OpencodeClient, activePro
       modelCount: Object.keys(provider.models).length,
       configured: configuredProviderIds.has(provider.id),
     }))
-    .sort((left, right) => left.label.localeCompare(right.label)));
+    .sort((left, right) => compareLabels(left.label, right.label)));
   const nextAgents = uniqueById(agentData.map(toAgentOption));
 
   return {

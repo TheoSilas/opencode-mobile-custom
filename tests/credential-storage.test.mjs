@@ -16,21 +16,21 @@ const passwordStorage = await readFile(new URL('../lib/connection-password.ts', 
 
 // Persisted settings strip the password; the password is saved to SecureStore.
 assert.match(persistence, /withoutConnectionPassword\(settings\)/);
-assert.match(persistence, /saveConnectionPassword\(settings\.password\)/);
+assert.match(persistence, /saveConnectionPassword\(settings\.password, Boolean\(settings\.connect\)\)/);
 
 // Legacy plaintext settings are migrated to SecureStore and stripped.
 assert.match(passwordStorage, /await SecureStore\.setItemAsync\(CONNECTION_PASSWORD_STORAGE_KEY, legacyPassword\)/);
 assert.match(passwordStorage, /await AsyncStorage\.setItem\(SETTINGS_STORAGE_KEY, JSON\.stringify\(storedSettings\)\)/);
 
 // Profile passwords use their own SecureStore key, never AsyncStorage.
-assert.match(profiles, /SecureStore\.setItemAsync\(passwordKey\(profileId\), password\)/);
+assert.match(profiles, /SecureStore\.setItemAsync\(passwordKey\(profileId\), password,/);
 assert.match(profiles, /SecureStore\.deleteItemAsync\(passwordKey\(profileId\)\)/);
 assert.doesNotMatch(profiles, /AsyncStorage\.setItem\(passwordKey/);
 
 // Pending notification records resolve credentials for the connection that
 // created them instead of reading the active connection password directly, and
 // persisted writes go through the explicit non-secret serializer.
-assert.match(notifications, /resolveConnectionPassword\(/);
+assert.match(notifications, /resolveConnectionCredentials\(/);
 assert.doesNotMatch(notifications, /getConnectionPassword/);
 assert.doesNotMatch(notifications, /Pick<OpencodeConnectionSettings, 'serverUrl' \| 'username' \| 'password'>/);
 assert.match(notifications, /serializePendingNotificationSessions\(value\)/);

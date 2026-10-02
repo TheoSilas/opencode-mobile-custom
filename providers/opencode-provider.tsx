@@ -28,6 +28,7 @@ import {
   detectServerContract,
   getConnectionError,
   getNormalizedServerUrl,
+  getRequestHeaders,
   isContractMismatchError,
   isValidServerUrl,
   listPendingInteractions,
@@ -59,6 +60,9 @@ import {
   saveConnectionProfiles,
 } from '@/lib/connection-profiles';
 import { getConnectionScope } from '@/lib/connection-scope';
+import { getConnectCredentialError } from '@/lib/connect';
+import { saveConnectionPassword } from '@/lib/connection-password';
+import { useConnectState } from '@/providers/use-connect-state';
 import { changeAppLanguage } from '@/lib/i18n';
 import { pendingNotificationKey } from '@/lib/notification-pending';
 import {
@@ -455,6 +459,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     isCurrentClient,
     serverContract,
     serverUrl: settings.serverUrl,
+    authorization: getRequestHeaders(settings)?.Authorization,
   });
 
   const {
@@ -1326,6 +1331,12 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     // Any explicit connect (including the onboarding assistant) satisfies the
     // one-time boot connect, so completing onboarding never reconnects again.
     initialConnectStartedRef.current = true;
+    const credentialError = getConnectCredentialError(targetSettings.connect, targetSettings.password);
+    if (credentialError) {
+      const failed: ConnectionState = { status: 'error', message: credentialError, checkedAt: Date.now() };
+      setConnection(failed);
+      return failed;
+    }
     if (!isValidServerUrl(targetSettings.serverUrl)) {
       const failed: ConnectionState = {
         status: 'error',
@@ -1452,6 +1463,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     setSettings((current) => ({
       ...current,
       ...patch,
+      connect: connectionChanged ? patch.connect : current.connect,
     }));
   }, [clearProjectState]);
 
@@ -1477,16 +1489,18 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
    * 4. reconnect using the target settings directly, not a render-delayed ref.
    */
   const switchConnection = useCallback(async (
-    next: Pick<OpencodeConnectionSettings, 'serverUrl' | 'username' | 'password'>,
+    next: Pick<OpencodeConnectionSettings, 'serverUrl' | 'username' | 'password' | 'connect'>,
     modelPreferences?: Partial<ChatPreferences>,
   ) => {
     await captureActiveProfilePreferences().catch(() => undefined);
 
+    const connectMetadata = next.connect ?? findMatchingProfile(await loadConnectionProfiles(), next)?.connect;
     const targetSettings: OpencodeConnectionSettings = {
       ...settingsRef.current,
       ...next,
+      connect: connectMetadata,
     };
-    updateSettings(next);
+    updateSettings({ ...next, connect: connectMetadata });
     if (modelPreferences) {
       // Applied raw; the catalog refresh after connecting validates it against
       // the new server's models.
@@ -1495,6 +1509,33 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
 
     return runConnect(targetSettings);
   }, [captureActiveProfilePreferences, runConnect, updateSettings]);
+
+  const disconnectConnectProfile = useCallback(async (profile: import('@/lib/connection-profiles').ConnectionProfile) => {
+    if (getConnectionScope(profile) !== getConnectionScope(settingsRef.current)) return;
+    updateSettings({ serverUrl: '', username: '', password: '', connect: undefined });
+    await saveConnectionPassword('');
+  }, [updateSettings]);
+  const connectSetup = useConnectState({ switchConnection, disconnect: disconnectConnectProfile });
+
+  useEffect(() => {
+    if (!isHydrated || !settings.connect) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const check = () => {
+      const message = getConnectCredentialError(settings.connect, settings.password);
+      if (message) {
+        scopeGenerationRef.current += 1;
+        serverGenerationRef.current += 1;
+        clearProjectState();
+        setSendingState({ active: false });
+        setConnection({ status: 'error', message, checkedAt: Date.now() });
+        return;
+      }
+      timer = setTimeout(check, Math.min(Date.parse(settings.connect!.expiresAt) - Date.now(), 2_147_483_647));
+    };
+    check();
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') { clearTimeout(timer); check(); } });
+    return () => { clearTimeout(timer); subscription.remove(); };
+  }, [clearProjectState, isHydrated, settings.connect, settings.password]);
 
   const ensureActiveSessionRef = useRef(ensureActiveSession);
   ensureActiveSessionRef.current = ensureActiveSession;
@@ -3067,8 +3108,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   );
 
   const connectionValue = useMemo<ConnectionContextValue>(
-    () => ({ settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus }),
-    [settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus],
+    () => ({ settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus, connectSetup }),
+    [settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus, connectSetup],
   );
 
   const capabilitiesValue = useMemo<CapabilitiesContextValue>(

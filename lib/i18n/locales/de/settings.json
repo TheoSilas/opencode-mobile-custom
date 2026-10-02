@@ -266,5 +266,40 @@
       "title": "Schlanke Oberfläche",
       "description": "Verkleinert Schaltflächen, Abstände und Kopfzeilen in Chat, Terminal und Arbeitsbereich, damit mehr Text auf den Bildschirm passt."
     }
+  },
+  "connect": {
+    "entry": "Pair with Connect (development)",
+    "title": "OpenCode Connect",
+    "developmentOnly": "Development pilot. Device naming is automatic; manual connections remain available.",
+    "controlPlane": "Trusted control plane",
+    "scan": "Scan connector QR code",
+    "pairingLink": "Pairing deep link",
+    "openLink": "Open pairing link",
+    "claim": "Claim and connect",
+    "retrySaving": "Retry secure saving",
+    "machines": "Your machines",
+    "refreshMachines": "Refresh machines",
+    "noMachines": "No machines registered for this user.",
+    "pairRequired": "Pair this device to obtain credentials.",
+    "revoke": "Revoke machine",
+    "revokeConfirm": "Revoke this machine for every device? The public tunnel will be deleted. Remote cleanup may require verification.",
+    "forget": "Forget locally",
+    "forgetConfirm": "Remove this connection and its credentials from this device? Other devices will keep access.",
+    "expiresAt": "Credentials expire: {{date}}",
+    "savedConnection": "Connection saved: {{name}}",
+    "manage": "Manage Connect",
+    "cameraLoading": "Opening camera",
+    "cameraPermission": "Camera permission is needed to scan the connector QR code. You can open its deep link instead.",
+    "allowCamera": "Allow camera",
+    "openSettings": "Open device settings",
+    "cameraUnavailable": "Camera unavailable. Open the connector deep link instead.",
+    "progress": {
+      "idle": "Loading…",
+      "claiming": "Claiming pairing…",
+      "saving": "Saving credentials securely…",
+      "connecting": "Connecting to the machine…",
+      "paired": "Loading…"
+    },
+    "tokenRequired": "This development build needs an issued test token. Configure EXPO_CONNECT_TEST_USER_TOKEN and restart the app."
   }
 }

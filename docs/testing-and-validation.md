@@ -47,7 +47,9 @@ From `TESTING.md`, those gates include:
   - `npm run test:notifications`
   - `npm run test:notifications-background`
   - `npm run test:onboarding`
+  - `npm run test:connect`
   - `npm run test:architecture`
+  - `npm run test:anr`
 - `npm run test:fake-server:self`
 - Playwright E2E flow tests against the fake OpenCode server
 
@@ -79,6 +81,17 @@ provider file size, the combined domain-context surface, and a rule that
 `app/` and `components/` never call the network directly. It fails with a
 pointed message when a limit is outgrown, so the fix is to extract a domain or
 move code to the right layer rather than raise the number.
+
+`test:anr` exercises repeated discovery of a 2,003-model catalog and voice-label
+sorting with one shared collator, preserving locale-aware ordering and default
+model priority. It also runs the Android content-capture Expo mod in development
+and production, checking API guarding, nullable service lookup, repeatability,
+and a clear failure if the generated activity changes shape. Existing model
+picker E2E coverage checks provider groups, search, selection, and recent models.
+Native validation still needs a large-catalog picker open/scroll/search run and
+content-capture/TalkBack checks on affected Android devices. These checks reduce
+the app-side allocation and rendering pressure; they do not establish that the
+Transsion ART/GC stall in the 1.0.39 report is fixed.
 
 ## Fake OpenCode Server
 
@@ -277,6 +290,10 @@ This strategy gives confidence in:
 - workspace patch save, archive/restore, worktree creation, MCP addition, and PTY WebSocket streaming
 
 ## Coverage Gaps
+
+Connect development checks are described in [connect.md](connect.md). Native
+camera, secure relaunch/locked-device access, real tunnel upgrades, and
+revocation still require explicit physical-device validation.
 
 The following important behaviors are present in code but are not obviously covered by the current documented E2E suite:
 

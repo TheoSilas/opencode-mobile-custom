@@ -9,6 +9,7 @@ import {
   listShells,
   listTerminals,
   removeTerminal as svcRemoveTerminal,
+  openTerminalWebSocket,
 } from '@/providers/services/terminal-service';
 
 // Terminal is self-contained: one project-scoped PTY list, the active socket,
@@ -25,12 +26,14 @@ export function useTerminalState({
   serverUrl,
   directory,
   serverContract,
+  authorization,
 }: {
   client: ScopedOpencodeClient;
   isCurrentClient: (candidate: object) => boolean;
   serverUrl: string;
   directory: string;
   serverContract: ServerContract;
+  authorization?: string;
 }) {
   const [terminals, setTerminals] = useState<Pty[]>([]);
   const [terminalShells, setTerminalShells] = useState<PtyShellsResponse>([]);
@@ -80,12 +83,12 @@ export function useTerminalState({
     if (!isCurrentClient(client) || generation !== terminalOpenGenerationRef.current) {
       throw new Error('Terminal connection was superseded.');
     }
-    const socket = new WebSocket(getTerminalWebSocketUrl(
+    const socket = openTerminalWebSocket(getTerminalWebSocketUrl(
       { serverUrl, directory },
       ptyId,
       { ticket: token.ticket, cursor: terminalCursorByIdRef.current[ptyId] },
       serverContract,
-    ));
+    ), authorization);
     terminalSocketRef.current = socket;
     let opened = false;
     const connected = new Promise<void>((resolve, reject) => {
@@ -136,7 +139,7 @@ export function useTerminalState({
       }
     };
     await connected;
-  }, [activeTerminalId, client, directory, isCurrentClient, serverContract, serverUrl]);
+  }, [activeTerminalId, authorization, client, directory, isCurrentClient, serverContract, serverUrl]);
 
   const createTerminal = useCallback(async (command?: string, title?: string) => {
     const terminal = await svcCreateTerminal(client, { command: command?.trim() || undefined, title: title?.trim() || undefined });

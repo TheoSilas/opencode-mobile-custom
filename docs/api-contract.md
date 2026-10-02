@@ -265,7 +265,7 @@ MCP management uses `mcp.status()`, `mcp.add()`, `mcp.connect()`, `mcp.disconnec
 
 The client uses `pty.shells()`, `pty.list()`, `pty.create()`, `pty.remove()`, and `pty.connectToken()`. Opening a PTY requests a short-lived ticket, converts the normalized server URL to `ws:` or `wss:`, preserves any configured path prefix, and connects to `/pty/{ptyID}/connect` with `directory` and `ticket` query parameters.
 
-The ticket authenticates the WebSocket rather than placing Basic credentials in its URL. Incoming text/blob data is appended after common ANSI CSI stripping and truncated to the latest 100,000 characters. This is intentionally a line console, not full VT emulation.
+The ticket authenticates the upstream WebSocket. Native sockets also send configured Basic-auth headers, which the Connect proxy requires on upgrades; credentials never enter the URL. Incoming text/blob data is appended after common ANSI CSI stripping and truncated to the latest 100,000 characters. This is intentionally a line console, not full VT emulation.
 
 ### V2 PTY mapping
 

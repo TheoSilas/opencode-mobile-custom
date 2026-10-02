@@ -547,7 +547,7 @@ function buildV2Raw(settings: OpencodeConnectionSettings): { client: Record<stri
   const api = OpenCode.make({
     baseUrl: base.origin,
     headers,
-    fetch: createPrefixFetch(base.origin, pathPrefix),
+    fetch: createPrefixFetch(base.origin, pathPrefix, settings),
   });
 
   const ctx: AdapterContext = {

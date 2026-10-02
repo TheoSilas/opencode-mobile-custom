@@ -1,5 +1,7 @@
 import * as Speech from 'expo-speech';
 
+import { compareLabels } from '@/lib/compare-labels';
+
 export type SpeechVoiceOption = {
   id: string;
   label: string;
@@ -143,7 +145,7 @@ export async function getSpeechVoiceOptions() {
       label: `${voice.name} (${voice.language})`,
       language: voice.language,
     }))
-    .sort((left, right) => left.label.localeCompare(right.label));
+    .sort((left, right) => compareLabels(left.label, right.label));
 }
 
 // Generous upper bound for one utterance: roughly 9 characters per second at

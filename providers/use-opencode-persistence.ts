@@ -127,7 +127,7 @@ export function useOpencodePersistence({
     }
 
     void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(withoutConnectionPassword(settings)));
-    void saveConnectionPassword(settings.password);
+    void saveConnectionPassword(settings.password, Boolean(settings.connect));
   }, [isHydrated, settings]);
 
   useEffect(() => {

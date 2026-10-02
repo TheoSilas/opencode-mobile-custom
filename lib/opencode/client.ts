@@ -6,8 +6,10 @@ import {
 } from '@opencode-ai/sdk/v2/client';
 import { encode as encodeBase64 } from 'base-64';
 import Constants from 'expo-constants';
+import { fetch as expoFetch } from 'expo/fetch';
 
 import { buildV2Client } from './v2-client';
+import { getConnectCredentialError, type ConnectMetadata } from '@/lib/connect';
 
 export type ServerContract = 'v1' | 'v2';
 
@@ -57,6 +59,7 @@ export type OpencodeConnectionSettings = {
   username: string;
   password: string;
   directory: string;
+  connect?: ConnectMetadata;
 };
 
 export const defaultConnectionSettings: OpencodeConnectionSettings = {
@@ -115,7 +118,19 @@ function normalizeServerUrl(value: string): NormalizedServerUrl {
   }
 }
 
-function createScopedFetch(baseUrl: string, pathPrefix: string, directory?: string) {
+async function fetchConnection(input: RequestInfo | URL, init?: RequestInit, settings?: OpencodeConnectionSettings) {
+  if (settings?.connect) {
+    const error = getConnectCredentialError(settings.connect, settings.password);
+    if (error) throw new Error(error);
+  }
+  // Expo's native fetch supports streams and redirect rejection; RN's XHR
+  // polyfill ignores redirect mode. Manual connections retain their transport.
+  const response = settings?.connect ? await expoFetch(input, { ...init, redirect: 'error' }) : await fetch(input, init);
+  if (settings?.connect && response.status === 401) throw new Error('Connect credentials were rejected. Pair this device again.');
+  return response;
+}
+
+function createScopedFetch(baseUrl: string, pathPrefix: string, directory?: string, settings?: OpencodeConnectionSettings) {
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const currentUrl =
       typeof input === 'string'
@@ -133,16 +148,16 @@ function createScopedFetch(baseUrl: string, pathPrefix: string, directory?: stri
     }
 
     if (typeof input === 'string' || input instanceof URL) {
-      return fetch(parsed.toString(), init);
+      return fetchConnection(parsed.toString(), init, settings);
     }
 
-    return fetch(parsed.toString(), {
+    return fetchConnection(parsed.toString(), {
       body: input.method === 'GET' || input.method === 'HEAD' ? undefined : await input.text(),
       credentials: input.credentials,
       headers: input.headers,
       method: input.method,
       signal: input.signal,
-    });
+    }, settings);
   };
 }
 
@@ -212,7 +227,7 @@ export function getServerBase(serverUrl: string) {
   return normalizeServerUrl(serverUrl);
 }
 
-export function createPrefixFetch(origin: string, pathPrefix: string) {
+export function createPrefixFetch(origin: string, pathPrefix: string, settings?: OpencodeConnectionSettings) {
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const currentUrl =
       typeof input === 'string'
@@ -227,16 +242,16 @@ export function createPrefixFetch(origin: string, pathPrefix: string) {
     }
 
     if (typeof input === 'string' || input instanceof URL) {
-      return fetch(parsed.toString(), init);
+      return fetchConnection(parsed.toString(), init, settings);
     }
 
-    return fetch(parsed.toString(), {
+    return fetchConnection(parsed.toString(), {
       body: input.method === 'GET' || input.method === 'HEAD' ? undefined : await input.text(),
       credentials: input.credentials,
       headers: input.headers,
       method: input.method,
       signal: input.signal,
-    });
+    }, settings);
   };
 }
 
@@ -252,7 +267,7 @@ export function buildClient(settings: OpencodeConnectionSettings, contract: Serv
   return Object.assign(
     createOpencodeClient({
       baseUrl: normalizedServerUrl.origin,
-      fetch: createScopedFetch(normalizedServerUrl.origin, normalizedServerUrl.pathPrefix, directory),
+      fetch: createScopedFetch(normalizedServerUrl.origin, normalizedServerUrl.pathPrefix, directory, settings),
       headers,
       responseStyle: 'fields',
       throwOnError: true,
@@ -293,12 +308,12 @@ export function buildPtyWebSocketUrl(
 
 type ContractProbeResult = { contract: ServerContract; version?: string };
 
-async function probeJson(origin: string, pathPrefix: string, path: string, headers?: HeadersInit) {
+async function probeJson(origin: string, pathPrefix: string, path: string, settings: OpencodeConnectionSettings) {
   const url = `${origin}${joinUrlPath(pathPrefix, path)}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch(url, { headers, signal: controller.signal });
+    const response = await fetchConnection(url, { headers: getRequestHeaders(settings), signal: controller.signal }, settings);
     if (!response.ok) {
       return undefined;
     }
@@ -320,16 +335,15 @@ export async function detectServerContract(settings: OpencodeConnectionSettings)
     return { contract: 'v1' };
   }
 
-  const headers = getRequestHeaders(settings);
   // V2 mounts its API under /api; V1 uses unprefixed paths. A configured /api suffix
   // is the API mount itself, not a proxy prefix, so probe from the bare origin.
   const prefixWithoutApi = base.pathPrefix.replace(/\/api$/, '');
 
   // Run all probes concurrently so an unreachable server costs one timeout, not three.
   const [info, apiHealth, health] = await Promise.all([
-    probeJson(base.origin, prefixWithoutApi, '/api/info', headers),
-    probeJson(base.origin, prefixWithoutApi, '/api/health', headers),
-    probeJson(base.origin, base.pathPrefix, '/global/health', headers),
+    probeJson(base.origin, prefixWithoutApi, '/api/info', settings),
+    probeJson(base.origin, prefixWithoutApi, '/api/health', settings),
+    probeJson(base.origin, base.pathPrefix, '/global/health', settings),
   ]);
 
   const v1Health = health && typeof health.version === 'string' && /^1\./.test(health.version) ? health.version : undefined;

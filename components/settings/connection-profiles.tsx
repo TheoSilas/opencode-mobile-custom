@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Button, Chip, List, Text } from 'react-native-paper';
@@ -37,20 +38,26 @@ function connectionHost(serverUrl: string) {
   }
 }
 
-export function ConnectionProfiles({ palette }: { palette: Palette }) {
+export function ConnectionProfiles({ palette, onManageConnect }: { palette: Palette; onManageConnect?: () => void }) {
   const { t } = useTranslation();
-  const { settings, connection, connect, switchConnection, updateSettings } = useConnection();
+  const { settings, connection, connect, switchConnection, updateSettings, connectSetup } = useConnection();
   const [profiles, setProfiles] = useState<ConnectionProfile[]>([]);
   const [expandedKey, setExpandedKey] = useState<string>();
   const [switchingProfileId, setSwitchingProfileId] = useState<string>();
   const [dialog, setDialog] = useState<DialogState>();
 
-  useEffect(() => {
-    void loadConnectionProfiles().then(setProfiles);
-  }, []);
+  useFocusEffect(useCallback(() => {
+    let mounted = true;
+    void loadConnectionProfiles().then((stored) => { if (mounted) setProfiles(stored); });
+    return () => { mounted = false; };
+  }, []));
 
   const activeProfile = findMatchingProfile(profiles, { serverUrl: settings.serverUrl, username: settings.username });
   const isReconnecting = connection.status === 'connecting';
+  function manageConnect(profile: ConnectionProfile) {
+    connectSetup.selectControlPlane(profile.connect!.controlPlaneUrl);
+    onManageConnect?.();
+  }
 
   async function persist(next: ConnectionProfile[]) {
     setProfiles(next);
@@ -253,9 +260,9 @@ export function ConnectionProfiles({ palette }: { palette: Palette }) {
             onPress={() => void connect()}>
             {t('common:actions.reconnect')}
           </Button>
-          <Button testID={`connection-edit-${profile.id}`} mode="outlined" onPress={() => void handleEditProfile(profile)}>
+          {profile.connect ? onManageConnect ? <Button mode="outlined" onPress={() => manageConnect(profile)}>{t('settings:connect.manage')}</Button> : null : <Button testID={`connection-edit-${profile.id}`} mode="outlined" onPress={() => void handleEditProfile(profile)}>
             {t('common:actions.edit')}
-          </Button>
+          </Button>}
         </>
       ) : (
         <>
@@ -267,9 +274,9 @@ export function ConnectionProfiles({ palette }: { palette: Palette }) {
             onPress={() => void handleConnect(profile)}>
             {t('common:actions.connect')}
           </Button>
-          <Button testID={`connection-edit-${profile.id}`} mode="outlined" onPress={() => void handleEditProfile(profile)}>
+          {profile.connect ? onManageConnect ? <Button mode="outlined" onPress={() => manageConnect(profile)}>{t('settings:connect.manage')}</Button> : null : <Button testID={`connection-edit-${profile.id}`} mode="outlined" onPress={() => void handleEditProfile(profile)}>
             {t('common:actions.edit')}
-          </Button>
+          </Button>}
           <Button testID={`connection-delete-${profile.id}`} mode="text" textColor={palette.danger} onPress={() => handleDelete(profile)}>
             {t('common:actions.delete')}
           </Button>

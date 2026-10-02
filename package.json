@@ -5,7 +5,7 @@
   "scripts": {
     "start": "expo start",
     "start:dev-client": "expo start --dev-client",
-    "build:web:ci": "expo export --platform web --output-dir dist-e2e",
+    "build:web:ci": "expo export --platform web --output-dir dist-e2e --clear",
     "serve:web:ci": "npm run build:web:ci && serve -s dist-e2e -l 19006",
     "android": "expo run:android",
     "web": "expo start --web",
@@ -20,6 +20,7 @@
     "test:i18n": "node ./tests/i18n.test.mjs",
     "test:i18n:loose": "node ./tests/i18n.test.mjs --allow-missing",
     "test:architecture": "node ./tests/architecture.test.mjs",
+    "test:anr": "node ./tests/anr-regressions.test.mjs",
     "gen:i18n": "node ./scripts/gen-i18n.mjs",
     "test:record-preservation": "node ./tests/record-preservation.test.mjs",
     "test:provider-utils": "node ./tests/provider-utils.test.mjs",
@@ -37,12 +38,13 @@
     "test:workspace-patch": "node ./tests/workspace-patch.test.mjs",
     "test:onboarding": "node ./tests/onboarding.test.mjs",
     "test:e2e:web": "playwright test",
-    "test:ci:static": "npm run lint && npm run typecheck && npm run test:usage && npm run test:chat-appearance && npm run test:v2-mappers && npm run test:format && npm run test:i18n && npm run test:provider-utils && npm run test:voice-errors && npm run test:workspace-patch && npm run test:persistence-hydration && npm run test:credential-storage && npm run test:session-cache && npm run test:favorites && npm run test:connection-scope && npm run test:connection-profiles && npm run test:last-session && npm run test:active-sessions && npm run test:notifications && npm run test:notifications-background && npm run test:onboarding && npm run test:architecture",
+    "test:ci:static": "npm run lint && npm run typecheck && npm run test:usage && npm run test:chat-appearance && npm run test:v2-mappers && npm run test:format && npm run test:i18n && npm run test:provider-utils && npm run test:voice-errors && npm run test:workspace-patch && npm run test:persistence-hydration && npm run test:credential-storage && npm run test:session-cache && npm run test:favorites && npm run test:connection-scope && npm run test:connection-profiles && npm run test:last-session && npm run test:active-sessions && npm run test:notifications && npm run test:notifications-background && npm run test:onboarding && npm run test:connect && npm run test:anr && npm run test:architecture",
     "build:android": "node ./scripts/build-android-release.mjs",
     "build:development:android": "node ./scripts/build-android-development.mjs",
     "ios": "expo run:ios",
     "prebuild:ios": "expo prebuild --platform ios --non-interactive",
-    "build:ios:local": "node ./scripts/build-ios-release.mjs"
+    "build:ios:local": "node ./scripts/build-ios-release.mjs",
+    "test:connect": "node ./tests/connect.test.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -57,6 +59,7 @@
     "expo-background-task": "~57.0.19",
     "expo-brightness": "~57.0.2",
     "expo-build-properties": "~1.0.10",
+    "expo-camera": "~57.0.6",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.19",
     "expo-dev-client": "~57.0.19",

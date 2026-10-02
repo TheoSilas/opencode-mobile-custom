@@ -31,6 +31,13 @@ The same root layout also lazily initializes two side-effect systems on non-web,
 
 That makes the root layout responsible for app shell concerns only. It does not hold feature state.
 
+`app.config.ts` extends the generated Android `MainActivity` to disable system
+content capture on Android 10+ during `onCreate`. This avoids content-capture
+accessibility-node traversals over the app's text hierarchy; screen-reader
+accessibility and screenshots remain available. The API supports the current
+target SDK (36); revisit this opt-out before targeting SDK 37, where Android
+deprecates `setContentCaptureEnabled` for newly targeted apps.
+
 ## Navigation Architecture
 
 The app has one tab group in `app/(tabs)/_layout.tsx`:
@@ -193,6 +200,8 @@ they cannot silently regrow.
   Fetch sessions, messages, diffs, todos, commands, and perform session lifecycle actions. Also lists the cross-workspace active-session snapshot through an unscoped client.
 - `providers/services/capabilities-service.ts`
   Discover config, providers, provider auth methods, model capabilities, and agents.
+  Catalog and speech-voice label sorting share `lib/compare-labels.ts`'s
+  `Intl.Collator`, avoiding a native collator allocation per comparison on Hermes.
 - `providers/services/workspace-service.ts`
   File search/read/status, VCS patch, and experimental worktree requests.
 - `providers/services/mcp-service.ts`
@@ -216,6 +225,11 @@ they cannot silently regrow.
   Direct aliases for generated v2 SDK protocol types.
 
 ### Connection Identity And Credentials
+
+The optional development-only Connect method composes `use-connect-state.ts`
+inside the provider, validates pairing/account protocol in `lib/connect.ts`, and
+activates Basic-auth profiles through `switchConnection()`. The `pair` route is
+independent of onboarding completion. See [Connect pilot](connect.md).
 
 - `lib/connection-scope.ts`
   Canonical, deterministic, password-free connection identity (`getConnectionScope`). Every server-scoped storage key, favorite, and pending notification record derives from it; scheme/host are normalized while URL path and query casing are preserved.

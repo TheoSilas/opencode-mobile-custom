@@ -5,7 +5,7 @@ import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 
-import { resolveConnectionPassword } from '@/lib/connection-profiles';
+import { resolveConnectionCredentials } from '@/lib/connection-profiles';
 import { i18n } from '@/lib/i18n';
 import { buildClient, detectServerContract, type OpencodeConnectionSettings } from '@/lib/opencode/client';
 import {
@@ -130,11 +130,11 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(CHAT_COMPLETION_TASK_NAM
         // Resolve the credentials of the connection that created the record.
         // The currently active connection is only used when this record
         // belongs to it; another server's task must never borrow its password.
-        const password = await resolveConnectionPassword({
+        const credentials = await resolveConnectionCredentials({
           serverUrl: pending.settings.serverUrl,
           username: pending.settings.username,
         }).catch(() => undefined);
-        if (password === undefined) {
+        if (credentials === undefined) {
           // The profile or active connection that owns this task is not
           // resolvable right now (for example the user switched away from an
           // unsaved connection). Keep the record and retry on a later run
@@ -146,7 +146,7 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(CHAT_COMPLETION_TASK_NAM
           const settings: OpencodeConnectionSettings = {
             serverUrl: pending.settings.serverUrl,
             username: pending.settings.username,
-            password,
+            ...credentials,
             directory: pending.projectPath,
           };
           const contract = (await detectServerContract(settings).catch(() => ({ contract: 'v1' as const }))).contract;

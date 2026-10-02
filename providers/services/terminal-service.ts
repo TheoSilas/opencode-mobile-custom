@@ -1,4 +1,5 @@
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client';
+import { Platform } from 'react-native';
 
 import { buildPtyWebSocketUrl, type OpencodeConnectionSettings, type ServerContract } from '@/lib/opencode/client';
 import { requireData } from '@/providers/services/require-data';
@@ -36,4 +37,11 @@ export function getTerminalWebSocketUrl(
   contract?: ServerContract,
 ) {
   return buildPtyWebSocketUrl(settings, ptyId, options, contract);
+}
+
+export function openTerminalWebSocket(url: string, authorization?: string) {
+  if (Platform.OS === 'web') return new WebSocket(url);
+  // React Native's constructor accepts handshake headers; the DOM type does not.
+  const NativeSocket = WebSocket as unknown as { new(url: string, protocols: undefined, options: { headers: Record<string, string> }): WebSocket };
+  return new NativeSocket(url, undefined, { headers: authorization ? { Authorization: authorization } : {} });
 }

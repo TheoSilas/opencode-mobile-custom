@@ -53,13 +53,23 @@ const connectionScopeUri = await transpileToDataUri('lib/connection-scope.ts', [
   [/from 'base-64'/g, `from "${base64Uri}"`],
 ]);
 const storageKeysUri = await transpileToDataUri('lib/storage-keys.ts');
+globalThis.__profilesTestConnectConfig = { extra: { connectPilot: { enabled: true, controlPlanes: ['https://api.getopencode.app'] } } };
+const constantsStubUri = `data:text/javascript,${encodeURIComponent(`export default { get expoConfig() { return globalThis.__profilesTestConnectConfig; } };`)}`;
+const connectUri = await transpileToDataUri('lib/connect.ts', [
+  [/from 'expo\/fetch'/g, `from "data:text/javascript,export const fetch = (...args) => globalThis.fetch(...args);"`],
+  [/from 'expo-constants'/g, `from "${constantsStubUri}"`],
+  [/from 'expo-secure-store'/g, `from "${secureStoreStubUri}"`],
+  [/from 'react-native'/g, `from "${reactNativeStubUri}"`],
+]);
 const connectionPasswordUri = await transpileToDataUri('lib/connection-password.ts', [
+  [/from '@\/lib\/connect'/g, `from "${connectUri}"`],
   [/from '@react-native-async-storage\/async-storage'/g, `from "${asyncStorageStubUri}"`],
   [/from 'expo-secure-store'/g, `from "${secureStoreStubUri}"`],
   [/from 'react-native'/g, `from "${reactNativeStubUri}"`],
   [/from '@\/lib\/storage-keys'/g, `from "${storageKeysUri}"`],
 ]);
 const connectionProfilesUri = await transpileToDataUri('lib/connection-profiles.ts', [
+  [/from '@\/lib\/connect'/g, `from "${connectUri}"`],
   [/from '@react-native-async-storage\/async-storage'/g, `from "${asyncStorageStubUri}"`],
   [/from 'expo-secure-store'/g, `from "${secureStoreStubUri}"`],
   [/from 'react-native'/g, `from "${reactNativeStubUri}"`],
@@ -79,8 +89,10 @@ const {
   getProfilePassword,
   loadConnectionProfiles,
   resolveConnectionPassword,
+  resolveConnectionCredentials,
   saveConnectionProfiles,
   saveProfilePassword,
+  saveConnectProfile,
   toConnectionProfile,
 } = await import(connectionProfilesUri);
 
@@ -235,4 +247,46 @@ async function setActiveConnection(settings) {
   globalThis.__profilesTestPlatformOS = 'android';
 }
 
+// Connect re-pairing replaces only this control-plane/machine's profile and
+// removes the previous secret. Metadata remains explicit and password-free.
+{
+  resetStorage();
+  const claim = { server_url: 'https://m.example.test', machine_id: 'machine-1', machine_name: 'My Mac', device_id: 'device-1', device_secret: 'signed-secret-1', expires_at: new Date(Date.now() + 60_000).toISOString() };
+  const first = await saveConnectProfile('https://api.getopencode.app', claim);
+  assert.equal(await resolveConnectionPassword(first), 'signed-secret-1');
+  assert.deepEqual(await resolveConnectionCredentials(first), { password: 'signed-secret-1', connect: first.connect }, 'Background clients must carry expiry metadata into their fetch guard.');
+  const next = await saveConnectProfile('https://api.getopencode.app', { ...claim, device_id: 'device-2', device_secret: 'signed-secret-2' });
+  assert.equal(await getProfilePassword(first.id), '');
+  assert.deepEqual(await loadConnectionProfiles(), [next]);
+  assert.equal(await resolveConnectionPassword(next), 'signed-secret-2');
+  for (const value of globalThis.__profilesTestAsyncStorage.values()) assert.ok(!value.includes('signed-secret'));
+  assert.equal(toConnectionProfile({ ...next, connect: { ...next.connect, expiresAt: 'bad' } }), undefined);
+  assert.equal(toConnectionProfile({ ...next, username: 'another-device' }), undefined);
+  await setActiveConnection({ serverUrl: next.serverUrl, username: next.username, connect: next.connect });
+  await secureStore.setItemAsync(passwordStorageKey, 'signed-secret-2');
+  await saveConnectionProfiles([{ ...next, connect: { ...next.connect, expiresAt: '2000-01-01T00:00:00Z' } }]);
+  assert.equal(await resolveConnectionPassword(next), undefined, 'Expired profiles cannot fall back to active credentials.');
+  await saveConnectionProfiles([]);
+  await setActiveConnection({ serverUrl: next.serverUrl, username: next.username, connect: { ...next.connect, expiresAt: '2000-01-01T00:00:00Z' } });
+  assert.equal(await resolveConnectionPassword(next), undefined, 'Active-only Connect credentials also enforce expiry.');
+
+  // A failed metadata write rolls back the new secret and keeps the old profile.
+  resetStorage();
+  const kept = await saveConnectProfile('https://api.getopencode.app', claim);
+  const originalSet = asyncStorage.setItem;
+  asyncStorage.setItem = async (key, value) => {
+    if (key === storageKeys.CONNECTION_PROFILES_STORAGE_KEY) throw new Error('disk full');
+    return originalSet(key, value);
+  };
+  await assert.rejects(saveConnectProfile('https://api.getopencode.app', { ...claim, device_id: 'replacement' }), /disk full/);
+  asyncStorage.setItem = originalSet;
+  assert.deepEqual(await loadConnectionProfiles(), [kept]);
+  assert.equal(globalThis.__profilesTestSecureStore.size, 1);
+  const originalGet = asyncStorage.getItem;
+  asyncStorage.getItem = async () => { throw new Error('storage unavailable'); };
+  await assert.rejects(saveConnectProfile('https://api.getopencode.app', claim), /storage unavailable/);
+  asyncStorage.getItem = originalGet;
+  assert.deepEqual(await loadConnectionProfiles(), [kept]);
+  assert.equal(globalThis.__profilesTestSecureStore.size, 1, 'A read failure cannot overwrite existing profiles or secrets.');
+}
 console.log('connection profile tests passed');

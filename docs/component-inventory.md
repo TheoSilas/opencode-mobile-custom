@@ -167,6 +167,7 @@ type ChatComposerProps = {
 ### Responsibility
 
 - render the searchable, provider-grouped configured-model picker
+- virtualize model rows with a bounded-height native `SectionList`, so opening a large catalog does not mount every model's text views at once
 - pin a `Selected` and `Recent` section above the provider groups (hidden while searching)
 - own only local modal visibility and search-query state
 - return the selected `ModelOption` to the composer, which persists it through the provider
@@ -395,6 +396,10 @@ This is important to parity because the chat layout is intentionally dense and h
 - auto-scroll provider-capped output; it is not a VT terminal emulator
 
 ## Settings Components
+
+`connect-panel.tsx` renders development-only pairing, scanner, profile,
+and machine-management UI. `app/pair.tsx` ingests links and navigates only.
+Domain state/actions come from `useConnection().connectSetup`; see [Connect](connect.md).
 
 ## `components/settings/settings-sections.tsx`
 

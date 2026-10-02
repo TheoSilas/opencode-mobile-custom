@@ -1,4 +1,5 @@
-import { withAndroidManifest, withAppBuildGradle } from '@expo/config-plugins';
+import { withAndroidManifest, withAppBuildGradle, withMainActivity } from '@expo/config-plugins';
+import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 import type { ExpoConfig } from 'expo/config';
 
 function env(name: string) {
@@ -48,9 +49,28 @@ const withAndroidAppConfig = (config: ExpoConfig) => {
     return config;
   });
 
-  if (isDevelopmentVariant) return withManifest;
+  const withActivity = withMainActivity(withManifest, (config) => {
+    if (config.modResults.language !== 'kt') {
+      throw new Error('The Android content-capture opt-out requires the generated Kotlin MainActivity.');
+    }
+    config.modResults.contents = mergeContents({
+      src: config.modResults.contents,
+      tag: 'opencode-disable-content-capture',
+      anchor: /super\.onCreate\(null\)/,
+      offset: 1,
+      comment: '    //',
+      newSrc: `    // Avoid content-capture accessibility traversals of large text hierarchies.
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+      getSystemService(android.view.contentcapture.ContentCaptureManager::class.java)
+        ?.setContentCaptureEnabled(false)
+    }`,
+    }).contents;
+    return config;
+  });
 
-  return withAppBuildGradle(withManifest, (config) => {
+  if (isDevelopmentVariant) return withActivity;
+
+  return withAppBuildGradle(withActivity, (config) => {
     const legacyFile = 'getDefaultProguardFile("proguard-android.txt")';
     const optimizedFile = 'getDefaultProguardFile("proguard-android-optimize.txt")';
     const contents = config.modResults.contents;
@@ -88,7 +108,7 @@ const config: ExpoConfig = {
     favicon: './assets/images/favicon.png',
   },
   ios: {
-    bundleIdentifier: 'app.getopencode.mobile',
+    bundleIdentifier: isDevelopmentVariant ? 'app.getopencode.mobile.dev' : 'app.getopencode.mobile',
     buildNumber: '40',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -104,6 +124,10 @@ const config: ExpoConfig = {
     'expo-notifications',
     'expo-background-task',
     'expo-web-browser',
+    ...(isDevelopmentVariant ? [['expo-camera', {
+      cameraPermission: 'Allow $(PRODUCT_NAME) to scan an OpenCode Connect pairing QR code.',
+      recordAudioAndroid: false,
+    }] as [string, object]] : []),
     [
       // Exposes the shipped app languages to the OS so iOS/Android surface the
       // correct per-app language choices. Extend both lists with every language
@@ -150,6 +174,14 @@ const config: ExpoConfig = {
     router: {},
     e2eMode: isE2EMode,
     e2eServerUrl,
+    connectPilot: {
+      enabled: isDevelopmentVariant,
+      testing: isDevelopmentVariant && isE2EMode,
+      testUserToken: isDevelopmentVariant ? env('EXPO_CONNECT_TEST_USER_TOKEN') : undefined,
+      controlPlanes: isDevelopmentVariant
+        ? ['https://api.getopencode.app']
+        : [],
+    },
   },
 };
 

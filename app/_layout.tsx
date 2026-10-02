@@ -12,6 +12,7 @@ import { getPaperTheme } from '@/constants/paper-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { installGlobalErrorHandler } from '@/lib/error-reporting';
 import '@/lib/i18n';
+import { isConnectEnabled } from '@/lib/connect';
 import { useOnboarding } from '@/providers/opencode-contexts';
 import { OpencodeProvider } from '@/providers/opencode-provider';
 
@@ -92,6 +93,9 @@ function RootNavigator() {
       </Stack.Protected>
       <Stack.Protected guard={onboardingVisible}>
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={isConnectEnabled()}>
+        <Stack.Screen name="pair" options={{ headerShown: false }} />
       </Stack.Protected>
     </Stack>
   );

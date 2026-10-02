@@ -74,9 +74,10 @@ const clientStubUri = `data:text/javascript,${encodeURIComponent(`
   export async function detectServerContract() { return { contract: 'v1' }; }
 `)}`;
 const connectionProfilesStubUri = `data:text/javascript,${encodeURIComponent(`
-  export async function resolveConnectionPassword(identity) {
+  export async function resolveConnectionCredentials(identity) {
     globalThis.__notificationsTestResolutions.push(identity);
-    return globalThis.__notificationsTestResolver(identity);
+    const value = globalThis.__notificationsTestResolver(identity);
+    return typeof value === 'string' ? { password: value } : value;
   }
 `)}`;
 const i18nStubUri = `data:text/javascript,${encodeURIComponent(`
@@ -155,8 +156,9 @@ function readPending() {
   seedPending();
 
   // A resolves from its saved profile; B resolves from the active connection.
+  const connect = { controlPlaneUrl: 'https://api.getopencode.app', machineId: 'machine-a', machineName: 'A', deviceId: 'alice', expiresAt: '2030-01-01T00:00:00Z' };
   globalThis.__notificationsTestResolver = ({ serverUrl }) => (
-    serverUrl.includes('a.example') ? 'secret-a' : 'secret-b'
+    serverUrl.includes('a.example') ? { password: 'secret-a', connect } : 'secret-b'
   );
   globalThis.__notificationsTestClientFactory = (settings) => ({
     session: {
@@ -178,6 +180,7 @@ function readPending() {
   const aBuild = globalThis.__notificationsTestBuilds.find(({ settings }) => settings.serverUrl.includes('a.example'));
   assert.equal(aBuild.settings.password, 'secret-a');
   assert.equal(aBuild.settings.directory, '/repo');
+  assert.deepEqual(aBuild.settings.connect, connect, 'Background clients preserve Connect expiry and transport guards.');
   const bBuild = globalThis.__notificationsTestBuilds.find(({ settings }) => settings.serverUrl.includes('b.example'));
   assert.equal(bBuild.settings.password, 'secret-b');
 }

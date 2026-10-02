@@ -15,7 +15,7 @@ export default function OnboardingConnectScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const palette = Colors[useColorScheme() ?? 'light'];
-  const { settings, switchConnection } = useConnection();
+  const { settings, switchConnection, connectSetup } = useConnection();
 
   // Seeded from the current settings so re-running the assistant from Settings
   // shows the live values. Failed attempts keep whatever the user typed.
@@ -110,6 +110,7 @@ export default function OnboardingConnectScreen() {
         autoCorrect={false}
         placeholder="http://192.168.1.10:4096"
       />
+      {connectSetup.enabled ? <Button testID="onboarding-pair-connect" mode="outlined" icon="qrcode-scan" onPress={() => router.push('/pair')}>{t('settings:connect.entry')}</Button> : null}
       <TextInput
         mode="outlined"
         testID="onboarding-server-username"
