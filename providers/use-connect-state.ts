@@ -64,11 +64,11 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   const resumeRef = useRef<() => Promise<boolean | void>>(async () => undefined);
   const refreshRef = useRef<() => Promise<boolean | void>>(async () => undefined);
 
-  const perform = useCallback(async (action: () => Promise<boolean | void>) => {
+  const perform = useCallback(async (action: () => Promise<boolean | void>, preserveError = false) => {
     if (!enabled || lock.current) return false;
     lock.current = true;
     setBusy(true);
-    setError(undefined);
+    if (!preserveError) setError(undefined);
     setNotice(undefined);
     setCanRetry(false);
     try { return (await action()) !== false; }
@@ -300,7 +300,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
       if (recoverable) {
         if (await finishPurchase(recoverable)) await resumeRef.current();
       }
-    }).then((ok) => { if (current()) setInitialization(ok ? 'ready' : 'error'); });
+    }, true).then((ok) => { if (current()) setInitialization(ok ? 'ready' : 'error'); });
     return () => { scopeGeneration.current += 1; subscriptions.forEach((subscription) => subscription.remove()); void apiRef.current?.endConnection(); apiRef.current = undefined; };
   }, [availablePurchases, controlPlaneUrl, enabled, finishPurchase, isHydrated, initializationAttempt, loadCatalog, perform, store]);
 
@@ -389,7 +389,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   }), [continueAfterPurchase, perform, recoverSession]);
 
   const retry = useCallback(() => {
-    if (!apiRef.current) { setInitialization('loading'); setInitializationAttempt((current) => current + 1); return Promise.resolve(false); }
+    if (!apiRef.current) { setError(undefined); setInitialization('loading'); setInitializationAttempt((current) => current + 1); return Promise.resolve(false); }
     return perform(async () => {
     if (pendingPurchase.current) { await finishPurchase(pendingPurchase.current.purchase); return continueAfterPurchase(); }
     if (!catalogRef.current || !offers.length) return loadCatalog();

@@ -47,8 +47,7 @@ async function submitLink(page, link) {
     await page.goto(`/pair?${new URL(link).searchParams}`);
     await expect(page).toHaveURL(/\/pair$/);
     return;
-  }
-  else await page.getByTestId('connect-link-options').click();
+  } else await page.getByTestId('connect-link-options').click();
   await page.getByTestId('connect-pairing-link').fill(link);
   await page.getByTestId('connect-open-link').click();
 }
