@@ -68,9 +68,9 @@ The camera unmounts during operations, overlays, lost focus and backgrounding.
 Invalid/untrusted links show recoverable errors; dismissing resumes scanning.
 Permission denial/unavailable cameras retain device Settings, Retry and a
 pairing-link fallback. The settings FAB opens the trusted-control-plane sheet;
-it retains the provider's environment-change restrictions. The subscription
-and error sheets also expose this setting so it remains reachable while those
-sheets cover the FAB. Machine management lives in a separate `pair?mode=manage`
+it retains the provider's environment-change restrictions. The subscription sheet, including store setup and purchase errors, contains
+only purchase/Restore content and recovery controls. Its settings FAB remains
+outside the sheet; pairing-link fallback belongs to the pairing surface. Machine management lives in a separate `pair?mode=manage`
 view, reached through saved profiles' Manage Connect or Your machines after
 Restore. Production web offers Manual and explains native Connect availability;
 only the existing web E2E harness enables mocked Connect.

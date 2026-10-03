@@ -33,9 +33,7 @@ async function openPair(page, completed = true, id = 'pair-1') {
   await expect(page.getByTestId('connect-token-required')).toHaveCount(0);
 }
 async function openControl(page) {
-  const subscription = page.getByTestId('connect-subscription-settings');
-  if (await subscription.isVisible()) await subscription.click();
-  else if (await page.getByTestId('connect-error-settings').isVisible()) await page.getByTestId('connect-error-settings').click();
+  if (await page.getByTestId('connect-error-settings').isVisible()) await page.getByTestId('connect-error-settings').click();
   else await page.getByTestId('connect-settings').click();
   await expect(page.getByTestId('connect-control-plane')).toBeVisible();
 }
@@ -45,7 +43,11 @@ async function closeControl(page) {
 async function submitLink(page, link) {
   const errorSheet = page.getByTestId('connect-error-sheet');
   if (await errorSheet.isVisible()) await errorSheet.getByRole('button', { name: 'Open pairing link', exact: true }).click();
-  else if (await page.getByTestId('connect-subscription-link').isVisible()) await page.getByTestId('connect-subscription-link').click();
+  else if (await page.getByTestId('connect-subscription-sheet').isVisible()) {
+    await page.goto(`/pair?${new URL(link).searchParams}`);
+    await expect(page).toHaveURL(/\/pair$/);
+    return;
+  }
   else await page.getByTestId('connect-link-options').click();
   await page.getByTestId('connect-pairing-link').fill(link);
   await page.getByTestId('connect-open-link').click();
@@ -450,6 +452,9 @@ test('Settings has one creation entry and both methods lead through the shared c
   await page.getByTestId('connection-method-connect').click();
   await expect(page.getByTestId('connect-purchase')).toBeEnabled();
   await expect(page.getByRole('tab', { name: 'Settings' })).not.toBeVisible();
+  const subscriptionSheet = page.getByTestId('connect-subscription-sheet');
+  await expect(subscriptionSheet.getByRole('button', { name: 'Trusted control plane', exact: true })).toHaveCount(0);
+  await expect(subscriptionSheet.getByRole('button', { name: 'Open pairing link', exact: true })).toHaveCount(0);
   await page.screenshot({ path: '/tmp/opencode-add-connection-subscription.png' });
   await page.getByTestId('connect-subscription-sheet').getByText('Close', { exact: true }).click();
   await page.getByTestId('connection-method-manual').click();
@@ -460,4 +465,21 @@ test('Settings has one creation entry and both methods lead through the shared c
   const profiles = await page.evaluate(() => JSON.parse(localStorage.getItem('opencode-mobile.connection-profiles')));
   expect(profiles).toHaveLength(1); expect(profiles[0].connect).toBeUndefined();
   expect(await events(page)).not.toContain('purchase');
+});
+
+
+test('store setup errors keep subscription recovery separate from pairing settings', async ({ page }) => {
+  await storeFixture(page);
+  await mockControlPlane(page, { productId: 'unavailable.product' });
+  await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
+  await page.goto('/pair');
+  const sheet = page.getByTestId('connect-subscription-sheet');
+  await expect(sheet.getByTestId('connect-error')).toContainText('No matching Connect products');
+  await expect(sheet.getByTestId('connect-retry')).toBeVisible();
+  await expect(sheet.getByTestId('connect-purchase')).toBeDisabled();
+  await expect(sheet.getByTestId('connect-restore')).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Trusted control plane', exact: true })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Open pairing link', exact: true })).toHaveCount(0);
+  await openControl(page);
+  await expect(page.getByTestId('connect-control-plane')).toBeEditable();
 });
