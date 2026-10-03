@@ -84,11 +84,11 @@ provider file size, the combined domain-context surface, and a rule that
 `app/` and `components/` never call the network or profile/credential persistence directly. It fails with a
 pointed message when a limit is outgrown, so the fix is to extract a domain or
 move code to the right layer rather than raise the number.
-It also evaluates each input surface's keyboard-avoidance policy for Android,
-iOS, and web: native Android resizing must not be combined with JS height
-adjustment, while iOS keeps padding. `test:anr` verifies that both app variants
-retain the native `resize` configuration. These are configuration checks; they
-do not reproduce a physical keyboard or prove that issue #62 is resolved.
+It also checks that each input surface uses `behavior="padding"` on all
+platforms to avoid keyboard overlap without explicit height changes.
+`test:anr` verifies that both app variants retain the native `resize`
+configuration. These are configuration checks; they do not reproduce a
+physical keyboard or prove that issue #62 is resolved.
 
 For keyboard-layout changes, validate Android with a Bluetooth keyboard and
 the soft keyboard disabled, then forced visible: focus and type in Chat,

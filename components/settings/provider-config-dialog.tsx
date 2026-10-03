@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Button, Chip, HelperText, RadioButton, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -47,7 +47,7 @@ export function ProviderConfigDialog({
   const { t } = useTranslation();
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onDismiss}>
-      <KeyboardAvoidingView style={[styles.screen, { backgroundColor: palette.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={[styles.screen, { backgroundColor: palette.background }]} behavior="padding">
       <Appbar.Header statusBarHeight={0} style={{ backgroundColor: palette.surface, paddingTop: insets.top, height: 64 + insets.top }}>
         <Appbar.BackAction accessibilityLabel={t('settings:providers.cancelSetup')} onPress={onDismiss} />
         <Appbar.Content title={t('settings:providers.configureProvider', { provider: selectedProviderLabel })} />

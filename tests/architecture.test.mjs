@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 
 // Ratchets that keep the documented layering from eroding. When a limit is
@@ -63,21 +62,14 @@ for (const dir of layerDirs) {
     if (networkCalls.test(source) || persistenceCalls.test(source)) {
       offenders.push(path.relative(root, file));
     }
-    // Android's adjustResize already handles the IME, including hardware-keyboard
-    // toolbars. A second JS resize can feed layout changes back into IME events.
+    // adjustResize alone can leave keyboard overlap on edge-to-edge Android.
+    // Padding avoids the explicit height/flex changes that caused flicker.
     if (source.includes('KeyboardAvoidingView')) {
       const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
       function visit(node) {
         if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(ast) === 'KeyboardAvoidingView') {
-          const behavior = node.attributes.properties.find((prop) => prop.name?.getText(ast) === 'behavior')?.initializer?.expression;
-          assert.ok(behavior, `${file}: keyboard avoidance must declare its platform policy`);
-          for (const os of ['android', 'ios', 'web']) {
-            assert.equal(
-              runInNewContext(behavior.getText(ast), { Platform: { OS: os } }),
-              os === 'ios' ? 'padding' : undefined,
-              `${file}: ${os} keyboard layout must have a single resize owner`,
-            );
-          }
+          const behavior = node.attributes.properties.find((prop) => prop.name?.getText(ast) === 'behavior')?.initializer;
+          assert.equal(behavior?.text, 'padding', `${file}: keyboard avoidance must use padding on all platforms`);
           keyboardSurfaces += 1;
         }
         ts.forEachChild(node, visit);

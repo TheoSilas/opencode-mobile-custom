@@ -126,7 +126,7 @@ export default function WorkspaceScreen() {
           {workspaceFiles.map((path) => <List.Item key={path} title={path} onPress={() => void openWorkspaceFile(path).then(() => { setEditingFile(undefined); setFileDetailsOpen(true); }).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.openFile')))} />)}
           {selectedWorkspaceFile ? (
             <Modal visible={fileDetailsOpen} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setFileDetailsOpen(false)}>
-              <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+              <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.background }} behavior="padding">
                 <Appbar.Header statusBarHeight={0} style={{ backgroundColor: palette.surface, paddingTop: insets.top, height: 64 + insets.top }}>
                   <Appbar.BackAction accessibilityLabel={t('workspace:files.close')} onPress={() => setFileDetailsOpen(false)} />
                   <Appbar.Content title={selectedWorkspaceFile.path.split('/').pop() || selectedWorkspaceFile.path} subtitle={selectedWorkspaceFile.path} />

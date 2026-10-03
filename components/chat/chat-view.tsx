@@ -480,7 +480,7 @@ export function ChatView() {
     <>
       <KeyboardAvoidingView
         style={[styles.screen, { backgroundColor: palette.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}>
         <ChatHeader
           activeProjectLabel={activeProject?.label}

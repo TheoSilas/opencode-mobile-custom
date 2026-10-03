@@ -555,11 +555,13 @@ This is one of the densest parts of the architecture and would need careful pari
 
 ## Presentation Architecture Notes
 
-- Android input screens and full-screen forms rely on native `adjustResize`
-  (`android.softwareKeyboardLayoutMode: 'resize'`). Their `KeyboardAvoidingView`
-  behavior is `undefined` on Android/web and `padding` on iOS. Adding JS height
-  adjustment on Android creates a second resize owner and can feed IME/layout
-  changes back into each other with hardware-keyboard toolbars.
+- Input screens and full-screen forms use `KeyboardAvoidingView` with `padding`
+  on all platforms. Android retains native `adjustResize`
+  (`android.softwareKeyboardLayoutMode: 'resize'`), but edge-to-edge layout does
+  not guarantee root resizing, so avoidance must remain enabled. Padding handles
+  keyboard overlap while preserving the outer flex frame; explicit `height`
+  adjustment can feed IME/layout changes back into each other with
+  hardware-keyboard toolbars.
 - The app uses custom theme tokens from `constants/theme.ts` and maps them into React Native Paper in `constants/paper-theme.ts`.
 - Markdown rendering is intentionally narrow and custom, not library-based.
 - Diff rendering is custom and optimized for readable in-app inspection, not full git-style fidelity.

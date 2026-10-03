@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConnectPanel } from '@/components/settings/connect-panel';
@@ -23,7 +23,7 @@ export default function PairScreen() {
   }, [acceptLink, isHydrated, params, router]);
   if (!connectSetup.enabled) return null;
   return <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20 }}>
         <ConnectPanel setup={connectSetup} onConnected={() => router.replace(!onboardingCompleted || onboardingActive ? '/onboarding/workspace' : '/(tabs)/workspace')} onClose={() => router.replace(!onboardingCompleted || onboardingActive ? '/onboarding/connect' : '/(tabs)/settings')} />
       </ScrollView>
