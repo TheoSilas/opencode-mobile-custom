@@ -5,8 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, HelperText, Text } from 'react-native-paper';
 
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
 export function ConnectScanner({ onScan }: { onScan: (link: string) => void }) {
   const { t } = useTranslation();
+  const palette = Colors[useColorScheme() ?? 'light'];
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraError, setCameraError] = useState(false);
   const [ready, setReady] = useState(false);
@@ -31,7 +35,7 @@ export function ConnectScanner({ onScan }: { onScan: (link: string) => void }) {
     <View style={styles.screen}>
       {!permission ? <ActivityIndicator accessibilityLabel={t('settings:connect.cameraLoading')} /> : !permission.granted ? (
         <>
-          <Text>{t('settings:connect.cameraPermission')}</Text>
+          <Text style={{ color: palette.text }}>{t('settings:connect.cameraPermission')}</Text>
           <Button onPress={() => permission.canAskAgain ? void requestPermission() : void Linking.openSettings()}>{permission.canAskAgain ? t('settings:connect.allowCamera') : t('settings:connect.openSettings')}</Button>
         </>
       ) : cameraError ? <>

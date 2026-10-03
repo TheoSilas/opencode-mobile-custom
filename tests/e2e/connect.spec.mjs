@@ -430,3 +430,34 @@ test('invalid and untrusted QR links can be replaced with a valid subscriber lin
   await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
   expect(state.pairClaims).toBe(1); expect(await events(page)).not.toContain('purchase');
 });
+
+test('Settings has one creation entry and both methods lead through the shared chooser', async ({ page }) => {
+  await storeFixture(page); await mockControlPlane(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 }));
+    localStorage.setItem('opencode-mobile.settings', JSON.stringify({ serverUrl: 'http://127.0.0.1:44096', username: '', directory: '' }));
+  });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/settings');
+  await page.getByRole('button', { name: /^Connection/ }).click();
+  await expect(page.getByTestId('connection-pair-connect')).toHaveCount(0);
+  await expect(page.getByTestId('connection-row-current')).toBeVisible();
+  await page.getByTestId('connection-add-button').click();
+  await expect(page.getByTestId('connection-method-connect')).toHaveAttribute('role', 'button');
+  await expect(page.getByTestId('connection-method-manual')).toHaveAttribute('role', 'button');
+  await page.screenshot({ path: '/tmp/opencode-add-connection-chooser.png' });
+  await page.getByTestId('connection-method-connect').click();
+  await expect(page.getByTestId('connect-purchase')).toBeEnabled();
+  await expect(page.getByRole('tab', { name: 'Settings' })).not.toBeVisible();
+  await page.screenshot({ path: '/tmp/opencode-add-connection-subscription.png' });
+  await page.getByTestId('connect-subscription-sheet').getByText('Close', { exact: true }).click();
+  await page.getByTestId('connection-method-manual').click();
+  await page.getByTestId('connection-profile-name-input').fill('Manual server');
+  await page.getByTestId('connection-profile-url-input').fill(SERVER);
+  await page.getByTestId('connection-profile-save-confirm').click();
+  await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
+  const profiles = await page.evaluate(() => JSON.parse(localStorage.getItem('opencode-mobile.connection-profiles')));
+  expect(profiles).toHaveLength(1); expect(profiles[0].connect).toBeUndefined();
+  expect(await events(page)).not.toContain('purchase');
+});

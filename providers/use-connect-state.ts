@@ -32,6 +32,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   const store = getConnectStore();
   const [initialization, setInitialization] = useState<'loading' | 'ready' | 'error'>('loading');
   const autoPair = useRef(false);
+  const linkLock = useRef(false);
   const [session, setSession] = useState<ConnectSession>();
   const [pairing, setPairing] = useState<ConnectPairing>();
   const [phase, setPhase] = useState<'idle' | 'catalog' | 'purchasing' | 'pending' | 'restoring' | 'verifying' | 'savingSession' | 'finalizing' | 'claiming' | 'saving' | 'connecting' | 'paired'>('idle');
@@ -320,7 +321,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   }, [enabled, perform]);
 
   const selectControlPlane = useCallback((url: string) => {
-    if (!enabled || !isHydrated || lock.current || pendingClaim.current || pendingPurchase.current || phase === 'purchasing' || phase === 'pending') return false;
+    if (!enabled || !isHydrated || linkLock.current || lock.current || pendingClaim.current || pendingPurchase.current || phase === 'purchasing' || phase === 'pending') return false;
     try {
       const next = normalizeControlPlaneUrl(url);
       if (next === controlPlaneUrl) return next;
@@ -351,10 +352,14 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   // Accepting a link may happen during hydration/store recovery. Continue only
   // after that recovery settles, through the same serialized provider action.
   const pairLink = useCallback(async (link: Parameters<typeof parseConnectPairing>[0]) => {
-    if (pendingClaim.current || pendingPurchase.current || (lock.current && initialization !== 'loading')) return false;
-    const accepted = await acceptLink(link);
-    if (accepted) autoPair.current = true;
-    return accepted;
+    if (linkLock.current || pendingClaim.current || pendingPurchase.current || (lock.current && initialization !== 'loading')) return false;
+    linkLock.current = true;
+    autoPair.current = true;
+    try {
+      const accepted = await acceptLink(link);
+      if (!accepted) autoPair.current = false;
+      return accepted;
+    } finally { linkLock.current = false; }
   }, [acceptLink, initialization]);
   useEffect(() => {
     if (!autoPair.current || initialization !== 'ready' || busy || error || !pairing || !hasConnectEntitlement(session)) return;
@@ -387,9 +392,9 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
     if (!apiRef.current) { setInitialization('loading'); setInitializationAttempt((current) => current + 1); return Promise.resolve(false); }
     return perform(async () => {
     if (pendingPurchase.current) { await finishPurchase(pendingPurchase.current.purchase); return continueAfterPurchase(); }
+    if (!catalogRef.current || !offers.length) return loadCatalog();
     if (pendingClaim.current || pairingRef.current) return claimAction();
     if (recoveryMachineId.current) return activate(await requestAccess(recoveryMachineId.current));
-    if (!catalogRef.current || !offers.length) return loadCatalog();
     return refreshMachinesAction();
     }).then((ok) => { if (ok) setInitialization('ready'); return ok; });
   }, [activate, claimAction, continueAfterPurchase, finishPurchase, loadCatalog, offers.length, perform, refreshMachinesAction, requestAccess]);
