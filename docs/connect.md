@@ -8,9 +8,16 @@ issues the Connect session. There is no signup, login or token-entry step.
 ## Environment and native prerequisites
 
 The default trusted control plane is `https://api.getopencode.app`.
-`EXPO_CONNECT_CONTROL_PLANE_URL` can pin a different HTTPS environment at build
-or Metro start time. Only that exact normalized URL is trusted; QR links cannot
-add origins. Never put product IDs or private verification credentials in Expo
+`EXPO_CONNECT_CONTROL_PLANE_URL` sets a different default HTTPS environment at build
+or Metro start time. The Connect panel lets the user edit and save the trusted
+control plane URL. This non-secret preference survives relaunch and takes precedence
+over the build default. Only that exact normalized URL is accepted in pairing links;
+QR links cannot change the selected environment. URLs must use HTTPS and contain
+no credentials, query parameters, or fragments. Switching reloads the catalog and
+environment/store-scoped session and pending QR, and clears displayed offers,
+machines and pairing state. Switching is blocked during operations, unfinished
+purchases and pending credential saves. Existing profiles and secure sessions
+remain available in their original environment. Never put product IDs or private verification credentials in Expo
 configuration. The environment's `GET /v1/subscriptions/catalog` supplies plans,
 Apple products and Google product/base-plan/offer IDs. Missing configuration or
 native product metadata shows an unavailable error.
@@ -139,6 +146,9 @@ offer selection, native JWS forwarding, Family Sharing exclusion, DEFERRED
 replacement, URL safety, app identity/camera/build variants and WebSocket headers.
 `test:connection-profiles` checks stable profile identity, credential rotation,
 hostname preservation, rollback, secret exclusion and expiry.
+Control-plane checks cover URL normalization/rejection, explicit pairing trust,
+environment-isolated sessions and pending QR records. The Connect E2E flow also
+checks editing, catalog reload, state reset, purchase blocking and relaunch.
 
 `tests/e2e/connect.spec.mjs` intercepts the trusted API, supplies deterministic
 native-store metadata/events and forwards HTTPS connector REST to the existing

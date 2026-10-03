@@ -62,6 +62,8 @@ function ConnectScanner({ onScan, onClose }: { onScan: (link: string) => void; o
 export function ConnectPanel({ setup, onConnected, onClose }: { setup: ConnectSetup; onConnected: () => void; onClose: () => void }) {
   const { t } = useTranslation();
   const [link, setLink] = useState('');
+  const [controlPlaneDraft, setControlPlaneDraft] = useState({ base: setup.controlPlaneUrl, value: setup.controlPlaneUrl });
+  const controlPlaneUrl = controlPlaneDraft.base === setup.controlPlaneUrl ? controlPlaneDraft.value : setup.controlPlaneUrl;
   const [scanning, setScanning] = useState(false);
   const focused = useIsFocused();
   const [selectedOffer, setSelectedOffer] = useState('');
@@ -88,8 +90,8 @@ export function ConnectPanel({ setup, onConnected, onClose }: { setup: ConnectSe
     <View testID="connect-panel" style={styles.section}>
       <Text variant="titleLarge">{t('settings:connect.title')}</Text>
       <Text>{t('settings:connect.description')}</Text>
-      <Text variant="titleMedium">{t('settings:connect.controlPlane')}</Text>
-      <Text>{setup.controlPlaneUrl}</Text>
+      <TextInput testID="connect-control-plane" label={t('settings:connect.controlPlane')} value={controlPlaneUrl} onChangeText={(value) => setControlPlaneDraft({ base: setup.controlPlaneUrl, value })} autoCapitalize="none" autoCorrect={false} keyboardType="url" disabled={!setup.canChangeControlPlane} />
+      <Button testID="connect-save-control-plane" mode="outlined" disabled={!setup.canChangeControlPlane || !controlPlaneUrl.trim() || controlPlaneUrl === setup.controlPlaneUrl} onPress={() => { const saved = setup.selectControlPlane(controlPlaneUrl); if (saved) setControlPlaneDraft({ base: saved, value: saved }); }}>{t('common:actions.save')}</Button>
       <Text variant="titleMedium">{t('settings:connect.subscription')}</Text>
       {setup.entitled ? <Text testID="connect-subscription-active">{t('settings:connect.subscriptionActive')}</Text> : <Text>{t('settings:connect.subscriptionRequired')}</Text>}
       {setup.offers.length ? <RadioButton.Group value={selected?.key ?? ''} onValueChange={setSelectedOffer}>

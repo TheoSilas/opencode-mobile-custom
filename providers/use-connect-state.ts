@@ -1,12 +1,12 @@
 import type { Purchase } from 'expo-iap';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import {
   accessConnectMachine, claimConnectPairing, ConnectApiError,
-  getConnectCatalog, getConnectControlPlanes, getConnectCredentialError, getConnectSession, getConnectStore,
+  getConnectCatalog, getConnectCredentialError, getConnectSession, getConnectStore,
   getPendingConnectPairing, hasConnectEntitlement, hasConnectSession, isConnectEnabled, listConnectMachines,
-  parseConnectPairing, revokeConnectMachine, savePendingConnectPairing,
+  normalizeControlPlaneUrl, parseConnectPairing, revokeConnectMachine, savePendingConnectPairing,
   type ConnectCatalog, type ConnectClaim, type ConnectMachine, type ConnectPairing, type ConnectSession,
 } from '@/lib/connect';
 import { AVAILABLE_CONNECT_PURCHASES, connectPurchaseRequest, isConnectPurchase, loadConnectStore, selectConnectOffers, type ConnectOffer, type ConnectStoreApi } from '@/lib/connect-store';
@@ -18,7 +18,9 @@ import type { ConnectionContextValue } from '@/providers/opencode-provider-types
 import { finalizeConnectPurchase, type PendingConnectPurchase } from '@/providers/services/connect-subscription-service';
 type PendingAccess = { controlPlaneUrl: string; response: ConnectClaim; previous?: ConnectionProfile; fromPairing?: boolean };
 
-export function useConnectState({ switchConnection, disconnect, isHydrated, onProfileRefreshed, activeMachineId, beforeProfileRefresh }: {
+export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchConnection, disconnect, isHydrated, onProfileRefreshed, activeMachineId, beforeProfileRefresh }: {
+  controlPlaneUrl: string;
+  setControlPlaneUrl: Dispatch<SetStateAction<string>>;
   switchConnection: ConnectionContextValue['switchConnection'];
   disconnect: (profile: ConnectionProfile) => Promise<void>;
   isHydrated: boolean;
@@ -28,7 +30,6 @@ export function useConnectState({ switchConnection, disconnect, isHydrated, onPr
 }) {
   const enabled = isConnectEnabled();
   const store = getConnectStore();
-  const [controlPlaneUrl, setControlPlaneUrl] = useState(() => getConnectControlPlanes()[0] ?? '');
   const [session, setSession] = useState<ConnectSession>();
   const [pairing, setPairing] = useState<ConnectPairing>();
   const [phase, setPhase] = useState<'idle' | 'catalog' | 'purchasing' | 'pending' | 'restoring' | 'verifying' | 'savingSession' | 'finalizing' | 'claiming' | 'saving' | 'connecting' | 'paired'>('idle');
@@ -43,6 +44,8 @@ export function useConnectState({ switchConnection, disconnect, isHydrated, onPr
   const [initializationAttempt, setInitializationAttempt] = useState(0);
   const [canRetry, setCanRetry] = useState(false);
   const sessionRef = useRef<ConnectSession | undefined>(undefined);
+  const controlPlaneRef = useRef(controlPlaneUrl);
+  useEffect(() => { controlPlaneRef.current = controlPlaneUrl; }, [controlPlaneUrl]);
   const pairingRef = useRef<ConnectPairing | undefined>(undefined);
   const apiRef = useRef<ConnectStoreApi | undefined>(undefined);
   const catalogRef = useRef<ConnectCatalog | undefined>(undefined);
@@ -315,23 +318,32 @@ export function useConnectState({ switchConnection, disconnect, isHydrated, onPr
   }, [enabled, perform]);
 
   const selectControlPlane = useCallback((url: string) => {
-    if (lock.current || pendingClaim.current || url === controlPlaneUrl || !getConnectControlPlanes().includes(url)) return;
-    setControlPlaneUrl(url); sessionRef.current = undefined; setSession(undefined); pairingRef.current = undefined;
-    setPairing(undefined); setMachines(undefined); setSavedProfile(undefined); setOffers([]); setStoreReady(false);
-    setPhase('idle'); setError(undefined); setNotice(undefined);
-  }, [controlPlaneUrl]);
+    if (!enabled || !isHydrated || lock.current || pendingClaim.current || pendingPurchase.current || phase === 'purchasing' || phase === 'pending') return false;
+    try {
+      const next = normalizeControlPlaneUrl(url);
+      if (next === controlPlaneUrl) return next;
+      scopeGeneration.current += 1;
+      controlPlaneRef.current = next;
+      setControlPlaneUrl(next); sessionRef.current = undefined; setSession(undefined); pairingRef.current = undefined;
+      catalogRef.current = undefined; recoveryMachineId.current = undefined;
+      purchaseQueue.current.clear(); finishedPurchases.current.clear(); lastAccess.current.clear();
+      setPairing(undefined); setMachines(undefined); setSavedProfile(undefined); setOffers([]); setStoreReady(false);
+      setPhase('idle'); setError(undefined); setNotice(undefined); setCanRetry(false);
+      return next;
+    } catch (reason) { setError((reason as Error).message); return false; }
+  }, [controlPlaneUrl, enabled, isHydrated, phase, setControlPlaneUrl]);
 
   const acceptLink = useCallback(async (link: Parameters<typeof parseConnectPairing>[0]) => {
     if (pendingClaim.current) { setError('Finish saving the claimed connection before opening another pairing.'); return false; }
     try {
-      const next = parseConnectPairing(link);
+      const next = parseConnectPairing(link, controlPlaneUrl);
       await savePendingConnectPairing(next.controlPlaneUrl, store, next);
-      if (next.controlPlaneUrl !== controlPlaneUrl) selectControlPlane(next.controlPlaneUrl);
+      if (next.controlPlaneUrl !== controlPlaneRef.current) return false;
       pairingRef.current = next; setPairing(next); setSavedProfile(undefined);
       setPhase('idle'); setError(undefined); setNotice(undefined);
       return true;
     } catch (reason) { setError((reason as Error).message); return false; }
-  }, [controlPlaneUrl, selectControlPlane, store]);
+  }, [controlPlaneUrl, store]);
 
   const purchase = useCallback((key: string) => perform(async () => {
     if (pendingPurchase.current || phase === 'purchasing' || phase === 'pending') throw new Error('Wait for or retry your unfinished subscription before purchasing again.');
@@ -387,7 +399,8 @@ export function useConnectState({ switchConnection, disconnect, isHydrated, onPr
     setMachines((current) => current?.filter((machine) => machine.id !== id)); setNotice('Machine deleted; local credentials removed.');
   }), [authenticated, controlPlaneUrl, perform, removeProfiles]);
 
-  return { enabled, controlPlaneUrl, hasToken: hasConnectSession(session), entitled: hasConnectEntitlement(session), pairing, phase, busy, error, notice, machines, profiles, savedProfile, offers, storeReady, canRetry,
+  const canChangeControlPlane = isHydrated && !busy && !['purchasing', 'pending', 'verifying', 'savingSession', 'finalizing', 'saving'].includes(phase);
+  return { enabled, controlPlaneUrl, canChangeControlPlane, hasToken: hasConnectSession(session), entitled: hasConnectEntitlement(session), pairing, phase, busy, error, notice, machines, profiles, savedProfile, offers, storeReady, canRetry,
     selectControlPlane, acceptLink, purchase, restore, retry, claim, cancelPairing, refreshMachines, connectProfile, connectMachine, forgetProfile, revokeMachine, prepareSettings };
 }
 

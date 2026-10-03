@@ -26,27 +26,22 @@ export function isConnectEnabled() {
 
 export function normalizeControlPlaneUrl(value: string) {
   const url = new URL(value);
-  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('Invalid control plane URL.');
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error('Enter an HTTPS control plane URL without credentials, query parameters, or a fragment.');
   return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
 }
 
 export function getConnectControlPlanes(): string[] {
   const configured = Constants.expoConfig?.extra?.connectControlPlaneUrl ?? 'https://api.getopencode.app';
-  try {
-    const url = normalizeControlPlaneUrl(configured);
-    if (new URL(url).protocol !== 'https:') return [];
-    return [url];
-  } catch { return []; }
+  try { return [normalizeControlPlaneUrl(configured)]; }
+  catch { return []; }
 }
 
 function requireControlPlane(value: string) {
   if (!isConnectEnabled()) throw new Error('Connect is available on iOS and Android.');
-  const url = normalizeControlPlaneUrl(value);
-  if (!getConnectControlPlanes().includes(url)) throw new Error('This control plane is not trusted by this build.');
-  return url;
+  return normalizeControlPlaneUrl(value);
 }
 
-export function parseConnectPairing(value: string | Record<string, string | string[] | undefined>): ConnectPairing {
+export function parseConnectPairing(value: string | Record<string, string | string[] | undefined>, controlPlaneUrl = getConnectControlPlanes()[0] ?? ''): ConnectPairing {
   try {
     const url = new URL(typeof value === 'string' ? value : 'opencodemobile://pair');
     if (typeof value !== 'string') {
@@ -58,8 +53,10 @@ export function parseConnectPairing(value: string | Record<string, string | stri
     if (url.searchParams.get('v') !== '1') throw new Error();
     const pairingId = url.searchParams.get('id')!;
     if (!/^[a-zA-Z0-9_-]{1,128}$/.test(pairingId)) throw new Error();
+    const pairingControlPlane = requireControlPlane(url.searchParams.get('cp')!);
+    if (pairingControlPlane !== normalizeControlPlaneUrl(controlPlaneUrl)) throw new Error('This pairing does not match the trusted control plane. Select its URL in Connect settings first.');
     return {
-      controlPlaneUrl: requireControlPlane(url.searchParams.get('cp')!),
+      controlPlaneUrl: pairingControlPlane,
       pairingId,
       pairingToken: url.searchParams.get('t')!,
       machineName: url.searchParams.get('n')!,
@@ -151,7 +148,7 @@ export async function getPendingConnectPairing(controlPlaneUrl: string, store: C
   if (!raw) return undefined;
   try {
     const value = JSON.parse(raw) as ConnectPairing;
-    const result = parseConnectPairing({ v: '1', cp: value.controlPlaneUrl, id: value.pairingId, t: value.pairingToken, n: value.machineName });
+    const result = parseConnectPairing({ v: '1', cp: value.controlPlaneUrl, id: value.pairingId, t: value.pairingToken, n: value.machineName }, controlPlaneUrl);
     if (result.controlPlaneUrl !== requireControlPlane(controlPlaneUrl)) throw new Error();
     return result;
   } catch { await savePendingConnectPairing(controlPlaneUrl, store); return undefined; }
@@ -237,8 +234,8 @@ export function parseConnectClaim(controlPlaneUrl: string, value: unknown): Conn
   if (!result || fields.some((key) => typeof result[key] !== 'string' || !result[key].trim()) || !Number.isFinite(Date.parse(result.expires_at))) throw new Error('Invalid pairing response. Create a new pairing.');
   let server: URL;
   try { server = new URL(result.server_url); } catch { throw new Error('The connector returned an unsafe server URL.'); }
-  const local = new URL(controlPlaneUrl).protocol === 'http:';
-  if ((server.protocol !== 'https:' && !(local && server.protocol === 'http:')) || server.username || server.password || server.search || server.hash) throw new Error('The connector returned an unsafe server URL.');
+  requireControlPlane(controlPlaneUrl);
+  if (server.protocol !== 'https:' || server.username || server.password || server.search || server.hash) throw new Error('The connector returned an unsafe server URL.');
   if (Date.parse(result.expires_at) <= Date.now()) throw new Error('The connector returned expired credentials. Pair again.');
   return Object.fromEntries(fields.map((key) => [key, result[key]])) as ConnectClaim;
 }

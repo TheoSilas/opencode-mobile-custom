@@ -12,15 +12,15 @@ export default function PairScreen() {
   const params = useLocalSearchParams<{ v?: string; cp?: string; id?: string; t?: string; n?: string }>();
   const router = useRouter();
   const { connectSetup } = useConnection();
-  const { onboardingCompleted, onboardingActive } = useOnboarding();
+  const { isHydrated, onboardingCompleted, onboardingActive } = useOnboarding();
   const palette = Colors[useColorScheme() ?? 'light'];
   const { acceptLink } = connectSetup;
   useEffect(() => {
-    if (params.v || params.cp || params.id || params.t || params.n) {
+    if (isHydrated && (params.v || params.cp || params.id || params.t || params.n)) {
       void acceptLink(params);
       router.replace('/pair');
     }
-  }, [acceptLink, params, router]);
+  }, [acceptLink, isHydrated, params, router]);
   if (!connectSetup.enabled) return null;
   return <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

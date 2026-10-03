@@ -213,6 +213,7 @@ not re-derive connection keys anywhere else.
 Persisted values:
 
 - `opencode-mobile.settings` (connection URL and username; the password lives in secure storage)
+- `opencode-mobile.connect-control-plane` (user-selected HTTPS Connect environment; defaults to the build URL or production, hydrated before pairing/Connect startup)
 - `opencode-mobile.connection-profiles` (saved connections with name and optional per-profile model selection; passwords live in secure storage)
 - `opencode-mobile.chat-preferences` (chat preferences, including the global UI `language`; not connection-scoped)
 - `opencode-mobile.active-project`

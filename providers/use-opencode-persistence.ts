@@ -2,10 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 
 import type { OpencodeConnectionSettings } from '@/lib/opencode/client';
+import { normalizeControlPlaneUrl } from '@/lib/connect';
 import { getConnectionPassword, saveConnectionPassword, withoutConnectionPassword } from '@/lib/connection-password';
 import {
   ACTIVE_PROJECT_STORAGE_KEY,
   CHAT_PREFERENCES_STORAGE_KEY,
+  CONNECT_CONTROL_PLANE_STORAGE_KEY,
   FAVORITE_SESSIONS_STORAGE_KEY,
   LAST_SESSION_BY_PROJECT_STORAGE_KEY,
   ONBOARDING_VERSION_STORAGE_KEY,
@@ -40,11 +42,13 @@ export function useOpencodePersistence({
   defaultSettings,
   activeProjectPath,
   chatPreferences,
+  controlPlaneUrl,
   favoriteSessions,
   lastSessionByConnection,
   onboardingVersion,
   setActiveProjectPath,
   setChatPreferences,
+  setControlPlaneUrl,
   setFavoriteSessions,
   setLastSessionByConnection,
   setOnboardingVersion,
@@ -55,11 +59,13 @@ export function useOpencodePersistence({
   defaultSettings: OpencodeConnectionSettings;
   activeProjectPath?: string;
   chatPreferences: ChatPreferences;
+  controlPlaneUrl: string;
   favoriteSessions: FavoriteSession[];
   lastSessionByConnection: LastSessionByConnection;
   onboardingVersion: number;
   setActiveProjectPath: (value?: string) => void;
   setChatPreferences: Dispatch<SetStateAction<ChatPreferences>>;
+  setControlPlaneUrl: Dispatch<SetStateAction<string>>;
   setFavoriteSessions: Dispatch<SetStateAction<FavoriteSession[]>>;
   setLastSessionByConnection: Dispatch<SetStateAction<LastSessionByConnection>>;
   setOnboardingVersion: Dispatch<SetStateAction<number>>;
@@ -108,6 +114,8 @@ export function useOpencodePersistence({
 
         await loadPersistedValue(AsyncStorage, FAVORITE_SESSIONS_STORAGE_KEY, parseFavoriteSessions, setFavoriteSessions);
 
+        await loadPersistedValue(AsyncStorage, CONNECT_CONTROL_PLANE_STORAGE_KEY, normalizeControlPlaneUrl, setControlPlaneUrl);
+
         // Resolve first-run completion last so `isHydrated` already implies the
         // onboarding decision is known. The marker, including the migration
         // decision, is persisted by the write-back effect below.
@@ -119,7 +127,11 @@ export function useOpencodePersistence({
     }
 
     void hydrateState();
-  }, [defaultChatPreferences, defaultSettings, setActiveProjectPath, setChatPreferences, setFavoriteSessions, setLastSessionByConnection, setOnboardingVersion, setSettings]);
+  }, [defaultChatPreferences, defaultSettings, setActiveProjectPath, setChatPreferences, setControlPlaneUrl, setFavoriteSessions, setLastSessionByConnection, setOnboardingVersion, setSettings]);
+
+  useEffect(() => {
+    if (isHydrated && controlPlaneUrl) void AsyncStorage.setItem(CONNECT_CONTROL_PLANE_STORAGE_KEY, controlPlaneUrl);
+  }, [controlPlaneUrl, isHydrated]);
 
   useEffect(() => {
     if (!isHydrated) {

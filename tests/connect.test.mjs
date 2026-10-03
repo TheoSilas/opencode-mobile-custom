@@ -46,13 +46,31 @@ const session = { user_id: 'owner', user_token: 'user-token', session_expires_at
 await connect.saveConnectSession(pairing.controlPlaneUrl, 'apple', session);
 assert.deepEqual(await connect.getConnectSession(pairing.controlPlaneUrl, 'apple'), session);
 assert.equal(await connect.getConnectSession(pairing.controlPlaneUrl, 'google'), undefined, 'Store identities stay separate.');
-await assert.rejects(connect.getConnectSession('http://127.0.0.1:8787', 'apple'), /not trusted/);
+await assert.rejects(connect.getConnectSession('http://127.0.0.1:8787', 'apple'), /HTTPS/);
 assert.equal(connect.hasConnectEntitlement(session), true);
 assert.equal(connect.hasConnectEntitlement({ ...session, subscription_expires_at: '2000-01-01T00:00:00Z' }), false);
 assert.equal(connect.hasConnectSession({ ...session, subscription_expires_at: '2000-01-01T00:00:00Z' }), true, 'Entitlement expiry does not erase a valid identity session.');
 await connect.savePendingConnectPairing(pairing.controlPlaneUrl, 'apple', pairing);
 assert.deepEqual(await connect.getPendingConnectPairing(pairing.controlPlaneUrl, 'apple'), pairing);
 await connect.savePendingConnectPairing(pairing.controlPlaneUrl, 'apple');
+assert.equal(await connect.getPendingConnectPairing(pairing.controlPlaneUrl, 'apple'), undefined);
+
+const customControlPlane = connect.normalizeControlPlaneUrl('  https://STAGING.example.test/connect///  ');
+assert.equal(customControlPlane, 'https://staging.example.test/connect');
+for (const invalid of ['http://localhost:8787', 'ftp://staging.example.test', 'https://user:secret@staging.example.test', 'https://staging.example.test?token=x', 'https://staging.example.test#fragment', 'not-a-url']) {
+  assert.throws(() => connect.normalizeControlPlaneUrl(invalid));
+}
+const customLink = new URL(url);
+customLink.searchParams.set('cp', customControlPlane);
+assert.throws(() => connect.parseConnectPairing(customLink.toString()), /trusted control plane/);
+const customPairing = connect.parseConnectPairing(customLink.toString(), customControlPlane);
+assert.equal(customPairing.controlPlaneUrl, customControlPlane);
+assert.throws(() => connect.parseConnectPairing(url.toString(), customControlPlane), /trusted control plane/);
+await connect.saveConnectSession(customControlPlane, 'apple', { ...session, user_token: 'staging-token' });
+assert.equal((await connect.getConnectSession(customControlPlane, 'apple')).user_token, 'staging-token');
+assert.equal((await connect.getConnectSession(pairing.controlPlaneUrl, 'apple')).user_token, 'user-token');
+await connect.savePendingConnectPairing(customControlPlane, 'apple', customPairing);
+assert.deepEqual(await connect.getPendingConnectPairing(customControlPlane, 'apple'), customPairing);
 assert.equal(await connect.getPendingConnectPairing(pairing.controlPlaneUrl, 'apple'), undefined);
 
 const calls = [];
@@ -133,12 +151,18 @@ try {
 
 const configSource = await readFile(new URL('../app.config.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(configSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
-function appConfig(variant) {
-  const context = { exports: {}, require: createRequire(import.meta.url), process: { env: { EXPO_APP_VARIANT: variant, EXPO_PUBLIC_E2E_MODE: '1', EXPO_CONNECT_CONTROL_PLANES: 'http://127.0.0.1:8787', EXPO_CONNECT_TEST_USER_TOKEN: 'configured-test-token' } } };
+function appConfig(variant, controlPlaneUrl) {
+  const context = { exports: {}, require: createRequire(import.meta.url), process: { env: { EXPO_APP_VARIANT: variant, EXPO_PUBLIC_E2E_MODE: '1', EXPO_CONNECT_CONTROL_PLANE_URL: controlPlaneUrl, EXPO_CONNECT_CONTROL_PLANES: 'http://127.0.0.1:8787', EXPO_CONNECT_TEST_USER_TOKEN: 'configured-test-token' } } };
   vm.runInNewContext(compiled, context);
   return context.exports.default;
 }
 const production = appConfig('production'), development = appConfig('development');
+assert.equal(production.extra.connectControlPlaneUrl, 'https://api.getopencode.app');
+assert.equal(development.extra.connectControlPlaneUrl, 'https://api.getopencode.app');
+globalThis.__connectConfig = appConfig('production', `${customControlPlane}/`);
+assert.deepEqual(connect.getConnectControlPlanes(), [customControlPlane]);
+globalThis.__connectConfig = appConfig('production', 'http://localhost:8787');
+assert.deepEqual(connect.getConnectControlPlanes(), []);
 assert.equal(production.extra.connectPilot.enabled, undefined);
 assert.equal(production.extra.connectPilot.controlPlanes, undefined);
 assert.equal(production.extra.connectPilot.testUserToken, undefined);

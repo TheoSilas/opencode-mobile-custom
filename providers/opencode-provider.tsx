@@ -60,7 +60,7 @@ import {
   saveConnectionProfiles,
 } from '@/lib/connection-profiles';
 import { getConnectionScope } from '@/lib/connection-scope';
-import { getConnectCredentialError } from '@/lib/connect';
+import { getConnectControlPlanes, getConnectCredentialError } from '@/lib/connect';
 import { saveConnectionPassword } from '@/lib/connection-password';
 import { useConnectState } from '@/providers/use-connect-state';
 import { changeAppLanguage } from '@/lib/i18n';
@@ -224,6 +224,7 @@ type TrackedPendingNotification = {
 
 export function OpencodeProvider({ children }: PropsWithChildren) {
   const [settings, setSettings] = useState<OpencodeConnectionSettings>(defaultConnectionSettings);
+  const [controlPlaneUrl, setControlPlaneUrl] = useState(() => getConnectControlPlanes()[0] ?? '');
   const [connection, setConnection] = useState<ConnectionState>({
     status: 'idle',
     message: 'Add a server URL and connect to OpenCode.',
@@ -353,11 +354,13 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     defaultSettings: defaultConnectionSettings,
     activeProjectPath,
     chatPreferences,
+    controlPlaneUrl,
     favoriteSessions,
     lastSessionByConnection,
     onboardingVersion,
     setActiveProjectPath,
     setChatPreferences,
+    setControlPlaneUrl,
     setFavoriteSessions,
     setLastSessionByConnection,
     setOnboardingVersion,
@@ -1541,7 +1544,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     setFavoriteSessions((current) => current.map((entry) => entry.connectionScope === oldScope ? { ...entry, connectionScope: newScope } : entry));
     setLastSessionByConnection((current) => ({ ...current, [newScope]: { ...current[oldScope], ...current[newScope] } }));
   }, []);
-  const connectSetup = useConnectState({ switchConnection, disconnect: disconnectConnectProfile, isHydrated, activeMachineId: settings.connect?.machineId, beforeProfileRefresh: captureActiveProfilePreferences, onProfileRefreshed: onConnectProfileRefreshed });
+  const connectSetup = useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchConnection, disconnect: disconnectConnectProfile, isHydrated, activeMachineId: settings.connect?.machineId, beforeProfileRefresh: captureActiveProfilePreferences, onProfileRefreshed: onConnectProfileRefreshed });
   prepareConnectSettingsRef.current = connectSetup.prepareSettings;
 
   const connectAccessRefreshRef = useRef('');
