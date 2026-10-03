@@ -202,6 +202,7 @@ type ChatHeaderProps = {
 ## `components/chat/chat-library.tsx`
 
 - Chats overlay with search, favorites, archived sessions, and swipe-left session actions
+- active, favorite, current-workspace, and archived rows share one FlashList scroll owner; search, filters, and New Chat stay outside the virtualized list
 - "Active across workspaces" group above Favorites listing up to four running/recent sessions from the whole connection; listed IDs are removed from the Chat list below, and tapping one switches project and opens it through `openSessionInProject`. Project-scoped actions (rename/share/archive/delete) appear only on the current-workspace rows
 - re-seeds the cross-workspace snapshot when the overlay opens
 - keeps the Hide subagents switch alongside the Active and Archived filters
@@ -212,6 +213,7 @@ type ChatHeaderProps = {
 ## `components/ui/overlay-sheet.tsx`
 
 - shared overlay presentation for Chats, workspace selection, progress, diff source selection, session usage, terminal selection, and Settings categories; short overlays fit their content
+- `scrollable={false}` lets embedded virtualized lists own scrolling without a nested ScrollView
 
 ## `components/ui/workspace-picker.tsx`
 
@@ -438,7 +440,7 @@ dialog, so there is a single place to configure a connection.
 - delete a saved connection and its SecureStore password, except the active one
 - mark the active row by comparing `getConnectionScope()` of the profile and the current settings
 
-The component owns only local state (expanded row, dialog, switching row); profile persistence and credential handling live in `lib/connection-profiles.ts`, and switching/reconnecting live in the provider.
+The component owns only local state (expanded row, dialog, switching row); profile state, persistence orchestration, and credential ordering live in `providers/use-connection-profiles.ts`, backed by `lib/connection-profiles.ts`; switching/reconnecting stay in the provider. The UI accesses these through `useConnection().connectionProfiles`.
 
 ## `components/settings/connection-profile-dialog.tsx`
 

@@ -45,10 +45,8 @@ import {
 import {
   deriveTodosFromMessages,
   mergeSessionMessageRecords,
-  toTranscriptEntry,
   type SessionMessageRecord,
 } from '@/lib/opencode/format';
-import { isTranscriptDisplayMessage } from '@/lib/opencode/transcript';
 import { aggregateSessionUsage, getLatestAssistantTurnUsage } from '@/lib/opencode/usage';
 import { createFullFilePatch } from '@/lib/opencode/workspace-patch';
 import {
@@ -70,9 +68,6 @@ import {
   notifyTaskFinished,
   trackPendingTaskFinishedNotification,
 } from '@/lib/notifications';
-import type { VoiceRecoveryAction } from '@/lib/voice/speech-errors';
-import { speakText, stopSpeaking } from '@/lib/voice/speech-output';
-import { useSpeechInput } from '@/lib/voice/use-speech-input';
 import {
   startWorkingSoundAsync,
   stopWorkingSoundAsync,
@@ -93,16 +88,11 @@ import { buildSystemPrompt, defaultChatPreferences } from '@/providers/opencode-
 import { getProjectLabel, groupPendingRequestsBySession } from '@/providers/opencode-provider-utils';
 import {
   getConfiguredProviders,
-  getConversationStatusLabel,
   getCurrentPendingRequests,
   getSessionPreviewById,
   getTranscript,
-  getTranscriptActivityLabelForEntries,
 } from '@/providers/opencode-provider-selectors';
 import {
-  CONVERSATION_FINAL_RESULT_SETTLE_MS,
-  CONVERSATION_KEEP_AWAKE_TAG,
-  CONVERSATION_LISTENING_RESTART_MS,
   FAVORITE_SESSIONS_MAX,
   type AgentOption,
   type CapabilitiesContextValue,
@@ -111,8 +101,6 @@ import {
   type ConnectionContextValue,
   type ConnectionState,
   type ConversationContextValue,
-  type ConversationPhase,
-  type ConversationState,
   type DiffScope,
   type DiffTurn,
   type FavoriteSession,
@@ -146,8 +134,9 @@ import {
   CURRENT_ONBOARDING_VERSION,
   isOnboardingComplete,
 } from '@/providers/onboarding-state';
-import { useConversationKeepAwake } from '@/providers/use-conversation-keep-awake';
-import { useConversationScreenDim } from '@/providers/use-conversation-screen-dim';
+import { useConnectionProfiles } from '@/providers/use-connection-profiles';
+import { useOpencodeRealtime } from '@/providers/use-opencode-realtime';
+import { useConversationState } from '@/providers/use-conversation-state';
 import { useActiveSessions } from '@/providers/use-active-sessions';
 import { useMcpState } from '@/providers/use-mcp-state';
 import { useOpencodePersistence } from '@/providers/use-opencode-persistence';
@@ -204,18 +193,6 @@ export type {
 // Foreground notification tracking for prompts sent in this app session. Keyed
 // by connection scope + session ID so switching servers cannot complete or
 // clear another server's pending task.
-// Conversation feedback and its optional recovery action are always written
-// together so a stale action can never outlive the message it belongs to.
-function applyConversationFeedback(
-  setFeedback: (value: string | undefined) => void,
-  setAction: (value: VoiceRecoveryAction) => void,
-  message: string | undefined,
-  action: VoiceRecoveryAction = 'none',
-) {
-  setFeedback(message);
-  setAction(action);
-}
-
 type TrackedPendingNotification = {
   sessionId: string;
   connectionScope: string;
@@ -274,14 +251,6 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   // exposing the same path keep independent entries.
   const [lastSessionByConnection, setLastSessionByConnection] = useState<Record<string, Record<string, string>>>({});
   const [favoriteSessions, setFavoriteSessions] = useState<FavoriteSession[]>([]);
-  const [conversationPhase, setConversationPhase] = useState<ConversationPhase>('off');
-  const [conversationSessionId, setConversationSessionId] = useState<string>();
-  const [queuedConversationPrompt, setQueuedConversationPrompt] = useState<string>();
-  const [pendingConversationTurn, setPendingConversationTurn] = useState<string>();
-  const [conversationFeedback, setConversationFeedback] = useState<string>();
-  const [conversationFeedbackAction, setConversationFeedbackAction] = useState<VoiceRecoveryAction>('none');
-  const [conversationLatestHeardText, setConversationLatestHeardText] = useState<string>();
-  const [eventStreamStatus, setEventStreamStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [commands, setCommands] = useState<Command[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [workspaceFileStatuses, setWorkspaceFileStatuses] = useState<File[]>([]);
@@ -315,15 +284,6 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const initialConnectStartedRef = useRef(false);
   const bootstrapPromiseRef = useRef<Promise<string | undefined> | null>(null);
   const bootstrapTokenRef = useRef<object | undefined>(undefined);
-  const conversationPhaseRef = useRef<ConversationPhase>('off');
-  const assistantReplyBaselineIdRef = useRef<string | undefined>(undefined);
-  const conversationResumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const conversationFinalResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const conversationListeningRestartTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const conversationCancelRequestedRef = useRef(false);
-  const conversationSubmittingRef = useRef(false);
-  const pendingConversationTranscriptRef = useRef<string | undefined>(undefined);
-  const flushPendingConversationResultRef = useRef<() => void>(() => undefined);
   const sessionRefreshTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const sessionRefreshOptionsRef = useRef<Record<string, { messages?: boolean; diff?: boolean; todos?: boolean; sessions?: boolean }>>({});
   const diffScopeBySessionRef = useRef<Record<string, DiffScope>>({});
@@ -332,6 +292,10 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   // below. The hooks only read them from event handlers, never during render.
   const refreshWorkspaceCatalogRef = useRef<(silent?: boolean) => Promise<void>>(async () => undefined);
   const refreshChatCapabilitiesRef = useRef<() => Promise<void>>(async () => undefined);
+  const refreshWorkspaceCatalogLatest = useCallback((silent?: boolean) => refreshWorkspaceCatalogRef.current(silent), []);
+  const refreshChatCapabilitiesLatest = useCallback(() => refreshChatCapabilitiesRef.current(), []);
+  const workspaceSearchRequestRef = useRef(0);
+  const workspaceFileRequestRef = useRef(0);
   settingsRef.current = settings;
   chatPreferencesRef.current = chatPreferences;
   connectionScopeRef.current = connectionScope;
@@ -340,14 +304,6 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   currentSessionIdRef.current = currentSessionId;
   diffScopeBySessionRef.current = diffScopeBySession;
   selectedDiffMessageBySessionRef.current = selectedDiffMessageBySession;
-
-  const clearPendingConversationResult = useCallback(() => {
-    pendingConversationTranscriptRef.current = undefined;
-    if (conversationFinalResultTimeoutRef.current) {
-      clearTimeout(conversationFinalResultTimeoutRef.current);
-      conversationFinalResultTimeoutRef.current = undefined;
-    }
-  }, []);
 
   const { isHydrated } = useOpencodePersistence({
     defaultChatPreferences,
@@ -475,7 +431,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   } = useWorktreeState({
     client,
     isCurrentClient,
-    refreshWorkspaceCatalog: (silent) => refreshWorkspaceCatalogRef.current(silent),
+    refreshWorkspaceCatalog: refreshWorkspaceCatalogLatest,
   });
 
   const {
@@ -491,7 +447,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   } = useMcpState({
     client,
     isCurrentClient,
-    refreshChatCapabilities: () => refreshChatCapabilitiesRef.current(),
+    refreshChatCapabilities: refreshChatCapabilitiesLatest,
   });
 
   const {
@@ -839,16 +795,16 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
         delete sessionRefreshOptionsRef.current[sessionId];
 
         if (mergedOptions.sessions) {
-          void refreshSessions(true);
+          void refreshSessions(true).catch(() => undefined);
         }
         if (mergedOptions.messages) {
-          void refreshMessages(sessionId, true);
+          void refreshMessages(sessionId, true).catch(() => undefined);
         }
         if (mergedOptions.diff) {
-          void refreshSessionDiff(sessionId, true);
+          void refreshSessionDiff(sessionId, true).catch(() => undefined);
         }
         if (mergedOptions.todos) {
-          void refreshSessionTodos(sessionId);
+          void refreshSessionTodos(sessionId).catch(() => undefined);
         }
       }, options?.delayMs ?? 150);
     },
@@ -1126,14 +1082,16 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   }, [client, isCurrentClient]);
 
   const searchWorkspaceFiles = useCallback(async (query: string) => {
+    const request = ++workspaceSearchRequestRef.current;
     const trimmed = query.trim();
     const nextFiles = trimmed ? (await findFiles(client, trimmed)) || [] : [];
-    if (activeProjectPathRef.current === client.__opencode.directory) {
+    if (isCurrentClient(client) && request === workspaceSearchRequestRef.current) {
       setWorkspaceFiles(nextFiles);
     }
-  }, [client]);
+  }, [client, isCurrentClient]);
 
   const openWorkspaceFile = useCallback(async (path: string) => {
+    const request = ++workspaceFileRequestRef.current;
     const content = await readFile(client, path);
     if (!content) {
       throw new Error('OpenCode did not return file content.');
@@ -1141,20 +1099,21 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     if (content.type === 'binary' || content.encoding === 'base64') {
       throw new Error('Binary files cannot be previewed as text.');
     }
-    if (activeProjectPathRef.current === client.__opencode.directory) {
-      setSelectedWorkspaceFile({ path, content });
-    }
-  }, [client]);
+    if (!isCurrentClient(client) || request !== workspaceFileRequestRef.current) throw new Error('File selection was superseded.');
+    setSelectedWorkspaceFile({ path, content });
+  }, [client, isCurrentClient]);
 
   const saveWorkspaceFile = useCallback(async (path: string, expectedContent: string, content: string) => {
+    const request = workspaceFileRequestRef.current;
     const latest = await readFile(client, path);
+    if (!isCurrentClient(client)) throw new Error('The workspace changed before saving.');
     if (latest.type !== 'text' || latest.encoding === 'base64') throw new Error('Only text files can be edited.');
     if (latest.content !== expectedContent) throw new Error('The file changed on the server. Reopen it before saving.');
     const patch = createFullFilePatch({ path, expectedContent, content });
     if (!patch) return;
     await applyVcsPatch(client, patch);
     const saved = await readFile(client, path);
-    if (activeProjectPathRef.current === client.__opencode.directory) {
+    if (isCurrentClient(client) && request === workspaceFileRequestRef.current) {
       setSelectedWorkspaceFile({ path, content: saved });
       await refreshServerFeatures();
       // Keep an active VCS diff scope honest after a manual edit.
@@ -1164,7 +1123,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
         void refreshVcsDiff(scope, true);
       }
     }
-  }, [client, refreshServerFeatures, refreshVcsDiff]);
+  }, [client, isCurrentClient, refreshServerFeatures, refreshVcsDiff]);
 
   const executeCommand = useCallback(async (sessionId: string, command: string, args: string) => {
     const selected = getSelectedModelParts(chatPreferences.modelId);
@@ -1546,6 +1505,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   }, []);
   const connectSetup = useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchConnection, disconnect: disconnectConnectProfile, isHydrated, activeMachineId: settings.connect?.machineId, beforeProfileRefresh: captureActiveProfilePreferences, onProfileRefreshed: onConnectProfileRefreshed });
   prepareConnectSettingsRef.current = connectSetup.prepareSettings;
+  const connectionProfiles = useConnectionProfiles({ settings, switchConnection, updateSettings });
 
   const connectAccessRefreshRef = useRef('');
   useEffect(() => {
@@ -2193,7 +2153,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       const trackingKey = pendingNotificationKey(connectionScope, sessionId);
       pendingNotificationsRef.current.delete(trackingKey);
       busyNotificationsRef.current.delete(trackingKey);
-      await clearPendingTaskFinishedNotification(connectionScope, sessionId);
+      await clearPendingTaskFinishedNotification(connectionScope, sessionId).catch(() => undefined);
       await client.session.abort({ sessionID: sessionId });
 
       // Reset prompt guards immediately so the user can submit again without
@@ -2218,207 +2178,12 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     [client, connectionScope, refreshMessages, refreshSessionDiff, refreshSessionTodos, refreshSessions],
   );
 
-  const speechInput = useSpeechInput({
-    levelStep: 2,
-    locale: chatPreferences.speechLocale,
-    onResult: (transcript, isFinal) => {
-      if (conversationPhaseRef.current !== 'listening') {
-        return;
-      }
-
-      const nextTranscript = transcript.trim();
-      if (!nextTranscript) {
-        return;
-      }
-
-      pendingConversationTranscriptRef.current = nextTranscript;
-      setConversationLatestHeardText(nextTranscript);
-      if (conversationFinalResultTimeoutRef.current) {
-        clearTimeout(conversationFinalResultTimeoutRef.current);
-        conversationFinalResultTimeoutRef.current = undefined;
-      }
-
-      if (isFinal) {
-        conversationFinalResultTimeoutRef.current = setTimeout(() => {
-          conversationFinalResultTimeoutRef.current = undefined;
-          flushPendingConversationResultRef.current();
-        }, CONVERSATION_FINAL_RESULT_SETTLE_MS);
-      }
-    },
-    preferOnDevice: chatPreferences.preferOnDeviceRecognition,
-    volumeUpdateIntervalMillis: 400,
+  const { conversation, clearConversationFeedback, toggleConversationMode } = useConversationState({
+    connection, chatPreferences, currentSessionId, setCurrentSessionId, sessionStatuses,
+    messagesBySession, pendingPermissionsBySession, pendingQuestionsBySession, sendingState,
+    ensureActiveSession, sendPrompt,
   });
-  const {
-    abort: abortSpeechInput,
-    error: speechInputError,
-    errorAction: speechInputErrorAction,
-    errorCode: speechInputErrorCode,
-    isListening: isConversationListening,
-    isStarting: isConversationListeningStarting,
-    level: conversationListeningLevel,
-    start: startSpeechInput,
-  } = speechInput;
-
-  const flushPendingConversationResult = useCallback(() => {
-    const transcript = pendingConversationTranscriptRef.current?.trim();
-    clearPendingConversationResult();
-    if (!transcript || conversationPhaseRef.current !== 'listening') {
-      return;
-    }
-
-    conversationPhaseRef.current = 'submitting';
-    conversationSubmittingRef.current = true;
-    abortSpeechInput();
-    setPendingConversationTurn(transcript);
-    setConversationPhase('submitting');
-  }, [abortSpeechInput, clearPendingConversationResult]);
-  flushPendingConversationResultRef.current = flushPendingConversationResult;
-
-  // Stop the microphone when the app is backgrounded or the provider unmounts.
-  // Without this, speech recognition stays active after the user switches apps,
-  // continuing to capture audio in the background (privacy + battery cost).
-  // abort() is safe to call when not listening — the underlying native call is
-  // wrapped in try/catch inside useSpeechInput.
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') {
-        abortSpeechInput();
-      }
-    });
-    return () => {
-      subscription.remove();
-      abortSpeechInput();
-    };
-  }, [abortSpeechInput]);
-
-  const getLatestConversationAssistantEntry = useCallback(
-    (sessionId?: string) => {
-      if (!sessionId) {
-        return undefined;
-      }
-
-        const transcript = (messagesBySession[sessionId] || []).map(toTranscriptEntry).filter(isTranscriptDisplayMessage);
-      return [...transcript].reverse().find((entry) => entry.role === 'assistant' && entry.text.trim());
-    },
-    [messagesBySession],
-  );
-
-  const clearConversationFeedback = useCallback(() => {
-    applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, undefined);
-  }, []);
-
-  const stopConversationMode = useCallback(async () => {
-    clearPendingConversationResult();
-    if (conversationResumeTimeoutRef.current) {
-      clearTimeout(conversationResumeTimeoutRef.current);
-      conversationResumeTimeoutRef.current = undefined;
-    }
-    if (conversationListeningRestartTimeoutRef.current) {
-      clearTimeout(conversationListeningRestartTimeoutRef.current);
-      conversationListeningRestartTimeoutRef.current = undefined;
-    }
-
-    conversationCancelRequestedRef.current = true;
-    conversationSubmittingRef.current = false;
-    conversationPhaseRef.current = 'off';
-    abortSpeechInput();
-    await stopSpeaking().catch(() => undefined);
-    await stopWorkingSoundAsync().catch(() => undefined);
-    setPendingConversationTurn(undefined);
-    setQueuedConversationPrompt(undefined);
-    setConversationLatestHeardText(undefined);
-    setConversationPhase('off');
-    setConversationSessionId(undefined);
-  }, [abortSpeechInput, clearPendingConversationResult]);
-
-  const startConversationListening = useCallback(async (sessionId?: string) => {
-    if (!sessionId && !conversationSessionId) {
-      return false;
-    }
-
-    clearPendingConversationResult();
-    if (conversationResumeTimeoutRef.current) {
-      clearTimeout(conversationResumeTimeoutRef.current);
-      conversationResumeTimeoutRef.current = undefined;
-    }
-    if (conversationListeningRestartTimeoutRef.current) {
-      clearTimeout(conversationListeningRestartTimeoutRef.current);
-      conversationListeningRestartTimeoutRef.current = undefined;
-    }
-
-    conversationCancelRequestedRef.current = false;
-    conversationSubmittingRef.current = false;
-    setPendingConversationTurn(undefined);
-    setQueuedConversationPrompt(undefined);
-    await stopWorkingSoundAsync().catch(() => undefined);
-
-    const started = await startSpeechInput({ continuous: true });
-    if (!started) {
-      conversationPhaseRef.current = 'off';
-      setConversationPhase('off');
-      return false;
-    }
-
-    conversationPhaseRef.current = 'listening';
-    setConversationPhase('listening');
-    return true;
-  }, [clearPendingConversationResult, conversationSessionId, startSpeechInput]);
-
-  const toggleConversationMode = useCallback(async () => {
-    if (conversationPhase !== 'off') {
-      await stopConversationMode();
-      return;
-    }
-
-    if (connection.status !== 'connected') {
-      applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, 'Connect to OpenCode before starting conversation mode.');
-      return;
-    }
-
-    if (sendingState.active) {
-      applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, 'Wait for the current reply to finish before starting conversation mode.');
-      return;
-    }
-
-    const pendingInteractionCount = currentSessionId
-      ? (pendingPermissionsBySession[currentSessionId] || []).length + (pendingQuestionsBySession[currentSessionId] || []).length
-      : 0;
-    if (pendingInteractionCount > 0) {
-      applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, 'Answer the current request before starting conversation mode.');
-      return;
-    }
-
-    const sessionId = currentSessionId || (await ensureActiveSession());
-    if (!sessionId) {
-      return;
-    }
-
-    abortSpeechInput();
-    await stopSpeaking().catch(() => undefined);
-    await stopWorkingSoundAsync().catch(() => undefined);
-    setCurrentSessionId(sessionId);
-    setConversationSessionId(sessionId);
-    applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, undefined);
-    setPendingConversationTurn(undefined);
-    setQueuedConversationPrompt(undefined);
-    assistantReplyBaselineIdRef.current = getLatestConversationAssistantEntry(sessionId)?.id;
-    const started = await startConversationListening(sessionId);
-    if (!started) {
-      setConversationSessionId(undefined);
-    }
-  }, [
-    abortSpeechInput,
-    connection.status,
-    conversationPhase,
-    currentSessionId,
-    ensureActiveSession,
-    getLatestConversationAssistantEntry,
-    pendingPermissionsBySession,
-    pendingQuestionsBySession,
-    sendingState.active,
-    startConversationListening,
-    stopConversationMode,
-  ]);
+  const { phase: conversationPhase, sessionId: conversationSessionId } = conversation;
 
   useEffect(() => {
     Object.entries(sessionStatuses).forEach(([sessionId, status]) => {
@@ -2429,506 +2194,176 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     });
   }, [connectionScope, sessionStatuses]);
 
-  useEffect(() => {
-    conversationPhaseRef.current = conversationPhase;
-    if (conversationPhase !== 'submitting') {
-      conversationSubmittingRef.current = false;
-    }
-  }, [conversationPhase]);
-
-  useEffect(() => {
-    if (conversationPhase !== 'listening' || isConversationListening || isConversationListeningStarting) {
-      if (conversationListeningRestartTimeoutRef.current) {
-        clearTimeout(conversationListeningRestartTimeoutRef.current);
-        conversationListeningRestartTimeoutRef.current = undefined;
-      }
-      return;
-    }
-
-    if (conversationCancelRequestedRef.current || conversationSubmittingRef.current) {
-      return;
-    }
-
-    conversationListeningRestartTimeoutRef.current = setTimeout(() => {
-      conversationListeningRestartTimeoutRef.current = undefined;
-      if (
-        conversationPhaseRef.current !== 'listening' ||
-        conversationCancelRequestedRef.current ||
-        conversationSubmittingRef.current
-      ) {
+  const handleEvent = (event: GlobalEvent['payload']) => {
+    switch (event.type) {
+      case 'session.created':
+      case 'session.updated':
+      case 'session.deleted':
+        void refreshSessions(true).catch(() => undefined);
+        void refreshArchivedSessions().catch(() => undefined);
+        return;
+      case 'session.status': {
+        const sessionId = event.properties.sessionID;
+        setSessionStatuses((current) => ({
+          ...current,
+          [sessionId]: event.properties.status,
+        }));
+        scheduleSessionRefresh(sessionId, { sessions: true, messages: true, diff: true, todos: true });
         return;
       }
-
-      void startConversationListening();
-    }, CONVERSATION_LISTENING_RESTART_MS);
-
-    return () => {
-      if (conversationListeningRestartTimeoutRef.current) {
-        clearTimeout(conversationListeningRestartTimeoutRef.current);
-        conversationListeningRestartTimeoutRef.current = undefined;
+      case 'session.idle': {
+        const sessionId = event.properties.sessionID;
+        setSessionStatuses((current) => ({
+          ...current,
+          [sessionId]: { type: 'idle' },
+        }));
+        scheduleSessionRefresh(sessionId, { sessions: true, messages: true, diff: true, todos: true, delayMs: 50 });
+        void refreshPendingInteractions().catch(() => undefined);
+        void refreshServerFeatures().catch(() => undefined);
+        return;
       }
-    };
-  }, [conversationPhase, isConversationListening, isConversationListeningStarting, startConversationListening]);
-
-  useConversationKeepAwake(conversationPhase, CONVERSATION_KEEP_AWAKE_TAG);
-  useConversationScreenDim(conversationPhase);
-
-  useEffect(() => {
-    if (!speechInputError) {
-      return;
-    }
-
-    if (
-      conversationPhaseRef.current === 'listening' &&
-      (speechInputErrorCode === 'client' || speechInputErrorCode === 'no-speech' || speechInputErrorCode === 'speech-timeout')
-    ) {
-      return;
-    }
-
-    applyConversationFeedback(
-      setConversationFeedback,
-      setConversationFeedbackAction,
-      speechInputError,
-      speechInputErrorAction,
-    );
-    if (conversationPhaseRef.current !== 'off') {
-      void stopConversationMode();
-    }
-  }, [speechInputError, speechInputErrorAction, speechInputErrorCode, stopConversationMode]);
-
-  useEffect(() => {
-    if (conversationPhase === 'off' || conversationPhase !== 'submitting' || !pendingConversationTurn || !conversationSessionId) {
-      return;
-    }
-
-    setQueuedConversationPrompt(pendingConversationTurn);
-    setPendingConversationTurn(undefined);
-  }, [conversationPhase, conversationSessionId, pendingConversationTurn]);
-
-  useEffect(() => {
-    if (conversationPhase === 'off' || conversationPhase !== 'submitting' || !queuedConversationPrompt || !conversationSessionId) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const submitPrompt = async () => {
-      try {
-        assistantReplyBaselineIdRef.current = getLatestConversationAssistantEntry(conversationSessionId)?.id;
-        await sendPrompt(conversationSessionId, queuedConversationPrompt);
-        if (cancelled) {
-          return;
-        }
-
-        if (conversationCancelRequestedRef.current || conversationPhaseRef.current === 'off') {
-          setQueuedConversationPrompt(undefined);
-          setPendingConversationTurn(undefined);
-          return;
-        }
-
-        setQueuedConversationPrompt(undefined);
-        setConversationPhase('waiting');
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        const message = error instanceof Error ? error.message : 'Voice conversation failed while sending your message.';
-        setQueuedConversationPrompt(undefined);
-        setPendingConversationTurn(undefined);
-        applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, message);
-        await stopConversationMode();
-      }
-    };
-
-    void submitPrompt();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    conversationPhase,
-    conversationSessionId,
-    getLatestConversationAssistantEntry,
-    queuedConversationPrompt,
-    sendPrompt,
-    stopConversationMode,
-  ]);
-
-  useEffect(() => {
-    if (conversationPhase === 'off' || conversationPhase !== 'waiting') {
-      return;
-    }
-
-    const pendingInteractions = conversationSessionId
-      ? (pendingPermissionsBySession[conversationSessionId] || []).length + (pendingQuestionsBySession[conversationSessionId] || []).length
-      : 0;
-    const latestAssistantEntry = getLatestConversationAssistantEntry(conversationSessionId);
-    const sessionStatus = conversationSessionId ? sessionStatuses[conversationSessionId] : undefined;
-    const isSessionRunning = conversationSessionId
-      ? sendingState.sessionId === conversationSessionId || sendingState.active || (!!sessionStatus && sessionStatus.type !== 'idle')
-      : false;
-
-    if (pendingInteractions > 0) {
-      applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, 'Conversation mode paused because the assistant needs your input on screen.');
-      void stopConversationMode();
-      return;
-    }
-
-    if (isSessionRunning) {
-      return () => {
-        void stopWorkingSoundAsync().catch(() => undefined);
-      };
-    }
-
-    void stopWorkingSoundAsync().catch(() => undefined);
-    if (latestAssistantEntry && latestAssistantEntry.id !== assistantReplyBaselineIdRef.current) {
-      void (async () => {
-        const started = await speakText({
-          language: chatPreferences.speechLocale,
-          onDone: () => {
-            if (conversationPhaseRef.current !== 'off' && chatPreferences.resumeListeningAfterReply) {
-              void startConversationListening();
-            } else {
-              void stopConversationMode();
-            }
-          },
-          onError: () => {
-            applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, 'Unable to play this assistant reply.');
-            void stopConversationMode();
-          },
-          onStart: () => {
-            setConversationPhase('speaking');
-          },
-          rate: chatPreferences.speechRate,
-          text: latestAssistantEntry.text,
-          voice: chatPreferences.speechVoiceId,
+      case 'session.error': {
+        const sessionId = event.properties.sessionID;
+        const error = event.properties.error;
+        const message = error && 'data' in error && error.data && 'message' in error.data
+          ? error.data.message
+          : error && 'message' in error
+            ? error.message
+            : 'OpenCode could not complete the request.';
+        setPromptError({
+          message: error?.name ? `${error.name}: ${message}` : String(message),
+          occurredAt: Date.now(),
+          sessionId,
         });
-
-        if (!started) {
-          if (chatPreferences.resumeListeningAfterReply) {
-            void startConversationListening();
-          } else {
-            void stopConversationMode();
-          }
+        if (sessionId) {
+          scheduleSessionRefresh(sessionId, { sessions: true, messages: true });
         }
-      })();
-      return;
+        return;
+      }
+      case 'message.updated': {
+        scheduleSessionRefresh(event.properties.sessionID, { messages: true });
+        return;
+      }
+      case 'message.removed':
+      case 'message.part.updated':
+      case 'message.part.removed': {
+        scheduleSessionRefresh(event.properties.sessionID, { messages: true });
+        return;
+      }
+      case 'session.compacted': {
+        scheduleSessionRefresh(event.properties.sessionID, { sessions: true, messages: true, diff: true, todos: true });
+        return;
+      }
+      case 'catalog.updated':
+        void refreshChatCapabilities().catch(() => undefined);
+        return;
+      case 'project.updated':
+        void refreshWorkspaceCatalog(true).catch(() => undefined);
+        return;
+      case 'file.edited':
+      case 'vcs.branch.updated':
+        void refreshServerFeatures().catch(() => undefined);
+        return;
+      case 'pty.created':
+      case 'pty.updated':
+      case 'pty.exited':
+      case 'pty.deleted':
+        void refreshTerminals().catch(() => undefined);
+        return;
+      case 'worktree.ready':
+      case 'worktree.failed':
+        void refreshWorktrees().catch(() => undefined);
+        void refreshWorkspaceCatalog(true).catch(() => undefined);
+        return;
+      case 'mcp.tools.changed':
+      case 'mcp.browser.open.failed':
+        void refreshMcpServers().catch(() => undefined);
+        return;
+      case 'lsp.updated':
+        void refreshDiagnostics().catch(() => undefined);
+        return;
+      case 'session.diff': {
+        const sessionId = event.properties.sessionID;
+        // When the surface is pinned to an earlier turn, an incoming latest-turn
+        // diff must not overwrite it; refresh the selected turn instead.
+        if (event.properties.diff?.length > 0 && !selectedDiffMessageBySessionRef.current[sessionId]) {
+          setDiffsBySession((current) => ({
+            ...current,
+            [sessionId]: event.properties.diff,
+          }));
+        } else {
+          scheduleSessionRefresh(sessionId, { diff: true, delayMs: 50 });
+        }
+        return;
+      }
+      case 'todo.updated': {
+        const sessionId = event.properties.sessionID;
+        setTodosBySession((current) => ({
+          ...current,
+          [sessionId]: event.properties.todos,
+        }));
+        return;
+      }
+      case 'permission.asked': {
+        const request = event.properties;
+        setPendingPermissionsBySession((current) => ({
+          ...current,
+          [request.sessionID]: [
+            ...(current[request.sessionID] || []).filter((item) => item.id !== request.id),
+            request,
+          ],
+        }));
+        return;
+      }
+      case 'permission.replied': {
+        const { sessionID, requestID } = event.properties;
+        setPendingPermissionsBySession((current) => ({
+          ...current,
+          [sessionID]: (current[sessionID] || []).filter((item) => item.id !== requestID),
+        }));
+        return;
+      }
+      case 'question.asked': {
+        const request = event.properties;
+        setPendingQuestionsBySession((current) => ({
+          ...current,
+          [request.sessionID]: [
+            ...(current[request.sessionID] || []).filter((item) => item.id !== request.id),
+            request,
+          ],
+        }));
+        return;
+      }
+      case 'question.replied':
+      case 'question.rejected': {
+        const { sessionID, requestID } = event.properties;
+        setPendingQuestionsBySession((current) => ({
+          ...current,
+          [sessionID]: (current[sessionID] || []).filter((item) => item.id !== requestID),
+        }));
+        return;
+      }
+      default:
+        return;
     }
+  };
 
-    conversationResumeTimeoutRef.current = setTimeout(() => {
-      if (conversationPhaseRef.current === 'waiting' && !isSessionRunning) {
-        void startConversationListening();
-      }
-    }, 1200);
-
-    return () => {
-      if (conversationResumeTimeoutRef.current) {
-        clearTimeout(conversationResumeTimeoutRef.current);
-        conversationResumeTimeoutRef.current = undefined;
-      }
-    };
-  }, [
-    chatPreferences.resumeListeningAfterReply,
-    chatPreferences.speechLocale,
-    chatPreferences.speechRate,
-    chatPreferences.speechVoiceId,
-    conversationPhase,
-    conversationSessionId,
-    getLatestConversationAssistantEntry,
-    pendingPermissionsBySession,
-    pendingQuestionsBySession,
-    sendingState.active,
-    sendingState.sessionId,
-    sessionStatuses,
-    startConversationListening,
-    stopConversationMode,
-  ]);
-
-  useEffect(() => {
-    if (conversationPhase === 'off' || connection.status === 'connected') {
-      return;
-    }
-
-    applyConversationFeedback(
-      setConversationFeedback,
-      setConversationFeedbackAction,
-      connection.message || 'OpenCode disconnected. Conversation mode will resume when the connection returns.',
-    );
-  }, [connection.message, connection.status, conversationPhase]);
-
-  useEffect(() => {
-    if (connection.status !== 'connected') {
-      return;
-    }
-
-    setConversationFeedback((current) => {
-      if (!current) {
-        return current;
-      }
-
-      if (current === connection.message || current.includes('resume when the connection returns')) {
-        return undefined;
-      }
-
-      return current;
-    });
-  }, [connection.message, connection.status]);
-
-  useEffect(() => {
-    if (connection.status !== 'connected' || !activeProjectPath) {
-      setEventStreamStatus('idle');
-      return;
-    }
-
-    let mounted = true;
-    let activeAbortController: AbortController | undefined;
-
-    const handleEvent = (event: GlobalEvent['payload']) => {
-      switch (event.type) {
-        case 'session.created':
-        case 'session.updated':
-        case 'session.deleted':
-          void refreshSessions(true);
-          void refreshArchivedSessions();
-          return;
-        case 'session.status': {
-          const sessionId = event.properties.sessionID;
-          setSessionStatuses((current) => ({
-            ...current,
-            [sessionId]: event.properties.status,
-          }));
-          scheduleSessionRefresh(sessionId, { sessions: true, messages: true, diff: true, todos: true });
-          return;
-        }
-        case 'session.idle': {
-          const sessionId = event.properties.sessionID;
-          setSessionStatuses((current) => ({
-            ...current,
-            [sessionId]: { type: 'idle' },
-          }));
-          scheduleSessionRefresh(sessionId, { sessions: true, messages: true, diff: true, todos: true, delayMs: 50 });
-          void refreshPendingInteractions();
-          void refreshServerFeatures();
-          return;
-        }
-        case 'session.error': {
-          const sessionId = event.properties.sessionID;
-          const error = event.properties.error;
-          const message = error && 'data' in error && error.data && 'message' in error.data
-            ? error.data.message
-            : error && 'message' in error
-              ? error.message
-              : 'OpenCode could not complete the request.';
-          setPromptError({
-            message: error?.name ? `${error.name}: ${message}` : String(message),
-            occurredAt: Date.now(),
-            sessionId,
-          });
-          if (sessionId) {
-            scheduleSessionRefresh(sessionId, { sessions: true, messages: true });
-          }
-          return;
-        }
-        case 'message.updated': {
-          scheduleSessionRefresh(event.properties.sessionID, { messages: true });
-          return;
-        }
-        case 'message.removed':
-        case 'message.part.updated':
-        case 'message.part.removed': {
-          scheduleSessionRefresh(event.properties.sessionID, { messages: true });
-          return;
-        }
-        case 'session.compacted': {
-          scheduleSessionRefresh(event.properties.sessionID, { sessions: true, messages: true, diff: true, todos: true });
-          return;
-        }
-        case 'catalog.updated':
-          void refreshChatCapabilities();
-          return;
-        case 'project.updated':
-          void refreshWorkspaceCatalog(true);
-          return;
-        case 'file.edited':
-        case 'vcs.branch.updated':
-          void refreshServerFeatures();
-          return;
-        case 'pty.created':
-        case 'pty.updated':
-        case 'pty.exited':
-        case 'pty.deleted':
-          void refreshTerminals();
-          return;
-        case 'worktree.ready':
-        case 'worktree.failed':
-          void refreshWorktrees();
-          void refreshWorkspaceCatalog(true);
-          return;
-        case 'mcp.tools.changed':
-        case 'mcp.browser.open.failed':
-          void refreshMcpServers();
-          return;
-        case 'lsp.updated':
-          void refreshDiagnostics();
-          return;
-        case 'session.diff': {
-          const sessionId = event.properties.sessionID;
-          // When the surface is pinned to an earlier turn, an incoming latest-turn
-          // diff must not overwrite it; refresh the selected turn instead.
-          if (event.properties.diff?.length > 0 && !selectedDiffMessageBySessionRef.current[sessionId]) {
-            setDiffsBySession((current) => ({
-              ...current,
-              [sessionId]: event.properties.diff,
-            }));
-          } else {
-            scheduleSessionRefresh(sessionId, { diff: true, delayMs: 50 });
-          }
-          return;
-        }
-        case 'todo.updated': {
-          const sessionId = event.properties.sessionID;
-          setTodosBySession((current) => ({
-            ...current,
-            [sessionId]: event.properties.todos,
-          }));
-          return;
-        }
-        case 'permission.asked': {
-          const request = event.properties;
-          setPendingPermissionsBySession((current) => ({
-            ...current,
-            [request.sessionID]: [
-              ...(current[request.sessionID] || []).filter((item) => item.id !== request.id),
-              request,
-            ],
-          }));
-          return;
-        }
-        case 'permission.replied': {
-          const { sessionID, requestID } = event.properties;
-          setPendingPermissionsBySession((current) => ({
-            ...current,
-            [sessionID]: (current[sessionID] || []).filter((item) => item.id !== requestID),
-          }));
-          return;
-        }
-        case 'question.asked': {
-          const request = event.properties;
-          setPendingQuestionsBySession((current) => ({
-            ...current,
-            [request.sessionID]: [
-              ...(current[request.sessionID] || []).filter((item) => item.id !== request.id),
-              request,
-            ],
-          }));
-          return;
-        }
-        case 'question.replied':
-        case 'question.rejected': {
-          const { sessionID, requestID } = event.properties;
-          setPendingQuestionsBySession((current) => ({
-            ...current,
-            [sessionID]: (current[sessionID] || []).filter((item) => item.id !== requestID),
-          }));
-          return;
-        }
-        default:
-          return;
-      }
-    };
-
-    const subscribe = async () => {
-      let retryDelay = 1000;
-      while (mounted) {
-        const abortController = new AbortController();
-        activeAbortController = abortController;
-        setEventStreamStatus(retryDelay === 1000 ? 'connecting' : 'error');
-
-        try {
-          const subscription = await catalogClient.global.event({ signal: abortController.signal, sseMaxRetryAttempts: 1 });
-          for await (const envelope of subscription.stream) {
-            if (!mounted || abortController.signal.aborted) {
-              break;
-            }
-            if (envelope && (envelope.directory === activeProjectPath || !envelope.directory)) {
-              setEventStreamStatus('connected');
-              retryDelay = 1000;
-              handleEvent(envelope.payload);
-            }
-          }
-          if (mounted && !abortController.signal.aborted) {
-            throw new Error('OpenCode event stream ended.');
-          }
-        } catch {
-          if (!mounted || abortController.signal.aborted) {
-            break;
-          }
-          setEventStreamStatus('error');
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
-          retryDelay = Math.min(retryDelay * 2, 15000);
-        }
-      }
-    };
-
-    void subscribe();
-
-    return () => {
-      mounted = false;
-      activeAbortController?.abort();
-    };
-  }, [activeProjectPath, catalogClient, connection.status, refreshArchivedSessions, refreshChatCapabilities, refreshDiagnostics, refreshMcpServers, refreshPendingInteractions, refreshServerFeatures, refreshSessions, refreshTerminals, refreshWorktrees, refreshWorkspaceCatalog, scheduleSessionRefresh]);
+  const { eventStreamStatus } = useOpencodeRealtime({
+    catalogClient, activeProjectPath, connected: connection.status === 'connected',
+    busy: sendingState.active || conversationPhase !== 'off' || Object.values(sessionStatuses).some((status) => status.type !== 'idle'),
+    currentSessionId, conversationSessionId, onEvent: handleEvent,
+    refreshSessions, refreshPendingInteractions, refreshMessages, refreshSessionDiff, refreshSessionTodos,
+  });
 
   useEffect(
     () => () => {
       Object.values(sessionRefreshTimeoutsRef.current).forEach((timeout) => clearTimeout(timeout));
       sessionRefreshTimeoutsRef.current = {};
       sessionRefreshOptionsRef.current = {};
-      if (conversationResumeTimeoutRef.current) {
-        clearTimeout(conversationResumeTimeoutRef.current);
-      }
-      if (conversationFinalResultTimeoutRef.current) {
-        clearTimeout(conversationFinalResultTimeoutRef.current);
-      }
-
-      void stopSpeaking().catch(() => undefined);
       void unloadWorkingSoundAsync().catch(() => undefined);
     },
     [],
   );
-
-  useEffect(() => {
-    if (connection.status !== 'connected' || !activeProjectPath) {
-      return;
-    }
-
-    if (eventStreamStatus === 'connected') {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      void refreshSessions(true);
-      void refreshPendingInteractions();
-
-      if (currentSessionId) {
-        void Promise.all([
-          refreshMessages(currentSessionId, true),
-          refreshSessionDiff(currentSessionId, true),
-          refreshSessionTodos(currentSessionId),
-        ]);
-      }
-
-      if (conversationSessionId && conversationSessionId !== currentSessionId) {
-        void Promise.all([
-          refreshMessages(conversationSessionId, true),
-          refreshSessionDiff(conversationSessionId, true),
-          refreshSessionTodos(conversationSessionId),
-        ]);
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [activeProjectPath, connection.status, conversationSessionId, currentSessionId, eventStreamStatus, refreshMessages, refreshPendingInteractions, refreshSessionDiff, refreshSessionTodos, refreshSessions]);
 
   useEffect(() => {
     const busy = sendingState.active || Object.values(sessionStatuses).some((status) => status.type !== 'idle');
@@ -2979,7 +2414,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       }
     }
 
-    void flushCompletedNotifications();
+    void flushCompletedNotifications().catch((reason) => console.warn('Could not complete task notification.', reason));
 
     return () => {
       cancelled = true;
@@ -3121,33 +2556,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     [currentMessages, usagePricingByModel],
   );
   const currentTranscript = useMemo(() => getTranscript(currentMessages), [currentMessages]);
-  const conversationMessages = useMemo(
-    () => (conversationSessionId ? messagesBySession[conversationSessionId] || [] : []),
-    [conversationSessionId, messagesBySession],
-  );
-  const conversationTranscript = useMemo(() => getTranscript(conversationMessages), [conversationMessages]);
-  const conversationCurrentActivityLabel = useMemo(() => getTranscriptActivityLabelForEntries(conversationTranscript), [conversationTranscript]);
-  const conversationActive = conversationPhase !== 'off';
-  const conversationStatusLabel = useMemo(() => getConversationStatusLabel(conversationPhase, conversationCurrentActivityLabel), [conversationCurrentActivityLabel, conversationPhase]);
   const sessionPreviewById = useMemo(() => getSessionPreviewById(messagesBySession), [messagesBySession]);
   const serverCapabilities = useMemo(() => getServerCapabilities(serverContract), [serverContract]);
-
-  // The conversation snapshot is memoized so the ConversationContext value only
-  // changes when a conversation field changes.
-  const conversation = useMemo<ConversationState>(
-    () => ({
-      active: conversationActive,
-      feedback: conversationFeedback,
-      feedbackAction: conversationFeedbackAction,
-      isListening: isConversationListening,
-      level: conversationListeningLevel,
-      latestHeardText: conversationLatestHeardText,
-      phase: conversationPhase,
-      sessionId: conversationSessionId,
-      statusLabel: conversationStatusLabel,
-    }),
-    [conversationActive, conversationFeedback, conversationFeedbackAction, isConversationListening, conversationListeningLevel, conversationLatestHeardText, conversationPhase, conversationSessionId, conversationStatusLabel],
-  );
 
   const onboardingValue = useMemo<OnboardingContextValue>(
     () => ({ isHydrated, onboardingCompleted, onboardingActive, completeOnboarding, startOnboardingReview, stopOnboardingReview }),
@@ -3155,8 +2565,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   );
 
   const connectionValue = useMemo<ConnectionContextValue>(
-    () => ({ settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus, connectSetup }),
-    [settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus, connectSetup],
+    () => ({ connectionProfiles, settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus, connectSetup }),
+    [connectionProfiles, settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus, connectSetup],
   );
 
   const capabilitiesValue = useMemo<CapabilitiesContextValue>(

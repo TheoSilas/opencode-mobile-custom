@@ -204,6 +204,11 @@ try {
   const messages = await request(`/session/${sessionId}/message`);
   const userMessage = messages.find((message) => message.info.role === 'user');
   assert(messages.length >= 2, 'Expected user and assistant messages');
+  const newestPage = await response(`/session/${sessionId}/message?limit=1`);
+  const newest = await newestPage.json();
+  assert(newest[0].info.id === messages.at(-1).info.id, 'V1 must start with the newest page');
+  const older = await request(`/session/${sessionId}/message?limit=1&before=${encodeURIComponent(newestPage.headers.get('x-next-cursor'))}`);
+  assert(older[0].info.id === messages.at(-2).info.id, 'V1 cursor must retrieve the previous page');
   assert((await request(`/session/${sessionId}/diff`)).length === 0, 'Expected message-scoped diff contract');
   assert((await request(`/session/${sessionId}/diff?messageID=${userMessage.info.id}`)).length > 0, 'Expected user message diff payload');
   assert((await request('/file/status')).length === 2, 'Expected completed task file status');
@@ -288,6 +293,12 @@ try {
   await v2request(`/api/session/${v2Session.id}/prompt`, json('POST', { text: 'Validate V2 contract' }));
   await sleep(900);
   const v2Messages = (await v2request(`/api/session/${v2Session.id}/message`)).data;
+  const v2Newest = await v2request(`/api/session/${v2Session.id}/message?limit=1&order=desc`);
+  assert(v2Newest.data[0].id === v2Messages[0].id && v2Newest.cursor.next, 'V2 newest-first pagination failed');
+  const v2Older = await v2request(`/api/session/${v2Session.id}/message?limit=1&cursor=${encodeURIComponent(v2Newest.cursor.next)}`);
+  assert(v2Older.data[0].id === v2Messages[1].id, 'V2 cursor must preserve descending order');
+  const invalidCursorOrder = await fetch(`${v2Origin}/api/session/${v2Session.id}/message?cursor=${encodeURIComponent(v2Newest.cursor.next)}&order=desc`);
+  assert(invalidCursorOrder.status === 400, 'V2 rejects explicit order together with a cursor');
   const v2Assistant = v2Messages.find((message) => message.type === 'assistant');
   assert(v2Assistant.tokens.input === 1200 && v2Assistant.tokens.cache.read === 800 && v2Assistant.tokens.output === 240, 'V2 assistant usage missing');
   assert(v2Assistant.cost > 0, 'V2 assistant cost missing');

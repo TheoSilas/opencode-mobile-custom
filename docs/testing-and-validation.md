@@ -34,6 +34,9 @@ From `TESTING.md`, those gates include:
   - `npm run test:v2-mappers`
   - `npm run test:format`
   - `npm run test:i18n`
+  - `npm run test:record-preservation`
+  - `npm run test:session-reads`
+  - `npm run test:provider-runtime`
   - `npm run test:provider-utils`
   - `npm run test:workspace-patch`
   - `npm run test:persistence-hydration`
@@ -78,7 +81,7 @@ strict form and enforces full parity.
 
 The `test:architecture` suite is a ratchet on the documented layering: the
 provider file size, the combined domain-context surface, and a rule that
-`app/` and `components/` never call the network directly. It fails with a
+`app/` and `components/` never call the network or profile/credential persistence directly. It fails with a
 pointed message when a limit is outgrown, so the fix is to extract a domain or
 move code to the right layer rather than raise the number.
 It also evaluates each input surface's keyboard-avoidance policy for Android,
@@ -228,6 +231,31 @@ The SSE endpoint intentionally fails, forcing the app to complete the workflow t
 - switch to Workspace
 - verify the session still completes and becomes idle
 
+### Connected SSE Safety And Reconnect Recovery
+
+- drop domain events while keeping SSE connected; a submitted task still finishes
+  through the busy-work safety poll
+- create a blocking question while suppressing events, then disconnect without
+  resetting state; reconnect discovers the missed session/question for both protocols
+- recovery flows spawn fresh servers to avoid reusing an older local fake backend
+- both fake servers expose `POST /__control/event-stream` with `suppress` and
+  `disconnect` for deterministic transport control; these controls do not change
+  production endpoints
+
+`test:session-reads` exercises 4,300-record histories in both protocols, newest
+500-record chronological retrieval, cursor translation, shared message/diff
+reads, V2 shared listing/status, and failure retry/client isolation.
+`test:provider-runtime` runs actual provider callbacks and extracted hooks with
+deterministic platform/timer boundaries: out-of-order workspace results, stale
+same-directory server responses, safety-poll overlap, reconnect snapshots,
+subscription cleanup, a single voice submission through message updates, and
+serialized profile saves with credential rollback and callback stability.
+`test:persistence-hydration` checks field validation, credential-independent
+hydration, ordered/deduplicated writes, and preserving unread records.
+`test:notifications-background` covers concurrent changes, transient reads/writes,
+malformed data, and a re-sent task during background completion checks.
+`test:record-preservation` is now part of the static CI gate.
+
 ### Workspace Mutation And Management Flows
 
 - edit a text file and save it through the conflict-checked VCS patch path
@@ -329,7 +357,7 @@ The following important behaviors are present in code but are not obviously cove
 - session summarization fallback behavior
 - keep-awake and brightness side effects
 - working-sound busy/idle transitions
-- global SSE reconnect/backoff behavior beyond initial failure fallback
+- native SSE transport behavior and real network reconnect timing (web missed-event recovery and deterministic backoff are covered)
 
 These are useful candidates for future validation if the product depends on them heavily.
 
@@ -382,6 +410,17 @@ After that baseline, the next most valuable parity suite would add:
 
 ## Migration Coverage Status
 
-The fake server self-test covers the expanded REST contract plus a real ticket-authenticated PTY WebSocket exchange. Playwright covers patch save, archive/restore, worktree creation, MCP addition, and terminal input/output. It does not prove full terminal emulation, native WebSocket behavior, MCP OAuth UI completion, attachment capability, provider OAuth callback, or global reconnect behavior.
+The fake server self-test covers the expanded REST contract plus a real ticket-authenticated PTY WebSocket exchange. Playwright covers patch save, archive/restore, worktree creation, MCP addition, and terminal input/output. It does not prove full terminal emulation, native WebSocket behavior, MCP OAuth UI completion, attachment capability, provider OAuth callback, or native reconnect behavior.
 
 Android native validation happens on every CI run in the tagged/`main`/manual `android-release` job in `.github/workflows/build.yml`; there is no separate push-time Android development build gate.
+
+## Assessment Validation Limits
+
+These checks establish behavior and bounded request counts, not native frame
+rate, launch latency, battery use, or memory. Terminal socket output retains
+its existing per-chunk React updates and 100,000-character cap; introduce batching
+only after sustained-output profiling demonstrates a bottleneck. Physical-device
+voice, background notification, and virtualized-list scrolling/accessibility checks
+remain necessary. Changes under `tests/e2e/` or `tests/fake-opencode/` require
+explicit human validation as specified by `AGENTS.md`, even after all automated
+gates pass.

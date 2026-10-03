@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import ts from 'typescript';
+import { deferred } from './helpers/runtime.mjs';
 
 // Drives the real background monitor callback from lib/notifications.ts with
 // stubbed Expo/AsyncStorage/network modules. The scenario under test:
@@ -36,8 +37,8 @@ globalThis.__notificationsTestTask = undefined;
 
 const asyncStorageStubUri = `data:text/javascript,${encodeURIComponent(`
   export default {
-    async getItem(key) { return globalThis.__notificationsTestAsyncStorage.has(key) ? globalThis.__notificationsTestAsyncStorage.get(key) : null; },
-    async setItem(key, value) { globalThis.__notificationsTestAsyncStorage.set(key, value); },
+    async getItem(key) { if (globalThis.__notificationsFailRead) throw new Error('temporary read failure'); return globalThis.__notificationsTestAsyncStorage.has(key) ? globalThis.__notificationsTestAsyncStorage.get(key) : null; },
+    async setItem(key, value) { if (globalThis.__notificationsFailWrite) { globalThis.__notificationsFailWrite = false; throw new Error('temporary write failure'); } globalThis.__notificationsTestAsyncStorage.set(key, value); },
     async removeItem(key) { globalThis.__notificationsTestAsyncStorage.delete(key); },
   };
 `)}`;
@@ -108,7 +109,7 @@ const notificationsUri = await transpileToDataUri('lib/notifications.ts', [
   [/from '@\/lib\/storage-keys'/g, `from "${storageKeysUri}"`],
 ]);
 
-await import(notificationsUri);
+const { trackPendingTaskFinishedNotification, clearPendingTaskFinishedNotification } = await import(notificationsUri);
 const storageKeys = await import(storageKeysUri);
 const { getConnectionScope } = await import(connectionScopeUri);
 const { pendingNotificationKey } = await import(notificationPendingUri);
@@ -220,4 +221,43 @@ function readPending() {
   assert.equal(raw.includes('secret-b'), false);
 }
 
-console.log('notification background tests passed');
+// Concurrent additions and clears must merge rather than overwrite snapshots.
+storage.clear();
+const record = (id, requestedAt = 10) => ({ sessionId: id, projectPath: '/repo', connectionScope: scopeA, settings: { serverUrl: 'https://a.example', username: 'alice' }, requestedAt });
+await Promise.all(['one', 'two', 'three'].map((id) => trackPendingTaskFinishedNotification(record(id))));
+assert.equal(Object.keys(readPending()).length, 3);
+await Promise.all([clearPendingTaskFinishedNotification(scopeA, 'one'), trackPendingTaskFinishedNotification(record('four'))]);
+assert.equal(Object.keys(readPending()).length, 3);
+assert.ok(readPending()[pendingNotificationKey(scopeA, 'four')]);
+
+const original = storage.get(storageKeys.PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY);
+globalThis.__notificationsFailRead = true;
+await assert.rejects(trackPendingTaskFinishedNotification(record('five')), /temporary read failure/);
+assert.equal(storage.get(storageKeys.PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY), original);
+assert.equal(await runTask(), 2, 'unreadable storage makes monitoring retryable');
+globalThis.__notificationsFailRead = false;
+globalThis.__notificationsFailWrite = true;
+await assert.rejects(trackPendingTaskFinishedNotification(record('five')), /temporary write failure/);
+await trackPendingTaskFinishedNotification(record('five'));
+assert.ok(readPending()[pendingNotificationKey(scopeA, 'five')], 'a rejected mutation must not poison the queue');
+
+// A background network snapshot cannot clear or notify a newly re-sent task.
+storage.clear(); globalThis.__notificationsTestScheduled.length = 0;
+await trackPendingTaskFinishedNotification(record('resend', 100));
+const gate = deferred(), entered = deferred();
+globalThis.__notificationsTestResolver = () => 'secret-a';
+globalThis.__notificationsTestClientFactory = () => ({ session: {
+  status: async () => { entered.resolve(); await gate.promise; return { data: { resend: { type: 'idle' } } }; },
+  list: async () => ({ data: [{ id: 'resend', title: 'Old task' }] }),
+} });
+const monitoring = runTask(); await entered.promise;
+await Promise.all([trackPendingTaskFinishedNotification(record('resend', 200)), trackPendingTaskFinishedNotification(record('during-monitor', 201))]);
+gate.resolve(); await monitoring;
+assert.equal(readPending()[pendingNotificationKey(scopeA, 'resend')].requestedAt, 200);
+assert.ok(readPending()[pendingNotificationKey(scopeA, 'during-monitor')]);
+assert.equal(globalThis.__notificationsTestScheduled.length, 0);
+
+storage.set(storageKeys.PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY, '{');
+await trackPendingTaskFinishedNotification(record('after-corruption'));
+assert.equal(Object.keys(readPending()).length, 1, 'malformed JSON can be replaced safely');
+console.log('notification background, concurrency, read/write failure, and monitor race tests passed');

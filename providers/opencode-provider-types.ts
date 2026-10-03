@@ -142,6 +142,7 @@ export type OnboardingContextValue = {
 };
 
 export type ConnectionContextValue = {
+  connectionProfiles: import('@/providers/use-connection-profiles').ConnectionProfilesState;
   connectSetup: import('@/providers/use-connect-state').ConnectSetup;
   settings: OpencodeConnectionSettings;
   updateSettings: (patch: Partial<OpencodeConnectionSettings>) => void;

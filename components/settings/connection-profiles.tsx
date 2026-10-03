@@ -9,16 +9,7 @@ import {
   type ConnectionProfileFormValues,
 } from '@/components/settings/connection-profile-dialog';
 import { Colors } from '@/constants/theme';
-import {
-  createProfileId,
-  deleteProfilePassword,
-  findMatchingProfile,
-  getProfilePassword,
-  loadConnectionProfiles,
-  saveConnectionProfiles,
-  saveProfilePassword,
-  type ConnectionProfile,
-} from '@/lib/connection-profiles';
+import { findMatchingProfile, type ConnectionProfile } from '@/lib/connection-profiles';
 import { useConnection } from '@/providers/opencode-contexts';
 
 type Palette = typeof Colors.light;
@@ -40,17 +31,16 @@ function connectionHost(serverUrl: string) {
 
 export function ConnectionProfiles({ palette, onManageConnect }: { palette: Palette; onManageConnect?: () => void }) {
   const { t } = useTranslation();
-  const { settings, connection, connect, switchConnection, updateSettings, connectSetup } = useConnection();
-  const [profiles, setProfiles] = useState<ConnectionProfile[]>([]);
+  const { settings, connection, connect, updateSettings, connectSetup, connectionProfiles } = useConnection();
+  const { profiles, refresh, connect: connectProfile, passwordForEditing, save, remove } = connectionProfiles;
+  const [error, setError] = useState<string>();
   const [expandedKey, setExpandedKey] = useState<string>();
   const [switchingProfileId, setSwitchingProfileId] = useState<string>();
   const [dialog, setDialog] = useState<DialogState>();
 
   useFocusEffect(useCallback(() => {
-    let mounted = true;
-    void loadConnectionProfiles().then((stored) => { if (mounted) setProfiles(stored); });
-    return () => { mounted = false; };
-  }, []));
+    void refresh().catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
+  }, [refresh]));
 
   const activeProfile = findMatchingProfile(profiles, { serverUrl: settings.serverUrl, username: settings.username });
   const isReconnecting = connection.status === 'connecting';
@@ -59,37 +49,29 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
     onManageConnect?.();
   }
 
-  async function persist(next: ConnectionProfile[]) {
-    setProfiles(next);
-    await saveConnectionProfiles(next);
-  }
-
   async function handleConnect(profile: ConnectionProfile) {
     if (switchingProfileId) {
       return;
     }
     setSwitchingProfileId(profile.id);
     try {
-      const password = await getProfilePassword(profile.id);
-      // switchConnection persists the outgoing profile's model preferences,
-      // clears server-derived state, restores this profile's preferences, and
-      // reconnects with these credentials.
-      await switchConnection({ serverUrl: profile.serverUrl, username: profile.username, password }, profile.modelPreferences);
+      await connectProfile(profile);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setSwitchingProfileId(undefined);
     }
   }
 
   async function handleEditProfile(profile: ConnectionProfile) {
-    const password = await getProfilePassword(profile.id);
+    const password = await passwordForEditing(profile.id);
     setDialog({ mode: 'edit-profile', profile, password });
   }
 
   function handleDelete(profile: ConnectionProfile) {
     const message = t('settings:connection.deleteMessage', { name: profile.name });
     const confirmRemoval = () => {
-      void deleteProfilePassword(profile.id);
-      void persist(profiles.filter((item) => item.id !== profile.id));
+      void remove(profile.id).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
     };
 
     // React Native Web has no Alert, so follow the app's existing pattern of a
@@ -114,20 +96,13 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
     }
 
     if (currentDialog.mode === 'add') {
-      const profile: ConnectionProfile = {
-        id: createProfileId(),
-        name: values.name,
-        serverUrl: values.serverUrl,
-        username: values.username,
-      };
-      await saveProfilePassword(profile.id, values.password);
-      await persist([...profiles, profile]);
+      const profile = await save(values);
       setDialog(undefined);
       setExpandedKey(profile.id);
       // Show the new row as connecting while the switch runs.
       setSwitchingProfileId(profile.id);
       try {
-        await switchConnection({ serverUrl: profile.serverUrl, username: profile.username, password: values.password });
+        await connectProfile(profile);
       } finally {
         setSwitchingProfileId(undefined);
       }
@@ -135,20 +110,8 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
     }
 
     if (currentDialog.mode === 'edit-profile') {
-      const updated: ConnectionProfile = {
-        ...currentDialog.profile,
-        name: values.name,
-        serverUrl: values.serverUrl,
-        username: values.username,
-      };
-      await saveProfilePassword(updated.id, values.password);
-      await persist(profiles.map((item) => (item.id === updated.id ? updated : item)));
+      await save(values, currentDialog.profile.id);
       setDialog(undefined);
-      if (updated.id === activeProfile?.id) {
-        // Editing the active connection applies to the live settings but waits
-        // for the user to reconnect, so an in-flight session is never dropped.
-        updateSettings({ serverUrl: values.serverUrl, username: values.username, password: values.password });
-      }
       return;
     }
 
@@ -260,7 +223,7 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
             onPress={() => void connect()}>
             {t('common:actions.reconnect')}
           </Button>
-          {profile.connect ? onManageConnect ? <Button mode="outlined" onPress={() => manageConnect(profile)}>{t('settings:connect.manage')}</Button> : null : <Button testID={`connection-edit-${profile.id}`} mode="outlined" onPress={() => void handleEditProfile(profile)}>
+          {profile.connect ? onManageConnect ? <Button mode="outlined" onPress={() => manageConnect(profile)}>{t('settings:connect.manage')}</Button> : null : <Button testID={`connection-edit-${profile.id}`} mode="outlined" onPress={() => void handleEditProfile(profile).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)))}>
             {t('common:actions.edit')}
           </Button>}
         </>
@@ -274,7 +237,7 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
             onPress={() => void handleConnect(profile)}>
             {t('common:actions.connect')}
           </Button>
-          {profile.connect ? onManageConnect ? <Button mode="outlined" onPress={() => manageConnect(profile)}>{t('settings:connect.manage')}</Button> : null : <Button testID={`connection-edit-${profile.id}`} mode="outlined" onPress={() => void handleEditProfile(profile)}>
+          {profile.connect ? onManageConnect ? <Button mode="outlined" onPress={() => manageConnect(profile)}>{t('settings:connect.manage')}</Button> : null : <Button testID={`connection-edit-${profile.id}`} mode="outlined" onPress={() => void handleEditProfile(profile).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)))}>
             {t('common:actions.edit')}
           </Button>}
           <Button testID={`connection-delete-${profile.id}`} mode="text" textColor={palette.danger} onPress={() => handleDelete(profile)}>
@@ -294,6 +257,7 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
   return (
     <>
       <View style={styles.list}>{rows}</View>
+      {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
       <Button testID="connection-add-button" mode="outlined" icon="plus" onPress={() => setDialog({ mode: 'add' })}>
         {t('settings:connection.addConnection')}
       </Button>

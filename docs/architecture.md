@@ -81,7 +81,7 @@ workspace, sessions, chat, conversation, terminal, and MCP. The provider still
 owns all the state and actions; each domain value is memoized and rendered as its
 own context, so a consumer only re-renders when the domain it reads changes and
 each screen declares its real dependencies instead of pulling from one
-130-member surface. `OpencodeContextValue` remains only as the documented union
+combined domain surface. `OpencodeContextValue` remains only as the documented union
 of those domains.
 
 ## Module Map
@@ -161,7 +161,16 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
 - `providers/opencode-provider-selectors.ts`
   Derived selectors extracted from the provider body.
 - `providers/use-opencode-persistence.ts`
-  AsyncStorage hydration and persistence.
+  AsyncStorage hydration and ordered write-back, with field validation in
+  `providers/persisted-preferences.ts`.
+- `providers/use-connection-profiles.ts`
+  Provider-owned saved-profile state, credential ordering, mutation serialization,
+  and connection actions exposed through `useConnection().connectionProfiles`.
+- `providers/use-conversation-state.ts`
+  Conversation phases, speech submission, reply playback, timers, and cleanup.
+- `providers/use-opencode-realtime.ts`
+  SSE transport/backoff, first-connect and reconnect reconciliation, and the
+  five-second busy-work safety poll. Domain event handling stays in the provider.
 - `providers/session-cache.ts`
   Per connection + project session/status cache DTO, validation, and hydration.
 - `providers/favorites-storage.ts`
@@ -186,6 +195,10 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
   Pure selection of the active-session group (running-first ordering, recent tail
   capped at four, subagent/archived filtering). The Chat Library de-duplicates
   these IDs out of the current-workspace Chat list.
+
+MCP and worktree callback bridges use stable callbacks backed by the provider's
+latest refs. Conversation submission similarly uses the latest send action
+without restarting a submitted turn when message state changes.
 
 These domain hooks are composed by `OpencodeProvider`, which stays the single
 orchestrator. Each hook receives the current client (and, when it must call a

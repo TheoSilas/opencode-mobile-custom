@@ -16,7 +16,7 @@ The single `.github/workflows/build.yml` workflow owns validation and release, a
 It enforces a single `validate` gate:
 
 1. `validate`
-   - `npm run test:ci:static` (lint, typecheck, and the static suites: usage, v2-mappers, format, provider-utils, workspace-patch, persistence-hydration, credential-storage, session-cache, favorites, connection-scope, connection-profiles, last-session, notifications, notifications-background)
+   - `npm run test:ci:static` (lint, typecheck, and the static suites: usage, v2-mappers, format, provider-utils, workspace-patch, persistence-hydration, credential-storage, session-cache, favorites, connection-scope, connection-profiles, last-session, notifications, notifications-background, record-preservation, session-reads, provider-runtime)
    - `npm run test:fake-server:self`
    - starts the fake OpenCode server
    - starts the Expo web app in CI mode

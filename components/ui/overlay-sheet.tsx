@@ -8,7 +8,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useDismissOnBack } from '@/hooks/use-dismiss-on-back';
 
-export function OverlaySheet({ visible, title, onClose, children, headerAction, testID, fitContent = false }: {
+export function OverlaySheet({ visible, title, onClose, children, headerAction, testID, fitContent = false, scrollable = true }: {
   visible: boolean;
   title: string;
   onClose: () => void;
@@ -16,6 +16,7 @@ export function OverlaySheet({ visible, title, onClose, children, headerAction, 
   headerAction?: ReactNode;
   testID?: string;
   fitContent?: boolean;
+  scrollable?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -41,9 +42,9 @@ export function OverlaySheet({ visible, title, onClose, children, headerAction, 
               </Pressable>
             </View>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" style={fitContent ? styles.fitContentScroll : undefined} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+          {scrollable ? <ScrollView keyboardShouldPersistTaps="handled" style={fitContent ? styles.fitContentScroll : undefined} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             {children}
-          </ScrollView>
+          </ScrollView> : <View style={[styles.content, { flex: 1, minHeight: 0, paddingBottom: Math.max(insets.bottom, 24) }]}>{children}</View>}
         </View>
       </View>
     </Portal>

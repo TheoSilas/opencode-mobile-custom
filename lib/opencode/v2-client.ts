@@ -10,6 +10,7 @@ import {
   type ScopedOpencodeClient,
 } from './client';
 import { modelToV1, projectToV1, sessionToV1 } from './v2-mappers';
+import { coalesceRead } from './in-flight';
 
 type V2Api = ReturnType<typeof OpenCode.make>;
 
@@ -23,7 +24,7 @@ type V2Agent = Awaited<ReturnType<V2Api['agent']['list']>>['data'][number];
 type V2Integration = Awaited<ReturnType<V2Api['integration']['list']>>['data'][number];
 type V2Shell = Awaited<ReturnType<V2Api['config']['shells']>>[number];
 
-type RawResult = { data?: unknown };
+type RawResult = { data?: unknown; response?: { headers: Headers } };
 
 type V2EventEnvelope = {
   id: string;
@@ -497,26 +498,6 @@ async function* subscribeV2(api: V2Api, signal?: AbortSignal, ctx?: AdapterConte
   }
 }
 
-async function fetchAllMessages(api: V2Api, sessionID: string): Promise<V2Message[]> {
-  const messages: V2Message[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < 20; page += 1) {
-    // V2 lists messages newest-first by default. Request ascending so callers
-    // receive a chronological transcript. The order is encoded into the opaque
-    // cursor, so it must not be repeated on cursor pages (the server rejects
-    // `cursor` combined with `order`).
-    const response = await api.message.list(
-      cursor ? { sessionID, limit: 200, cursor } : { sessionID, limit: 200, order: 'asc' },
-    );
-    const page = response.data ?? [];
-    messages.push(...page);
-    const next = response.cursor?.next ?? undefined;
-    if (!next || next === cursor || page.length === 0) break;
-    cursor = next;
-  }
-  return messages;
-}
-
 // V2 prompt input has no `system` field. The equivalent is a durable,
 // session-scoped instruction entry, applied at the next step boundary.
 const PREFERENCES_INSTRUCTION_KEY = 'opencode-mobile.chat-preferences';
@@ -567,6 +548,7 @@ function buildV2Raw(settings: OpencodeConnectionSettings): { client: Record<stri
   };
 
   const ok = (data: unknown): RawResult => ({ data });
+  const listSessionPage = () => coalesceRead(api, 'sessions', () => api.session.list(directory ? { directory } : {}));
 
   // The V2 surface is assembled from per-domain builders. Each builder is a
   // self-contained translation slice; the composer below only wires them
@@ -587,13 +569,13 @@ function buildV2Raw(settings: OpencodeConnectionSettings): { client: Record<stri
   const buildSessionApi = () => ({
     session: {
       list: async () => {
-        const response = await api.session.list(directory ? { directory } : {});
+        const response = await listSessionPage();
         return ok((response.data ?? []).map(sessionToV1));
       },
       status: async () => {
         const [active, list] = await Promise.all([
           api.session.active().catch(() => ({}) as Record<string, unknown>),
-          api.session.list(directory ? { directory } : {}),
+          listSessionPage(),
         ]);
         const statuses: Record<string, unknown> = {};
         (list.data ?? []).forEach((session) => {
@@ -604,12 +586,16 @@ function buildV2Raw(settings: OpencodeConnectionSettings): { client: Record<stri
         });
         return ok(statuses);
       },
-      messages: async (parameters?: { before?: string }) => {
-        // V2 uses opaque cursors; callers only need the full history.
-        if (parameters?.before) return ok([]);
-        const sessionID = stringField((parameters as Record<string, unknown> | undefined)?.sessionID);
-        const messages = await fetchAllMessages(api, sessionID);
-        return ok(messages.map((message) => messageToV1(message, sessionID)).filter(Boolean));
+      messages: async (parameters: { sessionID: string; before?: string; limit?: number }) => {
+        const { sessionID, before, limit = 100 } = parameters;
+        // Cursors carry the ordering; V2 rejects cursor + order on later pages.
+        const page = await api.message.list(before ? { sessionID, limit, cursor: before } : { sessionID, limit, order: 'desc' });
+        const headers = new Headers();
+        if (page.cursor?.next) headers.set('x-next-cursor', page.cursor.next);
+        return {
+          data: [...page.data].reverse().map((message) => messageToV1(message, sessionID)).filter(Boolean),
+          response: { headers },
+        };
       },
       diff: async (parameters: { sessionID: string; messageID?: string }) => {
         const diffs: V2Diff[] = await api.session.diff({

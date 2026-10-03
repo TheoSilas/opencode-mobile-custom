@@ -10,6 +10,7 @@ const scenarioName = process.env.FAKE_OPENCODE_SCENARIO || 'happy-path';
 
 const stateStore = createStateStore(scenarioName);
 let state = stateStore.getState();
+let suppressEvents = false;
 const v2Clients = new Set();
 // VCS diff fixtures. `working` mirrors uncommitted changes; `branch` is a
 // distinct committed fixture so the diff-scope surface is deterministic.
@@ -114,6 +115,7 @@ function translate(eventMessage) {
 }
 
 function emitEvent(eventMessage) {
+  if (suppressEvents) return;
   const mapped = translate(eventMessage);
   if (!mapped) return;
   const payload = `data: ${JSON.stringify(mapped)}\n\n`;
@@ -268,10 +270,24 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Keep the transport connected while dropping domain events, or close it
+    // without resetting server state to reproduce missed-event recovery.
+    if (req.method === 'POST' && pathname === '/__control/event-stream') {
+      const body = await readJson(req);
+      suppressEvents = Boolean(body?.suppress);
+      if (body?.disconnect) {
+        for (const client of v2Clients) client.end();
+        v2Clients.clear();
+      }
+      sendJson(res, 200, { data: { suppressEvents, clients: v2Clients.size } });
+      return;
+    }
+
     if (req.method === 'POST' && pathname === '/__control/reset') {
       const body = await readJson(req);
       for (const client of v2Clients) client.end();
       v2Clients.clear();
+      suppressEvents = false;
       state = stateStore.resetState(body?.scenario || scenarioName);
       sendJson(res, 200, { data: { scenario: state.scenario } });
       return;
@@ -416,7 +432,15 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && /^\/api\/session\/[^/]+\/message$/.test(pathname)) {
       const sessionID = pathname.split('/')[3];
-      sendJson(res, 200, { data: (state.messagesBySession[sessionID] || []).map(messageToV2), cursor: { next: null, previous: null } });
+      const cursor = requestUrl.searchParams.get('cursor');
+      if (cursor && requestUrl.searchParams.has('order')) return sendJson(res, 400, { error: 'cursor and order cannot be combined' });
+      const position = cursor ? JSON.parse(Buffer.from(cursor, 'base64url').toString()) : { offset: 0, order: requestUrl.searchParams.get('order') || 'desc' };
+      const limit = Number(requestUrl.searchParams.get('limit') || 200);
+      const messages = (state.messagesBySession[sessionID] || []).map(messageToV2);
+      if (position.order === 'desc') messages.reverse();
+      const data = messages.slice(position.offset, position.offset + limit);
+      const next = position.offset + limit < messages.length ? Buffer.from(JSON.stringify({ ...position, offset: position.offset + limit })).toString('base64url') : null;
+      sendJson(res, 200, { data, cursor: { next, previous: null } });
       return;
     }
 

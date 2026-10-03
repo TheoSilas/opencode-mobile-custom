@@ -2,6 +2,7 @@ import type { OpencodeClient, PermissionRuleset } from '@opencode-ai/sdk/v2/clie
 
 import type { GlobalSession, Project } from '@/lib/opencode/types';
 import { requireData } from '@/providers/services/require-data';
+import { coalesceRead } from '@/lib/opencode/in-flight';
 
 export async function loadWorkspaceCatalog(catalogClient: OpencodeClient) {
   const [pathResponse, projectsResponse, currentProjectResponse] = await Promise.all([
@@ -39,6 +40,10 @@ export async function resolveWorkspace(client: OpencodeClient) {
 }
 
 export async function listSessions(client: OpencodeClient) {
+  return coalesceRead(client, 'sessions', () => fetchSessions(client));
+}
+
+async function fetchSessions(client: OpencodeClient) {
   const [sessionsResponse, statusesResponse] = await Promise.all([client.session.list(), client.session.status()]);
 
   const nextSessions = [...requireData(sessionsResponse.data, 'session list request')]
@@ -50,10 +55,8 @@ export async function listSessions(client: OpencodeClient) {
 // unscoped client (empty directory) so both contracts return sessions and
 // statuses for every project on the active connection, not just the active one.
 export async function listActiveSessions(client: OpencodeClient) {
-  const [sessionsResponse, statusesResponse] = await Promise.all([client.session.list(), client.session.status()]);
-
-  const sessions = requireData(sessionsResponse.data, 'session list request').filter((session) => !session.time.archived);
-  return { sessions, statuses: requireData(statusesResponse.data, 'session status request') };
+  const { sessions, statuses } = await listSessions(client);
+  return { sessions: sessions.filter((session) => !session.time.archived), statuses };
 }
 
 export async function listArchivedSessions(client: OpencodeClient) {
@@ -75,6 +78,10 @@ const MESSAGE_PAGE_SIZE = 100;
 const MAX_MESSAGE_PAGES = 5;
 
 export async function getSessionMessages(client: OpencodeClient, sessionId: string) {
+  return coalesceRead(client, `messages:${sessionId}`, () => fetchSessionMessages(client, sessionId));
+}
+
+async function fetchSessionMessages(client: OpencodeClient, sessionId: string) {
   // ponytail: paginate to avoid OOM in RN's OkHttp layer which buffers full responses.
   // The server returns the newest page first and pages backwards via an opaque
   // x-next-cursor; older pages are prepended to keep the transcript chronological.
@@ -87,7 +94,7 @@ export async function getSessionMessages(client: OpencodeClient, sessionId: stri
     const page = requireData(response.data, 'session messages request');
     allMessages.unshift(...page);
     const next = response.response?.headers.get('x-next-cursor') ?? undefined;
-    if (page.length < MESSAGE_PAGE_SIZE || !next || next === before) break;
+    if (!next || next === before) break;
     before = next;
     pages += 1;
   }
@@ -108,13 +115,18 @@ export async function getSessionDiff(client: OpencodeClient, sessionId: string, 
     targetMessageId = latestUserMessage.info.id;
   }
 
-  const response = await client.session.diff({ sessionID: sessionId, messageID: targetMessageId });
-  return requireData(response.data, 'message diff request');
+  const messageID = targetMessageId;
+  return coalesceRead(client, `diff:${sessionId}:${messageID}`, async () => {
+    const response = await client.session.diff({ sessionID: sessionId, messageID });
+    return requireData(response.data, 'message diff request');
+  });
 }
 
 export async function getSessionTodos(client: OpencodeClient, sessionId: string) {
-  const response = await client.session.todo({ sessionID: sessionId });
-  return requireData(response.data, 'session todo request');
+  return coalesceRead(client, `todos:${sessionId}`, async () => {
+    const response = await client.session.todo({ sessionID: sessionId });
+    return requireData(response.data, 'session todo request');
+  });
 }
 
 export async function deleteSession(client: OpencodeClient, sessionId: string) {

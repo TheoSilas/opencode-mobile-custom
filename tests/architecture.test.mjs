@@ -33,7 +33,7 @@ async function collectSourceFiles(dir) {
 const provider = await read('providers/opencode-provider.tsx');
 const providerLines = provider.split('\n').length;
 assert.ok(
-  providerLines <= 3400,
+  providerLines <= 2700,
   `providers/opencode-provider.tsx is ${providerLines} lines. Extract a domain into a providers/use-*-state.ts hook instead of growing the provider.`,
 );
 
@@ -55,11 +55,12 @@ assert.ok(
 const layerDirs = ['app', 'components'];
 const networkCalls = /(^|[^\w.])fetch\s*\(|new XMLHttpRequest|from ['"]axios['"]/;
 const offenders = [];
+const persistenceCalls = /(?:from ['"](?:@react-native-async-storage|expo-secure-store)|\b(?:loadConnectionProfiles|saveConnectionProfiles|saveProfilePassword|getProfilePassword|deleteProfilePassword)\s*\()/;
 let keyboardSurfaces = 0;
 for (const dir of layerDirs) {
   for (const file of await collectSourceFiles(path.join(root, dir))) {
     const source = await readFile(file, 'utf8');
-    if (networkCalls.test(source)) {
+    if (networkCalls.test(source) || persistenceCalls.test(source)) {
       offenders.push(path.relative(root, file));
     }
     // Android's adjustResize already handles the IME, including hardware-keyboard
@@ -89,7 +90,7 @@ assert.ok(keyboardSurfaces > 0, 'Keyboard layout surfaces must be checked.');
 assert.deepEqual(
   offenders,
   [],
-  `Network calls belong in providers/services or lib, never in ${layerDirs.join('/')}: ${offenders.join(', ')}`,
+  `Network and persistence calls belong in providers/services or lib, never in ${layerDirs.join('/')}: ${offenders.join(', ')}`,
 );
 
 console.log(`architecture checks passed (provider ${providerLines} lines, context ${contextMembers} members).`);

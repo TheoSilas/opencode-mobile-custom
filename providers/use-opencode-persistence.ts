@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 
 import type { OpencodeConnectionSettings } from '@/lib/opencode/client';
 import { normalizeControlPlaneUrl } from '@/lib/connect';
@@ -25,17 +25,10 @@ import {
   serializeLastSessionByConnection,
   type LastSessionByConnection,
 } from '@/providers/last-session-storage';
-import { loadPersistedValue } from '@/providers/persistence-hydration';
+import { parseChatPreferences, parseConnectionSettings } from '@/providers/persisted-preferences';
+import { createPersistenceWriter, loadPersistedValue } from '@/providers/persistence-hydration';
 
 export type { LastSessionByConnection } from '@/providers/last-session-storage';
-
-function parseJsonObject<T>(raw: string) {
-  const value: unknown = JSON.parse(raw);
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Expected a JSON object.');
-  }
-  return value as T;
-}
 
 export function useOpencodePersistence({
   defaultChatPreferences,
@@ -73,30 +66,35 @@ export function useOpencodePersistence({
   settings: OpencodeConnectionSettings;
 }) {
   const [isHydrated, setIsHydrated] = useState(false);
+  const [writeChanged] = useState(createPersistenceWriter);
+  const persist = useCallback((key: string, value: string | null) => writeChanged(key, value, () => value === null ? AsyncStorage.removeItem(key) : AsyncStorage.setItem(key, value)), [writeChanged]);
 
   useEffect(() => {
     async function hydrateState() {
+      const load = async <T,>(key: string, parse: (raw: string) => T, apply: (value: T) => void) => {
+        if (!await loadPersistedValue(AsyncStorage, key, parse, apply)) writeChanged.preserveUnread(key);
+      };
       try {
         let persistedSettings: Partial<OpencodeConnectionSettings> | undefined;
-        await loadPersistedValue(AsyncStorage, SETTINGS_STORAGE_KEY, parseJsonObject<Partial<OpencodeConnectionSettings>>, (parsed) => {
+        await load(SETTINGS_STORAGE_KEY, parseConnectionSettings, (parsed) => {
           persistedSettings = parsed;
         });
         const hasLegacyPassword = Boolean(persistedSettings && 'password' in persistedSettings);
         const legacyPassword = persistedSettings?.password || '';
-        if (hasLegacyPassword) {
-          await saveConnectionPassword(legacyPassword);
-          await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(withoutConnectionPassword({
-            ...defaultSettings,
-            ...persistedSettings,
-          })));
+        let password = legacyPassword;
+        try {
+          if (hasLegacyPassword) {
+            await saveConnectionPassword(legacyPassword);
+            await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(withoutConnectionPassword({ ...defaultSettings, ...persistedSettings })));
+          }
+          password = (await getConnectionPassword()) || legacyPassword;
+        } catch (reason) {
+          writeChanged.preserveUnread(SETTINGS_STORAGE_KEY);
+          console.warn('Could not hydrate connection credentials.', reason);
         }
-        setSettings({
-          ...defaultSettings,
-          ...persistedSettings,
-          password: (await getConnectionPassword()) || legacyPassword,
-        });
+        setSettings({ ...defaultSettings, ...persistedSettings, password });
 
-        await loadPersistedValue(AsyncStorage, CHAT_PREFERENCES_STORAGE_KEY, parseJsonObject<Partial<ChatPreferences>>, (parsed) => {
+        await load(CHAT_PREFERENCES_STORAGE_KEY, parseChatPreferences, (parsed) => {
           setChatPreferences((current) => ({
             ...defaultChatPreferences,
             ...current,
@@ -104,17 +102,17 @@ export function useOpencodePersistence({
           }));
         });
 
-        await loadPersistedValue(AsyncStorage, ACTIVE_PROJECT_STORAGE_KEY, (raw) => raw, (path) => {
+        await load(ACTIVE_PROJECT_STORAGE_KEY, (raw) => raw, (path) => {
           if (path) {
             setActiveProjectPath(path);
           }
         });
 
-        await loadPersistedValue(AsyncStorage, LAST_SESSION_BY_PROJECT_STORAGE_KEY, parseLastSessionByConnection, setLastSessionByConnection);
+        await load(LAST_SESSION_BY_PROJECT_STORAGE_KEY, parseLastSessionByConnection, setLastSessionByConnection);
 
-        await loadPersistedValue(AsyncStorage, FAVORITE_SESSIONS_STORAGE_KEY, parseFavoriteSessions, setFavoriteSessions);
+        await load(FAVORITE_SESSIONS_STORAGE_KEY, parseFavoriteSessions, setFavoriteSessions);
 
-        await loadPersistedValue(AsyncStorage, CONNECT_CONTROL_PLANE_STORAGE_KEY, normalizeControlPlaneUrl, setControlPlaneUrl);
+        await load(CONNECT_CONTROL_PLANE_STORAGE_KEY, normalizeControlPlaneUrl, setControlPlaneUrl);
 
         // Resolve first-run completion last so `isHydrated` already implies the
         // onboarding decision is known. The marker, including the migration
@@ -126,29 +124,33 @@ export function useOpencodePersistence({
       }
     }
 
-    void hydrateState();
-  }, [defaultChatPreferences, defaultSettings, setActiveProjectPath, setChatPreferences, setControlPlaneUrl, setFavoriteSessions, setLastSessionByConnection, setOnboardingVersion, setSettings]);
+    void hydrateState().catch((reason) => console.warn('Could not hydrate app settings.', reason));
+  }, [defaultChatPreferences, defaultSettings, setActiveProjectPath, setChatPreferences, setControlPlaneUrl, setFavoriteSessions, setLastSessionByConnection, setOnboardingVersion, setSettings, writeChanged]);
 
   useEffect(() => {
-    if (isHydrated && controlPlaneUrl) void AsyncStorage.setItem(CONNECT_CONTROL_PLANE_STORAGE_KEY, controlPlaneUrl);
-  }, [controlPlaneUrl, isHydrated]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-
-    void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(withoutConnectionPassword(settings)));
-    void saveConnectionPassword(settings.password, Boolean(settings.connect));
-  }, [isHydrated, settings]);
+    if (isHydrated && controlPlaneUrl) void persist(CONNECT_CONTROL_PLANE_STORAGE_KEY, controlPlaneUrl).catch((reason) => console.warn('Could not save Connect settings.', reason));
+  }, [controlPlaneUrl, isHydrated, persist]);
 
   useEffect(() => {
     if (!isHydrated) {
       return;
     }
 
-    void AsyncStorage.setItem(CHAT_PREFERENCES_STORAGE_KEY, JSON.stringify(chatPreferences));
-  }, [chatPreferences, isHydrated]);
+    const metadata = JSON.stringify(withoutConnectionPassword(settings));
+    const credential = JSON.stringify([settings.password, Boolean(settings.connect)]);
+    void writeChanged(SETTINGS_STORAGE_KEY, JSON.stringify([metadata, credential]), async () => {
+      await writeChanged('connection-password', credential, () => saveConnectionPassword(settings.password, Boolean(settings.connect)));
+      await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, metadata);
+    }).catch((reason) => console.warn('Could not save connection settings.', reason));
+  }, [isHydrated, settings, writeChanged]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void persist(CHAT_PREFERENCES_STORAGE_KEY, JSON.stringify(chatPreferences)).catch((reason) => console.warn('Could not save chat preferences.', reason));
+  }, [chatPreferences, isHydrated, persist]);
 
   useEffect(() => {
     if (!isHydrated) {
@@ -156,36 +158,36 @@ export function useOpencodePersistence({
     }
 
     if (activeProjectPath) {
-      void AsyncStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, activeProjectPath);
+      void persist(ACTIVE_PROJECT_STORAGE_KEY, activeProjectPath).catch((reason) => console.warn('Could not save workspace.', reason));
       return;
     }
 
-    void AsyncStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY);
-  }, [activeProjectPath, isHydrated]);
+    void persist(ACTIVE_PROJECT_STORAGE_KEY, null).catch((reason) => console.warn('Could not clear workspace.', reason));
+  }, [activeProjectPath, isHydrated, persist]);
 
   useEffect(() => {
     if (!isHydrated) {
       return;
     }
 
-    void AsyncStorage.setItem(LAST_SESSION_BY_PROJECT_STORAGE_KEY, serializeLastSessionByConnection(lastSessionByConnection));
-  }, [isHydrated, lastSessionByConnection]);
+    void persist(LAST_SESSION_BY_PROJECT_STORAGE_KEY, serializeLastSessionByConnection(lastSessionByConnection)).catch((reason) => console.warn('Could not save lastSessionByConnection.', reason));
+  }, [isHydrated, lastSessionByConnection, persist]);
 
   useEffect(() => {
     if (!isHydrated) {
       return;
     }
 
-    void AsyncStorage.setItem(FAVORITE_SESSIONS_STORAGE_KEY, serializeFavoriteSessions(favoriteSessions));
-  }, [favoriteSessions, isHydrated]);
+    void persist(FAVORITE_SESSIONS_STORAGE_KEY, serializeFavoriteSessions(favoriteSessions)).catch((reason) => console.warn('Could not save favoriteSessions.', reason));
+  }, [favoriteSessions, isHydrated, persist]);
 
   useEffect(() => {
     if (!isHydrated) {
       return;
     }
 
-    void AsyncStorage.setItem(ONBOARDING_VERSION_STORAGE_KEY, serializeOnboardingVersion(onboardingVersion));
-  }, [isHydrated, onboardingVersion]);
+    void persist(ONBOARDING_VERSION_STORAGE_KEY, serializeOnboardingVersion(onboardingVersion)).catch((reason) => console.warn('Could not save onboardingVersion.', reason));
+  }, [isHydrated, onboardingVersion, persist]);
 
   return { isHydrated };
 }

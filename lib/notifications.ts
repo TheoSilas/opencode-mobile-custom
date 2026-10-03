@@ -35,6 +35,15 @@ export type NotificationDebugStatus = {
 };
 
 let initialized = false;
+let pendingWrites: Promise<unknown> = Promise.resolve();
+
+function withPendingSessions<T>(operation: () => Promise<T>): Promise<T> {
+  // ponytail: one queue per JS runtime; use a transactional store if multiple
+  // processes ever need to mutate this record concurrently.
+  const result = pendingWrites.then(operation);
+  pendingWrites = result.catch(() => undefined);
+  return result;
+}
 
 function canUseNotifications() {
   return Platform.OS !== 'web';
@@ -54,24 +63,22 @@ function getBackgroundTaskStatusLabel(value: BackgroundTask.BackgroundTaskStatus
 }
 
 async function readPendingNotificationSessions() {
+  // A failed read must abort mutations, never masquerade as an empty store.
+  const raw = await AsyncStorage.getItem(PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY);
+  if (!raw) return {} as Record<string, PendingNotificationSession>;
+  let pending: Record<string, PendingNotificationSession>;
   try {
-    const raw = await AsyncStorage.getItem(PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY);
-    if (!raw) {
-      return {} as Record<string, PendingNotificationSession>;
-    }
-
-    const pending = parsePendingNotificationSessions(raw);
-    const serialized = serializePendingNotificationSessions(pending);
-    if (serialized !== raw) {
-      void AsyncStorage.setItem(PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY, serialized).catch(() => undefined);
-    }
-    return pending;
+    pending = parsePendingNotificationSessions(raw);
   } catch {
     // Malformed JSON cannot be attributed to any connection; drop it so a bad
     // value does not block later writes.
     await AsyncStorage.removeItem(PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY).catch(() => undefined);
     return {} as Record<string, PendingNotificationSession>;
   }
+  // Remove legacy secret/unknown fields only after a successful read/parse.
+  // Write errors propagate without being confused with malformed JSON.
+  if (serializePendingNotificationSessions(pending) !== raw) await writePendingNotificationSessions(pending);
+  return pending;
 }
 
 async function writePendingNotificationSessions(value: Record<string, PendingNotificationSession>) {
@@ -82,6 +89,16 @@ async function writePendingNotificationSessions(value: Record<string, PendingNot
 
   // The serializer only keeps the explicit non-secret DTO fields.
   await AsyncStorage.setItem(PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY, serializePendingNotificationSessions(value));
+}
+
+function completePendingNotification(key: string, pending: PendingNotificationSession, notify?: () => Promise<void>) {
+  return withPendingSessions(async () => {
+    const current = await readPendingNotificationSessions();
+    if (current[key]?.requestedAt !== pending.requestedAt) return;
+    await notify?.();
+    delete current[key];
+    await writePendingNotificationSessions(current);
+  });
 }
 
 function buildTaskFinishedContent(title: string, body: string): Notifications.NotificationContentInput {
@@ -114,7 +131,7 @@ async function scheduleTaskFinishedNotification(sessionTitle?: string) {
 if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(CHAT_COMPLETION_TASK_NAME)) {
   TaskManager.defineTask(CHAT_COMPLETION_TASK_NAME, async () => {
     try {
-      const pendingByKey = await readPendingNotificationSessions();
+      const pendingByKey = await withPendingSessions(readPendingNotificationSessions);
       const pendingSessions = Object.entries(pendingByKey);
 
       if (pendingSessions.length === 0) {
@@ -123,7 +140,7 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(CHAT_COMPLETION_TASK_NAM
 
       for (const [key, pending] of pendingSessions) {
         if (!pending.projectPath) {
-          delete pendingByKey[key];
+          await completePendingNotification(key, pending);
           continue;
         }
 
@@ -163,17 +180,17 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(CHAT_COMPLETION_TASK_NAM
 
           const session = sessionsResponse?.data?.find((item: { id: string; title?: string }) => item.id === pending.sessionId);
           if (!session) {
-            delete pendingByKey[key];
+            await completePendingNotification(key, pending);
             continue;
           }
-          await scheduleTaskFinishedNotification(session?.title || pending.sessionTitle);
-          delete pendingByKey[key];
+          // Re-check ownership after the network read: a new prompt for this
+          // session must not be notified or removed by the older monitor pass.
+          await completePendingNotification(key, pending, () => scheduleTaskFinishedNotification(session?.title || pending.sessionTitle));
         } catch {
           continue;
         }
       }
 
-      await writePendingNotificationSessions(pendingByKey);
       return BackgroundTask.BackgroundTaskResult.Success;
     } catch {
       return BackgroundTask.BackgroundTaskResult.Failed;
@@ -216,7 +233,7 @@ export async function getNotificationDebugStatusAsync(): Promise<NotificationDeb
   const backgroundTaskStatus = canUseBackgroundMonitoring()
     ? getBackgroundTaskStatusLabel(await BackgroundTask.getStatusAsync())
     : 'unsupported';
-  const pendingSessionCount = Object.keys(await readPendingNotificationSessions()).length;
+  const pendingSessionCount = Object.keys(await withPendingSessions(readPendingNotificationSessions)).length;
 
   return {
     platform: Platform.OS,
@@ -273,20 +290,21 @@ export async function initializeNotifications() {
 }
 
 export async function trackPendingTaskFinishedNotification(input: PendingNotificationSession) {
-  const current = await readPendingNotificationSessions();
-  current[pendingNotificationKey(input.connectionScope, input.sessionId)] = input;
-  await writePendingNotificationSessions(current);
+  return withPendingSessions(async () => {
+    const current = await readPendingNotificationSessions();
+    current[pendingNotificationKey(input.connectionScope, input.sessionId)] = input;
+    await writePendingNotificationSessions(current);
+  });
 }
 
 export async function clearPendingTaskFinishedNotification(connectionScope: string, sessionId: string) {
-  const current = await readPendingNotificationSessions();
-  const key = pendingNotificationKey(connectionScope, sessionId);
-  if (!current[key]) {
-    return;
-  }
-
-  delete current[key];
-  await writePendingNotificationSessions(current);
+  return withPendingSessions(async () => {
+    const current = await readPendingNotificationSessions();
+    const key = pendingNotificationKey(connectionScope, sessionId);
+    if (!current[key]) return;
+    delete current[key];
+    await writePendingNotificationSessions(current);
+  });
 }
 
 // Notification copy is translated here, at the lib boundary, so callers pass

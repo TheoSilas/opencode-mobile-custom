@@ -134,7 +134,7 @@ Current fields:
 
 These values combine true application behavior settings and output-style preferences that are sent to the model as prompt instructions.
 
-`workspaceFiles`, selected file content, worktrees, and MCP status/config are server-derived and not persisted. Text edits remain local to the Workspace screen until the provider conflict-checks and saves them as a VCS patch.
+`workspaceFiles`, selected file content, worktrees, and MCP status/config are server-derived and not persisted. Text edits remain local to the Workspace screen until the provider conflict-checks and saves them as a VCS patch. Search and file-open commits check the current client identity and request order; saves check client identity before applying a patch and only update the selected file if that selection is still current. Identical directory paths on different servers do not make a response current.
 
 ## Terminal State
 
@@ -258,12 +258,13 @@ list.
 
 Hydration rules:
 
-- persisted settings are merged over default settings
-- persisted chat preferences are merged over defaults and current provider state
+- persisted settings validate known string fields and Connect identity before merging over defaults
+- persisted chat preferences validate individual strings, booleans, arrays, maps, and enum values; numeric controls are clamped to their supported ranges before merging over defaults and current provider state
 - saved connection profiles are hydrated on demand and fully validated, including `modelPreferences`; entries with any malformed field are dropped and unknown fields are ignored
 - active project path is restored if present
 - last-session map is restored if present and is nested by connection scope; the legacy flat map fails validation and is removed
-- each persisted key hydrates independently; a storage read failure leaves that key untouched, while malformed or invalid JSON is removed without blocking other keys
+- each persisted key hydrates independently; a storage or credential read failure preserves the unread key and suppresses unchanged default write-back until the user changes that value or relaunches. Malformed or invalid JSON is removed without blocking other keys
+- write-back is ordered per key and skips identical successful writes. Errors are reported and failed writes remain retryable. Secure credential writes finish before active connection metadata is written
 - per connection + project session caches hydrate on app open and on every connection or project switch so the workspace list paints before the server answers; they are written only from confirmed fetch results, so a cached empty list means the server reported no sessions for that project. A late hydration result is discarded unless both the connection scope and project path are still current.
 - onboarding completion is resolved last, so `isHydrated` already implies the assistant's visibility is known. When the marker is absent, an installation that already has a stored settings key, saved profile metadata, or an active project is treated as completed (existing users never see onboarding); a fresh installation starts the assistant. The resolved marker (version 0 when onboarding should run, `CURRENT_ONBOARDING_VERSION` when it should not) is written back by the persistence write-back effect, which makes the decision sticky and stops the settings write effect from later re-triggering migration. Storage read failures report completed, so an unreadable store can never gate an existing user.
 
@@ -357,6 +358,16 @@ Only matches for the current session or sending session are shown. Permissions f
 Derived from phase plus latest non-display transcript activity.
 
 ## Message And Transcript Transformation
+
+Session history loads the newest five pages of 100 raw records in both
+protocols and returns them chronologically (up to 500 records). V2 translates
+descending API pages and opaque cursors into the existing `before`/
+`x-next-cursor` contract, omitting `order` on cursor requests. Histories beyond
+4,000 records retain the latest messages rather than stopping at the oldest.
+Concurrent equivalent message, diff, todo, and session-list reads share only
+outstanding requests within a client identity; settled results are not cached.
+Message and diff refreshes share the history used to locate the latest user turn;
+V2 session status and listing share their session-list request.
 
 The server returns message records shaped as:
 
@@ -474,6 +485,13 @@ matches, then through the active connection when the record belongs to it. A
 record whose password cannot be resolved yet is kept for a later run instead of
 being discarded or reusing another connection's password.
 
+Pending-record reads and mutations use one module-owned queue, including
+background-monitor writes. A failed read aborts a mutation without deleting the
+key; malformed JSON is handled separately. After network checks, the monitor
+re-reads under that queue and removes/notifies only a record with the same
+`requestedAt`, preserving additions and re-sent prompts. The queue serializes
+one JS runtime; it does not provide transactions across multiple processes.
+
 Regular connection settings and profile metadata in AsyncStorage exclude the
 password; legacy plaintext settings are migrated during hydration.
 
@@ -505,3 +523,14 @@ Some user-visible behavior depends on transient refs not persisted anywhere:
 - PTY list, active PTY, connection, and capped output scrollback
 
 A rewrite that only mirrors persisted values would still miss important runtime behavior.
+
+## Realtime Recovery Ownership
+
+`use-opencode-realtime.ts`, composed by the provider, reconciles session/status,
+pending permission/question lists, and selected/conversation message, diff, and
+todo snapshots on the first envelope of every subscription, including reconnects.
+Only one reconciliation runs at a time. SSE remains primary; a five-second safety
+poll runs during active work even when SSE is connected, and while disconnected.
+Idle connected sessions do not poll. Stable latest-action bridges prevent provider
+renders from reopening the stream. Cleanup aborts subscriptions and cancels
+poll/retry timers. Domain responses retain the provider's client-scope guards.

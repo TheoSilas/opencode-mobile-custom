@@ -1202,3 +1202,63 @@ test('saved connections keep sessions, caches, and model preferences separate', 
     serverB.kill('SIGTERM');
   }
 });
+
+
+test('busy safety polling recovers completion while SSE remains connected', async ({ page, request }) => {
+  const port = await getFreePort();
+  const server = spawnV1Server(port);
+  const origin = `http://127.0.0.1:${port}`;
+  try {
+    await resetScenario(request, 'happy-path');
+    await waitForServer(request, `${origin}/path`);
+    await openReadyChat(page);
+    await connectToServer(page, origin);
+    const control = `${origin}/__control/event-stream`;
+    await expect.poll(async () => (await (await request.post(control, { data: { suppress: true } })).json()).data.clients).toBeGreaterThan(0);
+    await sendPrompt(page, 'Recover a missed completion');
+    await expect(page.getByText(/Finished: Recover a missed completion/).first()).toBeVisible({ timeout: 20_000 });
+    expect((await (await request.post(control, { data: { suppress: false } })).json()).data.clients).toBeGreaterThan(0);
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
+for (const protocol of ['v1', 'v2']) {
+  test(`${protocol} SSE reconnect reconciles a missed blocking question`, async ({ page, request }) => {
+    const port = await getFreePort();
+    const server = protocol === 'v2' ? spawnV2Server(port, 'question') : spawnV1Server(port, 'question');
+    const origin = `http://127.0.0.1:${port}`;
+    try {
+      await resetScenario(request, 'happy-path');
+      await waitForServer(request, `${origin}${protocol === 'v2' ? '/api/info' : '/path'}`);
+      await openReadyChat(page);
+      await connectToServer(page, origin);
+      const control = `${origin}/__control/event-stream`;
+      await expect.poll(async () => (await (await request.post(control, { data: { suppress: true } })).json()).data.clients).toBeGreaterThan(0);
+      // Create a pending interaction outside the selected chat. The idle client
+      // has no safety poll, so only reconnect reconciliation can discover it.
+      const sessionsPath = protocol === 'v2' ? '/api/session' : '/session';
+      const created = await (await request.post(`${origin}${sessionsPath}`, { data: { title: 'Missed question' } })).json();
+      const session = protocol === 'v2' ? created.data : created;
+      await request.post(`${origin}${sessionsPath}/${session.id}/${protocol === 'v2' ? 'prompt' : 'prompt_async'}`, {
+        data: protocol === 'v2' ? { text: 'Ask an implementation question' } : { parts: [{ type: 'text', text: 'Ask an implementation question' }] },
+      });
+      const pendingPath = protocol === 'v2' ? '/api/form?location[directory]=/workspace/demo-project' : '/question?directory=/workspace/demo-project';
+      await expect.poll(async () => {
+        const payload = await (await request.get(`${origin}${pendingPath}`)).json();
+        return (protocol === 'v2' ? payload.data : payload).length;
+      }).toBe(1);
+      const snapshot = page.waitForResponse((response) => response.url().startsWith(`${origin}${sessionsPath}?`) && response.request().method() === 'GET');
+      await request.post(control, { data: { suppress: true, disconnect: true } });
+      await snapshot;
+      await openChatLibrary(page);
+      await page.getByText('Missed question', { exact: true }).first().click();
+      await expect(page.getByText('Which implementation should be used?', { exact: true })).toBeVisible({ timeout: 15_000 });
+      await page.getByText('Minimal', { exact: true }).click();
+      await page.getByText('Submit answer', { exact: true }).click();
+      await expect(page.getByText(/question resolved|selected Minimal/).first()).toBeVisible({ timeout: 20_000 });
+    } finally {
+      server.kill('SIGTERM');
+    }
+  });
+}

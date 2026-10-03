@@ -30,15 +30,18 @@ if (!supportedScenarios.has(scenarioName)) {
 
 const stateStore = createStateStore(scenarioName);
 let state = stateStore.getState();
+let suppressEvents = false;
 const applicablePatch = 'diff --git a/src/demo.ts b/src/demo.ts\n--- a/src/demo.ts\n+++ b/src/demo.ts\n@@ -1 +1 @@\n-export const demo = "OpenCode 1.18.3";\n+export const demo = "OpenCode SDK 1.18.3";\n';
 const editorPatch = '--- a/src/demo.ts\n+++ b/src/demo.ts\n@@ -1,1 +1,1 @@\n-export const demo = "OpenCode 1.18.3";\n+export const demo = "OpenCode SDK 1.18.3";\n';
 // Committed-on-branch fixture, distinct from the uncommitted `git` diff so the
 // scope surface can be exercised deterministically.
 const branchPatch = 'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1,3 +1,4 @@\n # Demo project\n \n Deterministic fake OpenCode workspace.\n+Committed on this branch.\n';
 
-function sendJson(res, statusCode, payload) {
+function sendJson(res, statusCode, payload, headers = {}) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
+    'Access-Control-Expose-Headers': 'x-next-cursor',
+    ...headers,
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-opencode-directory, x-opencode-ticket',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
@@ -85,6 +88,7 @@ function getMessages(sessionId) {
 }
 
 function emitEvent(event) {
+  if (suppressEvents) return;
   if (state.sseClients.size === 0) {
     return;
   }
@@ -171,6 +175,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Keep the transport connected while dropping domain events, or close it
+    // without resetting server state to reproduce missed-event recovery.
+    if (req.method === 'POST' && pathname === '/__control/event-stream') {
+      const body = await readJson(req);
+      suppressEvents = Boolean(body?.suppress);
+      if (body?.disconnect) {
+        for (const client of state.sseClients) client.end();
+        state.sseClients.clear();
+      }
+      sendJson(res, 200, { data: { suppressEvents, clients: state.sseClients.size } });
+      return;
+    }
+
     if (req.method === 'POST' && pathname === '/__control/reset') {
       const body = await readJson(req);
       const nextScenario = body?.scenario || scenarioName;
@@ -178,6 +195,7 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { error: `Unsupported scenario: ${nextScenario}` });
         return;
       }
+      suppressEvents = false;
       state = stateStore.resetState(nextScenario);
       sendJson(res, 200, { data: { scenario: state.scenario } });
       return;
@@ -585,7 +603,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && /^\/session\/[^/]+\/message$/.test(pathname)) {
       const sessionId = pathname.split('/')[2];
-      sendJson(res, 200, getMessages(sessionId));
+      const messages = getMessages(sessionId);
+      const before = requestUrl.searchParams.get('before');
+      const end = before ? Math.max(0, messages.findIndex((record) => record.info.id === before)) : messages.length;
+      const limit = Number(requestUrl.searchParams.get('limit') || messages.length);
+      const start = Math.max(0, end - limit);
+      sendJson(res, 200, messages.slice(start, end), start > 0 ? { 'x-next-cursor': messages[start].info.id } : {});
       return;
     }
 
