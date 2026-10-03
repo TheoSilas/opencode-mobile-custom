@@ -86,13 +86,16 @@ pointed message when a limit is outgrown, so the fix is to extract a domain or
 move code to the right layer rather than raise the number.
 It also checks that each input surface uses `behavior="padding"` on all
 platforms to avoid keyboard overlap without explicit height changes.
+It also guards `tabBarHideOnKeyboard: false`, so keyboard visibility changes
+do not remove and restore the tab bar's layout space.
 `test:anr` verifies that both app variants retain the native `resize`
 configuration. These are configuration checks; they do not reproduce a
 physical keyboard or prove that issue #62 is resolved.
 
 For keyboard-layout changes, validate Android with a Bluetooth keyboard and
 the soft keyboard disabled, then forced visible: focus and type in Chat,
-switch sessions/tabs, and check Terminal and full-screen forms for flicker or
+switch sessions/tabs, and check that focus stays stable, the tab bar does not
+auto-hide/show, and Chat, Terminal, and full-screen forms have no flicker or
 covered inputs. Repeat with the hardware keyboard disconnected and verify iOS
 soft-keyboard avoidance. The reported Pixel 9 and Galaxy Tab S9 remain the
 device-validation targets.

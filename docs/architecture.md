@@ -51,6 +51,13 @@ Navigation complexity is deliberately low. There are no nested feature stacks, n
 
 This matters because state continuity is expected across tabs. Switching tabs does not reset active session context.
 
+Bottom tabs remain in layout while typing (`tabBarHideOnKeyboard: false`).
+Keyboard visibility events must not remove and restore the tab bar's layout
+space alongside screen-level padding adjustment. Depending on native window
+resizing, tabs may stay visible above the keyboard or be covered by it. This
+removes a suspected layout-feedback path for issue #62; physical-device
+validation is still required to establish whether it resolves the flicker.
+
 ## Core Architectural Principle
 
 The dominant design decision is central orchestration through `providers/opencode-provider.tsx`.

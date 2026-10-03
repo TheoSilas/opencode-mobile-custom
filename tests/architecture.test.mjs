@@ -63,7 +63,7 @@ for (const dir of layerDirs) {
       offenders.push(path.relative(root, file));
     }
     // adjustResize alone can leave keyboard overlap on edge-to-edge Android.
-    // Padding avoids the explicit height/flex changes that caused flicker.
+    // Padding preserves the flex frame without explicit height adjustment.
     if (source.includes('KeyboardAvoidingView')) {
       const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
       function visit(node) {
@@ -79,6 +79,11 @@ for (const dir of layerDirs) {
   }
 }
 assert.ok(keyboardSurfaces > 0, 'Keyboard layout surfaces must be checked.');
+assert.match(
+  await read('app/(tabs)/_layout.tsx'),
+  /\btabBarHideOnKeyboard:\s*false\b/,
+  'Tabs must remain in layout when keyboard visibility changes.',
+);
 assert.deepEqual(
   offenders,
   [],
