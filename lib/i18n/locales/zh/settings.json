@@ -313,6 +313,12 @@
     "subscriptionRequired": "Purchase or Restore your store subscription to enable Connect.",
     "purchase": "Purchase",
     "restore": "Restore purchases",
-    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine."
+    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine.",
+    "scanHint": "扫描电脑的二维码以连接。",
+    "manual": "手动",
+    "manualHint": "输入服务器网址和凭据。",
+    "nativeOnly": "Connect 可在 iOS 和 Android 应用中使用。",
+    "benefits": "通过二维码连接，使用 Connect 远程访问电脑，并通过“恢复购买”在另一台设备上恢复您的机器。",
+    "subscribe": "订阅"
   }
 }

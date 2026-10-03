@@ -313,6 +313,12 @@
     "subscriptionRequired": "Purchase or Restore your store subscription to enable Connect.",
     "purchase": "Purchase",
     "restore": "Restore purchases",
-    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine."
+    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine.",
+    "scanHint": "Scanne den QR-Code deines Computers, um dich zu verbinden.",
+    "manual": "Manuell",
+    "manualHint": "Gib deine Server-URL und Zugangsdaten ein.",
+    "nativeOnly": "Connect ist in der iOS- und Android-App verfügbar.",
+    "benefits": "Verbinde dich per QR-Code, greife über Connect aus der Ferne auf deinen Computer zu und stelle deine Rechner auf einem anderen Gerät mit Käufe wiederherstellen wieder her.",
+    "subscribe": "Abonnieren"
   }
 }

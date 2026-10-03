@@ -435,3 +435,19 @@ The existing Playwright flows now cover direct approval and mode controls, think
 Before committing this change, run the static, fake-server and full web gates. Native manual checks must cover iOS light/dark, regular/slim, larger text, keyboard visibility, pending blockers, VoiceOver action names/slider adjustment/focus, and Android hardware/soft keyboard Back behavior. Test edits require explicit human validation under AGENTS.md. Automated browser checks do not replace these native checks.
 
 The composer approval toggle is now the sole Chat approval affordance: the shield represents asking, the warning represents auto-approval, and unsupported V2 servers omit the control. The adjacent agent icon opens the existing selector. Thinking is adjusted through the shared Settings slider at the top of the model picker. The composer flow covers direct approval failure/retry, agent selection, thinking keyboard adjustment, draft retention and picker dismissal.
+
+## Add connection redesign validation
+
+Connection creation now enters through a shared Connect/Manual chooser in
+Settings and onboarding. The web flows cover manual form retry and duplicate
+submission guards, subscription dismissal back to the chooser, subscriber
+auto-pairing without a subscription-sheet flash, invalid/untrusted QR replacement,
+control-plane overlays and environment isolation, and separate restored-machine
+management. Existing purchase verification, secure-save/finalization ordering,
+exact QR continuation, expiry and credential-rotation flows remain covered.
+
+Native acceptance still requires full-screen camera allow/deny/unavailable,
+focus/background suspension, iOS/Android safe areas, larger text, screen-reader
+focus, keyboard/back behavior and real native Subscribe/Restore. Updated E2E
+files require explicit human validation under AGENTS.md. Build/static/mocked
+flow results do not replace these acceptance checks.

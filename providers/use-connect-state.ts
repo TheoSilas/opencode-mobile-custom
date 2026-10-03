@@ -30,6 +30,8 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
 }) {
   const enabled = isConnectEnabled();
   const store = getConnectStore();
+  const [initialization, setInitialization] = useState<'loading' | 'ready' | 'error'>('loading');
+  const autoPair = useRef(false);
   const [session, setSession] = useState<ConnectSession>();
   const [pairing, setPairing] = useState<ConnectPairing>();
   const [phase, setPhase] = useState<'idle' | 'catalog' | 'purchasing' | 'pending' | 'restoring' | 'verifying' | 'savingSession' | 'finalizing' | 'claiming' | 'saving' | 'connecting' | 'paired'>('idle');
@@ -297,7 +299,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
       if (recoverable) {
         if (await finishPurchase(recoverable)) await resumeRef.current();
       }
-    });
+    }).then((ok) => { if (current()) setInitialization(ok ? 'ready' : 'error'); });
     return () => { scopeGeneration.current += 1; subscriptions.forEach((subscription) => subscription.remove()); void apiRef.current?.endConnection(); apiRef.current = undefined; };
   }, [availablePurchases, controlPlaneUrl, enabled, finishPurchase, isHydrated, initializationAttempt, loadCatalog, perform, store]);
 
@@ -324,6 +326,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
       if (next === controlPlaneUrl) return next;
       scopeGeneration.current += 1;
       controlPlaneRef.current = next;
+      setInitialization('loading'); autoPair.current = false;
       setControlPlaneUrl(next); sessionRef.current = undefined; setSession(undefined); pairingRef.current = undefined;
       catalogRef.current = undefined; recoveryMachineId.current = undefined;
       purchaseQueue.current.clear(); finishedPurchases.current.clear(); lastAccess.current.clear();
@@ -344,6 +347,21 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
       return true;
     } catch (reason) { setError((reason as Error).message); return false; }
   }, [controlPlaneUrl, store]);
+
+  // Accepting a link may happen during hydration/store recovery. Continue only
+  // after that recovery settles, through the same serialized provider action.
+  const pairLink = useCallback(async (link: Parameters<typeof parseConnectPairing>[0]) => {
+    if (pendingClaim.current || pendingPurchase.current || (lock.current && initialization !== 'loading')) return false;
+    const accepted = await acceptLink(link);
+    if (accepted) autoPair.current = true;
+    return accepted;
+  }, [acceptLink, initialization]);
+  useEffect(() => {
+    if (!autoPair.current || initialization !== 'ready' || busy || error || !pairing || !hasConnectEntitlement(session)) return;
+    autoPair.current = false;
+    void perform(claimAction);
+  }, [busy, claimAction, error, initialization, pairing, perform, session]);
+  const dismissError = useCallback(() => { setError(undefined); setNotice(undefined); }, []);
 
   const purchase = useCallback((key: string) => perform(async () => {
     if (pendingPurchase.current || phase === 'purchasing' || phase === 'pending') throw new Error('Wait for or retry your unfinished subscription before purchasing again.');
@@ -366,20 +384,20 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   }), [continueAfterPurchase, perform, recoverSession]);
 
   const retry = useCallback(() => {
-    if (!apiRef.current) { setInitializationAttempt((current) => current + 1); return Promise.resolve(false); }
+    if (!apiRef.current) { setInitialization('loading'); setInitializationAttempt((current) => current + 1); return Promise.resolve(false); }
     return perform(async () => {
     if (pendingPurchase.current) { await finishPurchase(pendingPurchase.current.purchase); return continueAfterPurchase(); }
     if (pendingClaim.current || pairingRef.current) return claimAction();
     if (recoveryMachineId.current) return activate(await requestAccess(recoveryMachineId.current));
     if (!catalogRef.current || !offers.length) return loadCatalog();
     return refreshMachinesAction();
-    });
+    }).then((ok) => { if (ok) setInitialization('ready'); return ok; });
   }, [activate, claimAction, continueAfterPurchase, finishPurchase, loadCatalog, offers.length, perform, refreshMachinesAction, requestAccess]);
   const claim = useCallback(() => perform(claimAction), [claimAction, perform]);
   const refreshMachines = useCallback(() => perform(refreshMachinesAction), [perform, refreshMachinesAction]);
   const connectProfile = useCallback((profile: ConnectionProfile) => perform(() => activate(profile)), [activate, perform]);
   const connectMachine = useCallback((id: string) => perform(async () => activate(await requestAccess(id))), [activate, perform, requestAccess]);
-  const cancelPairing = useCallback(() => perform(async () => { await clearPairing(); setPhase('idle'); }), [clearPairing, perform]);
+  const cancelPairing = useCallback(() => perform(async () => { autoPair.current = false; await clearPairing(); setPhase('idle'); }), [clearPairing, perform]);
 
   const removeProfiles = useCallback(async (removed: ConnectionProfile[]) => {
     for (const profile of removed) await disconnect(profile);
@@ -400,7 +418,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   }), [authenticated, controlPlaneUrl, perform, removeProfiles]);
 
   const canChangeControlPlane = isHydrated && !busy && !['purchasing', 'pending', 'verifying', 'savingSession', 'finalizing', 'saving'].includes(phase);
-  return { enabled, controlPlaneUrl, canChangeControlPlane, hasToken: hasConnectSession(session), entitled: hasConnectEntitlement(session), pairing, phase, busy, error, notice, machines, profiles, savedProfile, offers, storeReady, canRetry,
+  return { enabled, initialization, pairLink, dismissError, controlPlaneUrl, canChangeControlPlane, hasToken: hasConnectSession(session), entitled: hasConnectEntitlement(session), pairing, phase, busy, error, notice, machines, profiles, savedProfile, offers, storeReady, canRetry,
     selectControlPlane, acceptLink, purchase, restore, retry, claim, cancelPairing, refreshMachines, connectProfile, connectMachine, forgetProfile, revokeMachine, prepareSettings };
 }
 

@@ -14,6 +14,11 @@ async function waitForChat(page) {
   await expect(page.getByText('Start a new task')).toBeVisible({ timeout: 30_000 });
 }
 
+async function openManual(page) {
+  await page.getByTestId('connection-method-manual').click();
+  await page.getByTestId('connection-profile-name-input').fill('Test server');
+}
+
 async function seedExistingInstall(page) {
   await page.addInitScript(() => {
     globalThis.localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 }));
@@ -37,10 +42,12 @@ test('fresh install walks through onboarding into a working chat', async ({ page
   await page.getByTestId('onboarding-welcome-start').click();
   await expect(page.getByTestId('onboarding-connect')).toBeVisible();
   await expect(page.getByTestId('onboarding-connect-test')).toHaveCount(0);
-  await expect(page.getByTestId('onboarding-connect-continue')).toHaveText('Connect & continue');
+  await expect(page.getByTestId('connection-method-chooser')).toBeVisible();
+  await openManual(page);
+  await expect(page.getByTestId('connection-profile-save-confirm')).toHaveText('Save & connect');
 
-  await page.getByTestId('onboarding-server-url').fill(FAKE_SERVER_URL);
-  await page.getByTestId('onboarding-connect-continue').click();
+  await page.getByTestId('connection-profile-url-input').fill(FAKE_SERVER_URL);
+  await page.getByTestId('connection-profile-save-confirm').click();
 
   await expect(page.getByTestId('onboarding-workspace')).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: /^Select / }).first().click();
@@ -95,15 +102,16 @@ test('a failed connection keeps entered values and allows retry', async ({ page 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByTestId('onboarding-welcome-start').click();
 
-  const url = page.getByTestId('onboarding-server-url');
+  await openManual(page);
+  const url = page.getByTestId('connection-profile-url-input');
   await url.fill('http://127.0.0.1:1');
-  await page.getByTestId('onboarding-connect-continue').click();
+  await page.getByTestId('connection-profile-save-confirm').click();
 
-  await expect(page.getByTestId('onboarding-connect-error')).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByTestId('connection-profile-error')).toBeVisible({ timeout: 25_000 });
   await expect(url).toHaveValue('http://127.0.0.1:1');
 
   await url.fill(FAKE_SERVER_URL);
-  await page.getByTestId('onboarding-connect-continue').click();
+  await page.getByTestId('connection-profile-save-confirm').click();
   await expect(page.getByTestId('onboarding-workspace')).toBeVisible({ timeout: 20_000 });
 });
 
@@ -150,9 +158,10 @@ test('Settings reopens the setup assistant without wiping the connection', async
 
   await expect(page.getByTestId('onboarding-connect')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Review setup · Step 2 of 6')).toBeVisible();
-  await expect(page.getByTestId('onboarding-server-url')).toHaveValue(FAKE_SERVER_URL);
+  await openManual(page);
+  await expect(page.getByTestId('connection-profile-url-input')).toHaveValue(FAKE_SERVER_URL);
 
-  await page.getByTestId('onboarding-connect-continue').click();
+  await page.getByTestId('connection-profile-save-confirm').click();
   await expect(page.getByTestId('onboarding-workspace')).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: /^Select / }).first().click();
   await expect(page.getByTestId('onboarding-preferences')).toBeVisible({ timeout: 20_000 });
@@ -170,17 +179,18 @@ test('Settings reopens the setup assistant without wiping the connection', async
 test('connection prevents duplicate submissions and disables Skip while validating', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByTestId('onboarding-welcome-start').click();
-  await page.getByTestId('onboarding-server-url').fill(FAKE_SERVER_URL);
+  await openManual(page);
+  await page.getByTestId('connection-profile-url-input').fill(FAKE_SERVER_URL);
   let probes = 0;
   let release;
   const pending = new Promise((resolve) => { release = resolve; });
   await page.route('**/global/health', async (route) => { probes += 1; await pending; await route.continue(); });
-  const connect = page.getByTestId('onboarding-connect-continue');
+  const connect = page.getByTestId('connection-profile-save-confirm');
   await connect.dispatchEvent('click');
   await connect.dispatchEvent('click');
   await expect(connect).toBeDisabled();
   await expect(page.getByTestId('onboarding-connect-skip')).toBeDisabled();
-  await expect(page.getByTestId('onboarding-server-url')).not.toBeEditable();
+  await expect(page.getByTestId('connection-profile-url-input')).not.toBeEditable();
   await expect.poll(() => probes).toBe(1);
   release();
   await expect(page.getByTestId('onboarding-workspace')).toBeVisible({ timeout: 20_000 });

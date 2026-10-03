@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -8,6 +8,8 @@ import {
   ConnectionProfileDialog,
   type ConnectionProfileFormValues,
 } from '@/components/settings/connection-profile-dialog';
+import { ConnectionMethodChooser } from '@/components/settings/connection-method-chooser';
+import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { Colors } from '@/constants/theme';
 import { findMatchingProfile, type ConnectionProfile } from '@/lib/connection-profiles';
 import { useConnection } from '@/providers/opencode-contexts';
@@ -29,13 +31,15 @@ function connectionHost(serverUrl: string) {
   }
 }
 
-export function ConnectionProfiles({ palette, onManageConnect }: { palette: Palette; onManageConnect?: () => void }) {
+export function ConnectionProfiles({ palette, onManageConnect, onPair }: { palette: Palette; onManageConnect?: () => void; onPair?: () => void }) {
   const { t } = useTranslation();
   const { settings, connection, connect, updateSettings, connectSetup, connectionProfiles } = useConnection();
   const { profiles, refresh, connect: connectProfile, passwordForEditing, save, remove } = connectionProfiles;
   const [error, setError] = useState<string>();
   const [expandedKey, setExpandedKey] = useState<string>();
   const [switchingProfileId, setSwitchingProfileId] = useState<string>();
+  const addedProfileId = useRef<string | undefined>(undefined);
+  const [choosing, setChoosing] = useState(false);
   const [dialog, setDialog] = useState<DialogState>();
 
   useFocusEffect(useCallback(() => {
@@ -96,13 +100,15 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
     }
 
     if (currentDialog.mode === 'add') {
-      const profile = await save(values);
-      setDialog(undefined);
-      setExpandedKey(profile.id);
-      // Show the new row as connecting while the switch runs.
+      const profile = await save(values, addedProfileId.current);
+      addedProfileId.current = profile.id;
       setSwitchingProfileId(profile.id);
       try {
-        await connectProfile(profile);
+        const result = await connectProfile(profile);
+        if (result.status !== 'connected') throw new Error(result.message);
+        setDialog(undefined);
+        addedProfileId.current = undefined;
+        setExpandedKey(profile.id);
       } finally {
         setSwitchingProfileId(undefined);
       }
@@ -258,7 +264,7 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
     <>
       <View style={styles.list}>{rows}</View>
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
-      <Button testID="connection-add-button" mode="outlined" icon="plus" onPress={() => setDialog({ mode: 'add' })}>
+      <Button testID="connection-add-button" mode="outlined" icon="plus" onPress={() => setChoosing(true)}>
         {t('settings:connection.addConnection')}
       </Button>
       {profiles.length === 0 ? (
@@ -266,6 +272,9 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
           {t('settings:connection.addDescription')}
         </Text>
       ) : null}
+      <OverlaySheet visible={choosing} title={t('settings:connection.addConnection')} onClose={() => setChoosing(false)} fitContent testID="connection-method-sheet">
+        <ConnectionMethodChooser onManual={() => { setChoosing(false); setDialog({ mode: 'add' }); }} onPair={() => { setChoosing(false); onPair?.(); }} />
+      </OverlaySheet>
       {dialog ? (
         <ConnectionProfileDialog
           title={dialog.mode === 'add' ? t('settings:connection.addConnection') : t('settings:connection.editConnection')}
@@ -282,7 +291,7 @@ export function ConnectionProfiles({ palette, onManageConnect }: { palette: Pale
             password: dialog.password,
           }}
           onSubmit={handleDialogSubmit}
-          onDismiss={() => setDialog(undefined)}
+          onDismiss={() => { addedProfileId.current = undefined; setDialog(undefined); }}
         />
       ) : null}
     </>

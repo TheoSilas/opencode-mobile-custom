@@ -313,6 +313,12 @@
     "subscriptionRequired": "Purchase or Restore your store subscription to enable Connect.",
     "purchase": "Purchase",
     "restore": "Restore purchases",
-    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine."
+    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine.",
+    "scanHint": "Scannez le code QR de votre ordinateur pour vous connecter.",
+    "manual": "Manuel",
+    "manualHint": "Saisissez l’URL de votre serveur et vos identifiants.",
+    "nativeOnly": "Connect est disponible dans l’application iOS et Android.",
+    "benefits": "Connectez-vous avec un code QR, accédez à votre ordinateur à distance via Connect et retrouvez vos machines sur un autre appareil avec Restaurer les achats.",
+    "subscribe": "S’abonner"
   }
 }

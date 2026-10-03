@@ -9,8 +9,8 @@ issues the Connect session. There is no signup, login or token-entry step.
 
 The default trusted control plane is `https://api.getopencode.app`.
 `EXPO_CONNECT_CONTROL_PLANE_URL` sets a different default HTTPS environment at build
-or Metro start time. The Connect panel lets the user edit and save the trusted
-control plane URL. This non-secret preference survives relaunch and takes precedence
+or Metro start time. The full-screen pairing surface exposes a settings FAB that opens the shared
+Trusted control plane overlay to edit and save the URL. This non-secret preference survives relaunch and takes precedence
 over the build default. Only that exact normalized URL is accepted in pairing links;
 QR links cannot change the selected environment. URLs must use HTTPS and contain
 no credentials, query parameters, or fragments. Switching reloads the catalog and
@@ -45,6 +45,35 @@ corrected contract. Remove backend acknowledgement from claim, notifications,
 reconciliation and recovery before full Android contract validation. Mobile
 calls only `finishTransaction`, not a second acknowledgement operation. Backend
 claim must safely recover the same store ownership when repeated.
+
+## Add connection and pairing UI
+
+Settings retains connection status and saved profiles. Add connection is the
+single creation entry and opens two stacked choices: Pair with Connect, then
+Manual. Onboarding uses the same chooser and retains Skip. Manual opens the
+shared full-screen Name/URL/Username/Password form with Save & connect. Failed
+connections retain the form and reuse the saved profile on retry.
+
+Connect opens a full-screen camera surface, outside the tabs. Store/session
+initialization is explicit (`loading`, `ready`, `error`); scanning and the
+subscription overlay wait for recovery to settle. A verified subscriber scans
+and automatically pairs, securely saves, and connects through the provider's
+`pairLink` action. Non-subscribers immediately see the shared subscription
+sheet with benefits, native localized offers, Subscribe and Restore purchases.
+Dismissing it clears the pending QR and returns to the chooser. No purchase is
+started automatically. Deep links use the same continuation and retain the
+exact pending QR for purchase/Restore.
+
+The camera unmounts during operations, overlays, lost focus and backgrounding.
+Invalid/untrusted links show recoverable errors; dismissing resumes scanning.
+Permission denial/unavailable cameras retain device Settings, Retry and a
+pairing-link fallback. The settings FAB opens the trusted-control-plane sheet;
+it retains the provider's environment-change restrictions. The subscription
+and error sheets also expose this setting so it remains reachable while those
+sheets cover the FAB. Machine management lives in a separate `pair?mode=manage`
+view, reached through saved profiles' Manage Connect or Your machines after
+Restore. Production web offers Manual and explains native Connect availability;
+only the existing web E2E harness enables mocked Connect.
 
 ## Purchase, Restore and pairing
 

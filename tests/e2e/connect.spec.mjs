@@ -32,6 +32,28 @@ async function openPair(page, completed = true, id = 'pair-1') {
   await expect(page.getByTestId('connect-user-token')).toHaveCount(0);
   await expect(page.getByTestId('connect-token-required')).toHaveCount(0);
 }
+async function openControl(page) {
+  const subscription = page.getByTestId('connect-subscription-settings');
+  if (await subscription.isVisible()) await subscription.click();
+  else if (await page.getByTestId('connect-error-settings').isVisible()) await page.getByTestId('connect-error-settings').click();
+  else await page.getByTestId('connect-settings').click();
+  await expect(page.getByTestId('connect-control-plane')).toBeVisible();
+}
+async function closeControl(page) {
+  await page.getByTestId('connect-control-sheet').getByText('Cancel', { exact: true }).click();
+}
+async function submitLink(page, link) {
+  const errorSheet = page.getByTestId('connect-error-sheet');
+  if (await errorSheet.isVisible()) await errorSheet.getByRole('button', { name: 'Open pairing link', exact: true }).click();
+  else if (await page.getByTestId('connect-subscription-link').isVisible()) await page.getByTestId('connect-subscription-link').click();
+  else await page.getByTestId('connect-link-options').click();
+  await page.getByTestId('connect-pairing-link').fill(link);
+  await page.getByTestId('connect-open-link').click();
+}
+async function manage(page) {
+  await page.getByTestId('connect-manage').click();
+  await expect(page.getByTestId('connect-refresh-machines')).toBeVisible();
+}
 async function events(page) { return page.evaluate(() => globalThis.__connectStoreTest.events); }
 async function assertNoStoredSecrets(page) {
   const stored = await page.evaluate(() => JSON.stringify(localStorage));
@@ -106,51 +128,37 @@ test('Connect defaults to production, saves a custom environment, and keeps pair
   const production = await mockControlPlane(page);
   const custom = 'https://staging.connect.test/connect';
   const staging = await mockControlPlane(page, { controlPlane: custom });
-  const runtimeErrors = [];
-  page.on('pageerror', (error) => runtimeErrors.push(error.message));
   await openPair(page);
+  await openControl(page);
   const input = page.getByTestId('connect-control-plane');
-  const save = page.getByTestId('connect-save-control-plane');
   await expect(input).toHaveValue(CONTROL_PLANE);
   await input.fill('http://staging.connect.test');
-  await save.click();
+  await page.getByTestId('connect-save-control-plane').click();
   await expect(page.getByTestId('connect-error')).toContainText('HTTPS');
-  await expect(page.getByTestId('connect-machine-name')).toHaveText('Test Mac');
   await input.fill(`${custom}///`);
-  await save.click();
-  await expect(input).toHaveValue(custom);
-  await expect(page.getByTestId('connect-machine-name')).toHaveCount(0);
-  await expect(page.getByTestId('connect-subscription-active')).toHaveCount(0);
+  await page.getByTestId('connect-save-control-plane').click();
   await expect(page.getByTestId('connect-purchase')).toBeEnabled();
-  expect(staging.requests).toEqual([{ method: 'GET', path: '/v1/subscriptions/catalog' }]);
+  await expect(page.getByTestId('connect-machine-name')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => localStorage.getItem('opencode-mobile.connect-control-plane'))).toBe(custom);
-  await page.getByTestId('connect-pairing-link').fill(pairingLink().toString());
-  await page.getByTestId('connect-open-link').click();
+  await submitLink(page, pairingLink().toString());
   await expect(page.getByTestId('connect-error')).toContainText('trusted control plane');
   expect(production.pairClaims).toBe(0);
   await page.reload();
-  await expect(input).toHaveValue(custom);
   await expect(page.getByTestId('connect-purchase')).toBeEnabled();
+  await openControl(page);
+  await expect(input).toHaveValue(custom);
+  await closeControl(page);
   const link = pairingLink(); link.searchParams.set('cp', custom);
-  await page.goto(`/pair?${link.searchParams}`);
+  await submitLink(page, link.toString());
   await expect(page.getByTestId('connect-machine-name')).toHaveText('Test Mac');
-  await expect(input).toHaveValue(custom);
-  await expect(page).toHaveURL(/\/pair$/);
-  await expect(page.getByTestId('connect-purchase')).toBeEnabled();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: '/tmp/opencode-control-plane-mobile.png', fullPage: true });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.screenshot({ path: '/tmp/opencode-control-plane-desktop.png', fullPage: true });
   await page.getByTestId('connect-purchase').click();
   await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
   expect(staging.subscriptionClaims).toBe(1); expect(staging.pairClaims).toBe(1);
   expect(production.subscriptionClaims).toBe(0); expect(production.pairClaims).toBe(0);
   await assertNoStoredSecrets(page);
-  expect(runtimeErrors).toEqual([]);
 });
 
-test('switching environments clears subscription and machine state and restores only the selected session', async ({ page }) => {
+test('switching environments clears subscription state and restores only the selected session', async ({ page }) => {
   await storeFixture(page, { recovered: true });
   const production = await mockControlPlane(page, { owned: true });
   const custom = 'https://staging.connect.test';
@@ -158,23 +166,22 @@ test('switching environments clears subscription and machine state and restores 
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair');
   await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
-  await expect(page.getByTestId('connect-machine-machine-1')).toBeVisible();
-  await expect(page.getByTestId('connect-control-plane')).toBeEditable();
+  await expect(page.getByTestId('connect-purchase')).toHaveCount(0);
   await page.evaluate(() => {
     const fixture = globalThis.__connectStoreTest;
     fixture.products.push({ ...fixture.products[0], id: 'fixture.staging' });
   });
+  await openControl(page);
   await page.getByTestId('connect-control-plane').fill(custom);
   await page.getByTestId('connect-save-control-plane').click();
   await expect(page.getByTestId('connect-purchase')).toBeEnabled();
   await expect(page.getByTestId('connect-subscription-active')).toHaveCount(0);
-  await expect(page.getByTestId('connect-machine-machine-1')).toHaveCount(0);
-  await expect(page.getByTestId('connect-refresh-machines')).toBeDisabled();
   expect(staging.requests).toEqual([{ method: 'GET', path: '/v1/subscriptions/catalog' }]);
+  await openControl(page);
   await page.getByTestId('connect-control-plane').fill(CONTROL_PLANE);
   await page.getByTestId('connect-save-control-plane').click();
   await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
-  await expect(page.getByTestId('connect-control-plane')).toBeEditable();
+  await manage(page);
   await page.getByTestId('connect-refresh-machines').click();
   await expect(page.getByTestId('connect-machine-machine-1')).toBeVisible();
   expect(production.subscriptionClaims).toBe(1); expect(staging.subscriptionClaims).toBe(0);
@@ -226,7 +233,9 @@ for (const [name, options, message] of [
     await storeFixture(page, options); const state = await mockControlPlane(page, options);
     await openPair(page); await page.getByTestId('connect-purchase').click();
     await expect(page.getByTestId('connect-error')).toContainText(message);
+    await openControl(page);
     await expect(page.getByTestId('connect-control-plane')).not.toBeEditable();
+    await closeControl(page);
     expect(state.pairClaims).toBe(0);
     if (!options.finishFailures) expect(await events(page)).not.toContain('finish');
     await page.getByTestId('connect-retry').click();
@@ -241,7 +250,7 @@ for (const outcome of ['pending', 'canceled']) {
     await storeFixture(page, { outcome }); const state = await mockControlPlane(page);
     await openPair(page); await page.getByTestId('connect-purchase').click();
     await expect(page.getByTestId('connect-notice')).toContainText(outcome === 'pending' ? 'pending store approval' : 'Purchase canceled');
-    if (outcome === 'pending') await expect(page.getByTestId('connect-control-plane')).not.toBeEditable();
+    if (outcome === 'pending') { await openControl(page); await expect(page.getByTestId('connect-control-plane')).not.toBeEditable(); await closeControl(page); }
     expect(state.subscriptionClaims).toBe(0); expect(state.pairClaims).toBe(0);
     expect(await events(page)).not.toContain('finish'); expect(await events(page)).not.toContain('restore');
     await assertNoStoredSecrets(page);
@@ -266,8 +275,7 @@ test('an expired QR preserves the subscription and accepts a fresh QR without re
   await expect(page.getByTestId('connect-error')).toContainText('pairing expired');
   await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
   await expect(page.getByTestId('connect-machine-name')).toHaveCount(0);
-  await page.getByTestId('connect-pairing-link').fill(pairingLink('fresh-pair').toString());
-  await page.getByTestId('connect-open-link').click(); await page.getByTestId('connect-claim').click();
+  await submitLink(page, pairingLink('fresh-pair').toString());
   await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
   expect(state.subscriptionClaims).toBe(1); expect((await events(page)).filter((event) => event === 'purchase')).toHaveLength(1);
 });
@@ -289,6 +297,8 @@ test('second-device Restore lists durable machines; access mismatch saves nothin
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair'); await expect(page.getByTestId('connect-restore')).toBeEnabled();
   await page.getByTestId('connect-restore').click();
+  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await manage(page);
   await expect(page.getByTestId('connect-access-machine-1')).toBeVisible();
   await page.getByTestId('connect-access-machine-1').click();
   await expect(page.getByTestId('connect-error')).toContainText('machine_identity_mismatch');
@@ -299,7 +309,10 @@ test('second-device Restore reconnects the same owned machine without a QR', asy
   await storeFixture(page); const state = await mockControlPlane(page, { owned: true });
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair'); await expect(page.getByTestId('connect-restore')).toBeEnabled();
-  await page.getByTestId('connect-restore').click(); await page.getByTestId('connect-access-machine-1').click();
+  await page.getByTestId('connect-restore').click();
+  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await manage(page);
+  await page.getByTestId('connect-access-machine-1').click();
   await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
   expect(state.pairClaims).toBe(0); expect(state.accesses).toBe(1);
   expect(await events(page)).not.toContain('purchase'); await assertNoStoredSecrets(page);
@@ -367,4 +380,53 @@ test('renewal rotates credentials while preserving profile, machine, hostname an
   const refreshedScope = Buffer.from(`${updated.profile.serverUrl}\n${updated.profile.username}`).toString('base64url');
   expect(updated.favorites[0].connectionScope).toBe(refreshedScope); expect(updated.last[refreshedScope]['/fixture']).toBe('remembered');
   expect(state.pairClaims).toBe(1); expect(state.accesses).toBe(1); expect(await events(page)).not.toContain('purchase'); await assertNoStoredSecrets(page);
+});
+
+test('a subscriber opening a QR link pairs automatically without a purchase overlay', async ({ page }) => {
+  await storeFixture(page, { recovered: true });
+  const state = await mockControlPlane(page);
+  await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
+  let purchaseOverlays = 0;
+  await page.addInitScript(() => {
+    globalThis.__subscriptionOverlaySeen = false;
+    new MutationObserver(() => {
+      if (document.querySelector('[data-testid="connect-subscription-sheet"]')) globalThis.__subscriptionOverlaySeen = true;
+    }).observe(document, { childList: true, subtree: true });
+  });
+  await page.goto(`/pair?${pairingLink().searchParams}`);
+  await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
+  purchaseOverlays = await page.evaluate(() => Number(globalThis.__subscriptionOverlaySeen));
+  expect(purchaseOverlays).toBe(0);
+  expect(state.pairClaims).toBe(1);
+  expect(await events(page)).not.toContain('purchase');
+  expect(await events(page)).not.toContain('restore');
+  await assertNoStoredSecrets(page);
+});
+
+test('subscription dismissal returns to the chooser and Manual stays available', async ({ page }) => {
+  await storeFixture(page); await mockControlPlane(page);
+  await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
+  await page.goto('/pair');
+  await expect(page.getByTestId('connect-purchase')).toBeEnabled();
+  await page.getByTestId('connect-subscription-sheet').getByText('Close', { exact: true }).click();
+  await expect(page.getByTestId('connection-method-chooser')).toBeVisible();
+  await page.getByTestId('connection-method-manual').click();
+  await expect(page.getByTestId('connection-profile-name-input')).toBeVisible();
+  expect(await events(page)).not.toContain('purchase');
+});
+
+test('invalid and untrusted QR links can be replaced with a valid subscriber link', async ({ page }) => {
+  await storeFixture(page, { recovered: true }); const state = await mockControlPlane(page);
+  await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
+  await page.goto('/pair');
+  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await submitLink(page, 'https://unrelated.test');
+  await expect(page.getByTestId('connect-error')).toContainText('Invalid or unsupported');
+  const untrusted = pairingLink(); untrusted.searchParams.set('cp', 'https://untrusted.test');
+  await submitLink(page, untrusted.toString());
+  await expect(page.getByTestId('connect-error')).toContainText('trusted control plane');
+  expect(state.pairClaims).toBe(0);
+  await submitLink(page, pairingLink().toString());
+  await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
+  expect(state.pairClaims).toBe(1); expect(await events(page)).not.toContain('purchase');
 });

@@ -313,6 +313,12 @@
     "subscriptionRequired": "Purchase or Restore your store subscription to enable Connect.",
     "purchase": "Purchase",
     "restore": "Restore purchases",
-    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine."
+    "accessUnavailable": "Access unavailable. Purchase or Restore to reactivate this machine.",
+    "scanHint": "コンピューターのQRコードをスキャンして接続します。",
+    "manual": "手動",
+    "manualHint": "サーバーURLと認証情報を入力します。",
+    "nativeOnly": "ConnectはiOSとAndroidアプリで利用できます。",
+    "benefits": "QRコードで接続し、Connectを通じてコンピューターにリモートアクセスできます。「購入を復元」で別のデバイスからマシンを復元できます。",
+    "subscribe": "登録する"
   }
 }

@@ -275,6 +275,11 @@ Credentials:
   sessions use SecureStore. Expired/missing Connect credentials never fall back to
   active passwords; expiry stops streams/sockets. Development web E2E substitutes
   memory only. See [Connect pilot](connect.md).
+- Connect setup exposes initialization readiness separately from operation phase.
+  Provider-owned `pairLink` securely accepts scanned/deep-linked QR data and
+  automatically claims after initialization settles and entitlement is verified.
+  Subscription recovery and automatic pairing use the existing operation lock;
+  failed claims require explicit Retry or a replacement QR.
 - Connect uses a default phone name and backend-issued device credentials.
   Native purchase/Restore verifies ownership, securely saves the issued session,
   then finalizes the store transaction. Pending QR continuation is secure;

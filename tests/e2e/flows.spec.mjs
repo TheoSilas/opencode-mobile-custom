@@ -166,6 +166,7 @@ async function openCurrentConnectionRow(page) {
 async function openConnectionDialog(page, trigger, openedLocator) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     await clickWithRetry(trigger);
+    if (await page.getByTestId('connection-method-manual').isVisible().catch(() => false)) await page.getByTestId('connection-method-manual').click();
     if (await openedLocator.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)) {
       return;
     }
