@@ -40,7 +40,10 @@
       "unknown": "अज्ञात",
       "none": "कोई नहीं",
       "unnamed": "अनाम"
-    }
+    },
+    "tabFilesChanged_one": "{{files}} फ़ाइल बदली",
+    "tabFilesChanged_many": "{{files}} फ़ाइलें बदलीं",
+    "tabFilesChanged_other": "{{files}} फ़ाइलें बदलीं"
   },
   "content": {
     "connectionIssue": "कनेक्शन समस्या",
@@ -58,7 +61,7 @@
     "untitledTask": "बिना शीर्षक कार्य"
   },
   "cards": {
-    "respondToContinue": "जारी रखने के लिए उत्तर दें",
+    "respondToContinue": "अनुमोदन आवश्यक है",
     "waitingForAnswer": "जारी रखने से पहले OpenCode आपके उत्तर की प्रतीक्षा कर रहा है।",
     "couldNotSubmitAnswer": "उत्तर सबमिट नहीं किया जा सका।",
     "couldNotRejectQuestion": "प्रश्न अस्वीकार नहीं किया जा सका।",
@@ -84,23 +87,46 @@
     "you": "आप",
     "opencode": "OpenCode",
     "copied": "कॉपी हो गया",
-    "permissionRequest": "अनुमति अनुरोध",
+    "permissionRequest": "अनुमोदन आवश्यक है",
     "allowOnce": "एक बार अनुमति दें",
     "alwaysAllow": "हमेशा अनुमति दें",
-    "deny": "अस्वीकार करें"
+    "deny": "अस्वीकार करें",
+    "readAloud": "उत्तर पढ़कर सुनाएँ",
+    "stopReadAloud": "पढ़कर सुनाना रोकें",
+    "fork": "इस संदेश से शाखा बनाएँ",
+    "revert": "इस संदेश से बदलाव वापस करें",
+    "reviewChanges": "बदलाव देखें",
+    "futureApprovalScope": "हमेशा अनुमति देना इन भविष्य के पैटर्न पर लागू होता है:",
+    "unspecifiedScope": "सर्वर ने भविष्य के अनुमोदन का दायरा नहीं बताया है।",
+    "serverRuleDuration": "OpenCode सर्वर तय करता है कि भविष्य के अनुमोदन नियम कितने समय तक लागू रहेंगे।",
+    "updatedPatches_one": "{{count}} पैच अपडेट किया",
+    "updatedPatches_many": "{{count}} पैच अपडेट किए",
+    "updatedPatches_other": "{{count}} पैच अपडेट किए",
+    "fileCount_one": "{{count}} फ़ाइल",
+    "fileCount_many": "{{count}} फ़ाइलें",
+    "fileCount_other": "{{count}} फ़ाइलें"
   },
   "composer": {
     "chooseAssistantMode": "सहायक मोड चुनें",
     "chooseReasoningLevel": "तर्क स्तर चुनें",
-    "autoApproveEnabled": "ऑटो-स्वीकृति सक्षम",
-    "askPermission": "अनुमति माँगें",
+    "autoApproveEnabled": "अपने आप अनुमति दें",
+    "askPermission": "कार्रवाई से पहले पूछें",
     "conversationMode": "बातचीत मोड",
     "conversationHint": "ऐप खुला रहते हुए स्वाभाविक रूप से बात करते रहें। यह सुनता है, आपकी बारी भेजता है, उत्तर पढ़ता है, और फिर सुनता है।",
     "removeAttachment": "{{name}} निकालें",
     "attachment": "संलग्नक",
     "listening": "सुन रहा है",
     "conversationActive": "बातचीत सक्रिय",
-    "placeholder": "कुछ भी पूछें..."
+    "placeholder": "कुछ भी पूछें...",
+    "chatOptions": "चैट विकल्प",
+    "agent": "एजेंट",
+    "reasoning": "तर्क",
+    "approvals": "अनुमोदन",
+    "attachFiles": "फ़ाइलें संलग्न करें",
+    "startDictation": "बोलकर लिखना शुरू करें",
+    "stopDictation": "बोलकर लिखना रोकें",
+    "sendTask": "कार्य भेजें",
+    "stopTask": "कार्य रोकें"
   },
   "header": {
     "pricingUnavailable": "मूल्य निर्धारण अनुपलब्ध",
@@ -140,11 +166,11 @@
     "couldNotUpdate": "चैट अपडेट नहीं की जा सकी।",
     "untitledChat": "बिना शीर्षक चैट",
     "favorites": "पसंदीदा",
-    "activeSessions": "अन्य वर्कस्पेस में सक्रिय",
+    "activeSessions": "चल रहे और हाल के",
     "open": "{{title}} खोलें",
     "swipeRemoveFavorite": "पसंदीदा से हटाने के लिए बाएँ स्वाइप करें",
     "chats": "चैट",
-    "noChats": "इस कार्यक्षेत्र में कोई चैट नहीं मिली।",
+    "noChats": "कोई चैट नहीं मिली।",
     "rename": "नाम बदलें",
     "favorite": "पसंदीदा बनाएँ",
     "unfavorite": "पसंदीदा से हटाएँ",
@@ -159,7 +185,9 @@
     "deleteConfirm": "“{{title}}” और इसका सारा डेटा स्थायी रूप से हटा दिया जाएगा।",
     "swipeChatActions": "चैट कार्रवाइयों के लिए बाएँ स्वाइप करें",
     "noArchivedChats": "कोई संग्रहीत चैट नहीं।",
-    "newChat": "नई चैट"
+    "newChat": "नई चैट",
+    "running": "चल रहा है",
+    "noMatchingChats": "आपकी खोज से कोई चैट मेल नहीं खाती।"
   },
   "overlay": {
     "conversationMode": "बातचीत मोड",
@@ -187,10 +215,11 @@
     "title": "नया कार्य शुरू करें",
     "description": "प्रॉम्प्ट को विशिष्ट रखें और OpenCode कार्यक्षेत्र का निरीक्षण करेगा, प्रगति दिखाएगा, और फ़ाइल बदलाव स्ट्रीम करेगा।",
     "prompts": {
-      "polish": "इस मोबाइल UI को OpenCode वेब मोड के अधिक नज़दीक महसूस कराने के लिए निखारें।",
-      "review": "वर्तमान कार्यक्षेत्र की समीक्षा करें और अगला सबसे प्रभावशाली सुधार सुझाएँ।",
-      "implement": "फ़ीचर अनुरोध लागू करें और काम करते समय मुझे अपडेट रखें।"
-    }
+      "polish": "इस प्रोजेक्ट को समझाएँ",
+      "review": "हाल के बदलावों की समीक्षा करें",
+      "implement": "बग की जाँच में मदद करें"
+    },
+    "bugSymptoms": "लक्षण: बताएँ कि क्या हुआ और आपकी क्या अपेक्षा थी।"
   },
   "reasoning": {
     "low": "कम",
@@ -215,7 +244,13 @@
     "sourceTitle": "फ़ाइल बदलाव स्रोत",
     "changeSourceLabel": "फ़ाइल बदलाव स्रोत बदलें। {{source}}",
     "showing": "{{scope}} दिखाया जा रहा है",
-    "showingTurnSuffix": " · {{turn}}"
+    "showingTurnSuffix": " · {{turn}}",
+    "filesChangedSimple_one": "{{files}} फ़ाइल बदली",
+    "filesChangedSimple_many": "{{files}} फ़ाइलें बदलीं",
+    "filesChangedSimple_other": "{{files}} फ़ाइलें बदलीं",
+    "filesChangedCompact_one": "{{files}} फ़ाइल बदली, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_many": "{{files}} फ़ाइलें बदलीं, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_other": "{{files}} फ़ाइलें बदलीं, +{{additions}} / -{{deletions}}"
   },
   "session": {
     "chooseWorkspace": "कार्यक्षेत्र चुनें",

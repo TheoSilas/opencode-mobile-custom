@@ -16,7 +16,9 @@
     "send": "कमांड भेजें",
     "terminateTitle": "टर्मिनल बंद करें?",
     "terminateMessage": "{{title}} बंद करें?",
-    "terminateAction": "बंद करें"
+    "terminateAction": "बंद करें",
+    "lineHint": "कमांड एक बार में एक पंक्ति भेजे जाते हैं।",
+    "new": "नया टर्मिनल"
   },
   "sessions": {
     "title": "टर्मिनल",

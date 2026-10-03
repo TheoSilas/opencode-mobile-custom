@@ -40,7 +40,10 @@
       "unknown": "unknown",
       "none": "none",
       "unnamed": "unnamed"
-    }
+    },
+    "tabFilesChanged_one": "{{files}} File Changed",
+    "tabFilesChanged_many": "{{files}} Files Changed",
+    "tabFilesChanged_other": "{{files}} Files Changed"
   },
   "content": {
     "connectionIssue": "Connection issue",
@@ -58,7 +61,7 @@
     "untitledTask": "Untitled task"
   },
   "cards": {
-    "respondToContinue": "Respond to continue",
+    "respondToContinue": "Approval needed",
     "waitingForAnswer": "OpenCode is waiting for your answer before it can continue.",
     "couldNotSubmitAnswer": "Could not submit answer.",
     "couldNotRejectQuestion": "Could not reject question.",
@@ -84,23 +87,46 @@
     "you": "You",
     "opencode": "OpenCode",
     "copied": "Copied",
-    "permissionRequest": "Permission request",
+    "permissionRequest": "Approval needed",
     "allowOnce": "Allow once",
     "alwaysAllow": "Always allow",
-    "deny": "Deny"
+    "deny": "Deny",
+    "readAloud": "Read reply aloud",
+    "stopReadAloud": "Stop reading aloud",
+    "fork": "Fork from this message",
+    "revert": "Revert from this message",
+    "reviewChanges": "Review changes",
+    "futureApprovalScope": "Always allow applies to these future patterns:",
+    "unspecifiedScope": "The server has not specified the scope of future approvals.",
+    "serverRuleDuration": "The OpenCode server controls how long future approval rules apply.",
+    "updatedPatches_one": "Updated {{count}} patch",
+    "updatedPatches_many": "Updated {{count}} patches",
+    "updatedPatches_other": "Updated {{count}} patches",
+    "fileCount_one": "{{count}} file",
+    "fileCount_many": "{{count}} files",
+    "fileCount_other": "{{count}} files"
   },
   "composer": {
     "chooseAssistantMode": "Choose assistant mode",
     "chooseReasoningLevel": "Choose reasoning level",
-    "autoApproveEnabled": "Auto approve enabled",
-    "askPermission": "Ask permission",
+    "autoApproveEnabled": "Auto-approve",
+    "askPermission": "Ask before actions",
     "conversationMode": "Conversation mode",
     "conversationHint": "Keep talking naturally while the app stays open. It listens, sends your turn, reads the reply, and then listens again.",
     "removeAttachment": "Remove {{name}}",
     "attachment": "attachment",
     "listening": "Listening",
     "conversationActive": "Conversation active",
-    "placeholder": "Ask anything..."
+    "placeholder": "Ask anything...",
+    "chatOptions": "Chat options",
+    "agent": "Agent",
+    "reasoning": "Reasoning",
+    "approvals": "Approvals",
+    "attachFiles": "Attach files",
+    "startDictation": "Start dictation",
+    "stopDictation": "Stop dictation",
+    "sendTask": "Send task",
+    "stopTask": "Stop task"
   },
   "header": {
     "pricingUnavailable": "Pricing unavailable",
@@ -140,11 +166,11 @@
     "couldNotUpdate": "Could not update chat.",
     "untitledChat": "Untitled chat",
     "favorites": "Favorites",
-    "activeSessions": "Active across workspaces",
+    "activeSessions": "Running & recent",
     "open": "Open {{title}}",
     "swipeRemoveFavorite": "Swipe left to remove from favorites",
     "chats": "Chats",
-    "noChats": "No chats found in this workspace.",
+    "noChats": "No chats found.",
     "rename": "Rename",
     "favorite": "Favorite",
     "unfavorite": "Unfavorite",
@@ -159,7 +185,9 @@
     "deleteConfirm": "“{{title}}” and all its data will be permanently deleted.",
     "swipeChatActions": "Swipe left for chat actions",
     "noArchivedChats": "No archived chats.",
-    "newChat": "New chat"
+    "newChat": "New chat",
+    "running": "Running",
+    "noMatchingChats": "No chats match your search."
   },
   "overlay": {
     "conversationMode": "Conversation mode",
@@ -187,10 +215,11 @@
     "title": "Start a new task",
     "description": "Keep the prompt specific and OpenCode will inspect the workspace, show progress, and stream back file changes.",
     "prompts": {
-      "polish": "Polish this mobile UI to feel closer to OpenCode web mode.",
-      "review": "Review the current workspace and suggest the next highest-impact fix.",
-      "implement": "Implement the feature request and keep me updated as you work."
-    }
+      "polish": "Explain this project",
+      "review": "Review recent changes",
+      "implement": "Help investigate a bug"
+    },
+    "bugSymptoms": "Symptoms: describe what happened and what you expected."
   },
   "reasoning": {
     "low": "Low",
@@ -215,7 +244,13 @@
     "sourceTitle": "Files changed source",
     "changeSourceLabel": "Change files changed source. {{source}}",
     "showing": "Showing {{scope}}",
-    "showingTurnSuffix": " · {{turn}}"
+    "showingTurnSuffix": " · {{turn}}",
+    "filesChangedSimple_one": "{{files}} file changed",
+    "filesChangedSimple_many": "{{files}} files changed",
+    "filesChangedSimple_other": "{{files}} files changed",
+    "filesChangedCompact_one": "{{files}} file changed, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_many": "{{files}} files changed, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_other": "{{files}} files changed, +{{additions}} / -{{deletions}}"
   },
   "session": {
     "chooseWorkspace": "Choose a workspace",

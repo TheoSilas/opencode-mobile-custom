@@ -16,7 +16,9 @@
     "send": "Envoyer la commande",
     "terminateTitle": "Arrêter le terminal ?",
     "terminateMessage": "Arrêter {{title}} ?",
-    "terminateAction": "Arrêter"
+    "terminateAction": "Arrêter",
+    "lineHint": "Les commandes sont envoyées une ligne à la fois.",
+    "new": "Nouveau terminal"
   },
   "sessions": {
     "title": "Terminaux",

@@ -105,12 +105,12 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
     ...visibleActiveSessions.map((value) => ({ kind: 'active' as const, id: `active:${value.sessionId}`, value })),
     ...(visibleFavorites.length ? [{ kind: 'heading' as const, id: 'heading-favorites', title: t('chat:library.favorites') }] : []),
     ...visibleFavorites.map((value) => ({ kind: 'favorite' as const, id: `favorite:${value.connectionScope}:${value.sessionId}`, value })),
-    { kind: 'heading', id: 'heading-chats', title: t('chat:library.chats') },
+    ...(visibleSessions.length ? [{ kind: 'heading' as const, id: 'heading-chats', title: t('chat:library.chats') }] : []),
     ...visibleSessions.map((value) => ({ kind: 'session' as const, id: `session:${value.id}`, value })),
-    ...(!visibleSessions.length ? [{ kind: 'empty' as const, id: 'empty-chats', title: t('chat:library.noChats') }] : []),
+    ...(!visibleSessions.length && !visibleActiveSessions.length && !visibleFavorites.length ? [{ kind: 'empty' as const, id: 'empty-chats', title: t(query.trim() ? 'chat:library.noMatchingChats' : 'chat:library.noChats') }] : []),
   ] : [
     ...visibleArchived.map((value) => ({ kind: 'archived' as const, id: `archived:${value.id}`, value })),
-    ...(!visibleArchived.length ? [{ kind: 'empty' as const, id: 'empty-archived', title: t('chat:library.noArchivedChats') }] : []),
+    ...(!visibleArchived.length ? [{ kind: 'empty' as const, id: 'empty-archived', title: t(query.trim() ? 'chat:library.noMatchingChats' : 'chat:library.noArchivedChats') }] : []),
   ];
   function renderRow(row: LibraryRow) {
     if (row.kind === 'heading' || row.kind === 'empty') return <Text variant={row.kind === 'heading' ? 'labelLarge' : 'bodyMedium'} style={{ color: palette.muted }}>{row.title}</Text>;
@@ -132,7 +132,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
             <MaterialCommunityIcons name={running ? 'progress-clock' : 'history'} size={20} color={running ? palette.tint : palette.muted} />
             <View style={styles.sessionText}>
               <NativeText numberOfLines={1} style={[styles.sessionTitle, { color: palette.text }]}>{title || t('chat:library.untitledChat')}</NativeText>
-              <NativeText numberOfLines={1} style={{ color: palette.muted }}>{session.projectPath.split('/').filter(Boolean).pop() || session.projectPath} · {formatRelativeTime(live?.time.updated ?? session.updatedAt)}</NativeText>
+              <NativeText numberOfLines={1} style={{ color: palette.muted }}>{running ? `${t('chat:library.running')} · ` : ''}{session.projectPath.split('/').filter(Boolean).pop() || session.projectPath} · {formatRelativeTime(live?.time.updated ?? session.updatedAt)}</NativeText>
             </View>
           </Pressable>
         </SwipeRow>

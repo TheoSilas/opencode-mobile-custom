@@ -71,7 +71,8 @@
     "configureProvider": "{{provider}} konfigurieren",
     "oauthHint": "Dies öffnet den Anmeldeablauf des Anbieters in deinem Browser.",
     "setupUnavailable": "Die Einrichtungsdetails für diesen Anbieter sind derzeit nicht verfügbar.",
-    "couldNotComplete": "Anmeldung konnte nicht abgeschlossen werden."
+    "couldNotComplete": "Anmeldung konnte nicht abgeschlossen werden.",
+    "removeCredentials": "Zugangsdaten für {{provider}} entfernen"
   },
   "providerCopy": {
     "openai": {

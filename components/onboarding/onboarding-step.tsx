@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useOnboarding } from '@/providers/opencode-contexts';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -38,6 +39,7 @@ export function OnboardingStep({
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const palette = Colors[useColorScheme() ?? 'light'];
+  const { onboardingActive } = useOnboarding();
   const progress = Math.max(0, Math.min(1, step / totalSteps));
 
   return (
@@ -48,7 +50,7 @@ export function OnboardingStep({
         elevated>
         {onBack ? <Appbar.BackAction accessibilityLabel={t('common:actions.back')} onPress={onBack} /> : null}
         <Appbar.Content
-          title={`Step ${step} of ${totalSteps}`}
+          title={`${onboardingActive ? `${t('onboarding:reviewSetup')} · ` : ''}${t('onboarding:stepIndicator', { step, totalSteps })}`}
           titleStyle={{ color: palette.muted, fontSize: 14 }}
         />
       </Appbar.Header>

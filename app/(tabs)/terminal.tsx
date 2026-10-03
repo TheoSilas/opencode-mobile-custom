@@ -201,7 +201,13 @@ export default function TerminalScreen() {
           {activeTerminalId ? <Text testID="terminal-output" selectable style={[styles.outputText, { color: palette.text }]}>{terminalOutput || t('terminal:console.connectedWaiting')}</Text> : (
             <Card mode="contained" style={{ backgroundColor: palette.surface, borderRadius: 16 }}>
               <Card.Title title={t('terminal:screen.title')} subtitle={activeProject.label} />
-              <Card.Content><Text style={{ color: palette.muted }}>{t('terminal:console.openOrCreate')}</Text></Card.Content>
+              <Card.Content style={{ gap: 12 }}>
+                <Text style={{ color: palette.muted }}>{t('terminal:console.openOrCreate')}</Text>
+                <Button mode="contained" icon="plus" loading={isCreating} disabled={isCreating || Boolean(busyId)} onPress={() => void handleCreate()}>
+                  {t('terminal:console.new')}
+                </Button>
+                <Text variant="bodySmall" style={{ color: palette.muted }}>{t('terminal:console.lineHint')}</Text>
+              </Card.Content>
             </Card>
           )}
         </ScrollView>

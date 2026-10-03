@@ -15,7 +15,15 @@
     "close": "ファイルを閉じる",
     "savingNotice": "保存すると、編集内容が VCS パッチとして作業ツリーに適用されます。続行する前に変更を確認してください。",
     "savePatch": "パッチを保存",
-    "editingUnavailable": "このサーバーでは編集を利用できません。"
+    "editingUnavailable": "このサーバーでは編集を利用できません。",
+    "added": "追加",
+    "modified": "変更",
+    "deleted": "削除",
+    "deletedUnavailable": "削除されたファイルの内容は利用できません。",
+    "searchGuidance": "ほかのファイルを探すにはファイル名で検索してください。",
+    "searching": "検索中…",
+    "noMatches": "「{{query}}」に一致するファイルがありません。",
+    "resultsFor": "「{{query}}」の検索結果"
   },
   "worktrees": {
     "title": "ワークツリー",

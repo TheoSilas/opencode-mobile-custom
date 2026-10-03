@@ -172,7 +172,6 @@ export function QuestionFlow({
           }
 
           const selected = answers[questionIndex];
-          const selectedOption = prompt.options.find((option) => selected.includes(option.label));
           const showOptions = prompt.type !== 'boolean' && prompt.type !== 'external' && prompt.options.length > 0;
           const showCustom = prompt.custom !== false && prompt.type !== 'boolean' && prompt.type !== 'external';
 
@@ -187,6 +186,7 @@ export function QuestionFlow({
                 <View style={styles.questionBooleanRow}>
                   <Text variant="bodyMedium" style={{ color: palette.text }}>{selected.includes('true') ? t('chat:cards.yes') : t('chat:cards.no')}</Text>
                   <Switch
+                    accessibilityLabel={prompt.header}
                     value={selected.includes('true')}
                     onValueChange={(value) => {
                       setAnswers((current) => current.map((answer, index) => index === questionIndex ? [value ? 'true' : 'false'] : answer));
@@ -206,8 +206,13 @@ export function QuestionFlow({
                   {prompt.options.map((option) => {
                     const isSelected = selected.includes(option.label);
                     return (
+                      <View key={option.label} style={{ width: '100%', gap: 4 }}>
                       <Button
-                        key={option.label}
+                        accessibilityLabel={[option.label, option.description].filter(Boolean).join('. ')}
+                        accessibilityState={{ selected: isSelected }}
+                        style={{ width: '100%' }}
+                        contentStyle={{ justifyContent: 'flex-start' }}
+                        labelStyle={{ flexShrink: 1 }}
                         mode={isSelected ? 'contained-tonal' : 'outlined'}
                         onPress={() => {
                           setAnswers((current) => current.map((answer, index) => {
@@ -221,14 +226,13 @@ export function QuestionFlow({
                         }}>
                         {option.label}
                       </Button>
+                      {option.description ? <Text variant="bodySmall" style={{ color: palette.muted, paddingHorizontal: 12 }}>{option.description}</Text> : null}
+                      </View>
                     );
                   })}
                 </View>
               ) : null}
 
-              {selectedOption?.description ? (
-                <Text variant="bodySmall" style={{ color: palette.muted }}>{selectedOption.description}</Text>
-              ) : null}
 
               {showCustom ? (
                 <TextInput
@@ -372,6 +376,7 @@ type TranscriptMessageProps = {
   flat?: boolean;
   fontSize: number;
   onCopy: () => void;
+  onReviewChanges?: (messageId: string) => void;
   onFork?: () => void;
   onRevert?: () => void;
   onToggleSpeak: () => void;
@@ -386,6 +391,7 @@ function TranscriptMessageImpl({
   flat = false,
   fontSize,
   onCopy,
+  onReviewChanges,
   onFork,
   onRevert,
   onToggleSpeak,
@@ -396,7 +402,8 @@ function TranscriptMessageImpl({
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
   const isUser = entry.role === 'user';
-  const detailSummary = summarizeTranscriptDetails(entry.details);
+  const patchSummary = t('chat:cards.updatedPatches', { count: entry.details.filter((detail) => detail.kind === 'patch').length });
+  const detailSummary = summarizeTranscriptDetails(entry.details, { patches: (count) => t('chat:cards.updatedPatches', { count }), files: (count) => t('chat:cards.fileCount', { count }) });
   const textColor = flat ? palette.text : isUser ? palette.onBubbleUser : palette.onBubbleAssistant;
   const metaColor = flat ? palette.muted : isUser ? palette.onBubbleUser : palette.muted;
   const accentColor = flat ? palette.tint : isUser ? palette.onBubbleUser : palette.tint;
@@ -438,6 +445,7 @@ function TranscriptMessageImpl({
               ) : null}
               {canSpeak ? (
                 <IconButton
+                  accessibilityLabel={t(speaking ? 'chat:cards.stopReadAloud' : 'chat:cards.readAloud')}
                   icon={speaking ? 'stop' : 'volume-high'}
                   size={slim ? 14 : 16}
                   style={styles.messageActionButton}
@@ -445,8 +453,8 @@ function TranscriptMessageImpl({
                   onPress={onToggleSpeak}
                 />
               ) : null}
-              {onFork ? <IconButton icon="source-fork" size={slim ? 14 : 16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onFork} /> : null}
-              {onRevert ? <IconButton icon="undo-variant" size={slim ? 14 : 16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onRevert} /> : null}
+              {onFork ? <IconButton accessibilityLabel={t('chat:cards.fork')} icon="source-fork" size={slim ? 14 : 16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onFork} /> : null}
+              {onRevert ? <IconButton accessibilityLabel={t('chat:cards.revert')} icon="undo-variant" size={slim ? 14 : 16} style={styles.messageActionButton} iconColor={palette.muted} onPress={onRevert} /> : null}
               <Text variant="labelSmall" style={{ color: metaColor, opacity: isUser && !flat ? 0.82 : 1 }}>
                 {formatTimestamp(entry.createdAt)}
               </Text>
@@ -464,7 +472,7 @@ function TranscriptMessageImpl({
           {!isUser && detailSummary.length > 0 ? (
             <View style={styles.summaryRow}>
               {detailSummary.map((item) => (
-                <Chip key={item} compact mode="flat" style={[styles.summaryChip, { backgroundColor: palette.background }]}> 
+                <Chip key={item} onPress={item === patchSummary && onReviewChanges ? () => onReviewChanges(entry.id) : undefined} accessibilityLabel={item === patchSummary ? `${item}. ${t('chat:cards.reviewChanges')}` : item} compact mode="flat" style={[styles.summaryChip, { backgroundColor: palette.background }]}>
                   {item}
                 </Chip>
               ))}
@@ -477,8 +485,7 @@ function TranscriptMessageImpl({
 }
 
 // Re-render only when entry identity or visible state changes.
-// Callbacks intentionally excluded: they only operate on entry data captured
-// in entry identity. Non-streaming cells skip re-render on parent updates.
+// Review actions also depend on the current session's parent-message mapping.
 function areTranscriptMessagePropsEqual(prev: TranscriptMessageProps, next: TranscriptMessageProps) {
   return (
     prev.entry === next.entry &&
@@ -487,7 +494,8 @@ function areTranscriptMessagePropsEqual(prev: TranscriptMessageProps, next: Tran
     prev.slim === next.slim &&
     prev.copied === next.copied &&
     prev.speaking === next.speaking &&
-    prev.canSpeak === next.canSpeak
+    prev.canSpeak === next.canSpeak &&
+    prev.onReviewChanges === next.onReviewChanges
   );
 }
 
@@ -523,6 +531,9 @@ function PermissionRequestCard({
         {request.patterns.length > 0 ? (
           <Text variant="bodySmall" style={{ color: palette.muted }}>{request.patterns.join('\n')}</Text>
         ) : null}
+        <Text variant="labelMedium" style={{ color: palette.text }}>{t('chat:cards.futureApprovalScope')}</Text>
+        <Text variant="bodySmall" style={{ color: palette.muted }}>{request.always.length ? request.always.join('\n') : t('chat:cards.unspecifiedScope')}</Text>
+        <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:cards.serverRuleDuration')}</Text>
         <View style={styles.requestActionsRow}>
           <Button mode="contained" compact disabled={Boolean(submitting)} loading={submitting === 'once'} onPress={() => handleReply('once')}>{t('chat:cards.allowOnce')}</Button>
           <Button mode="contained-tonal" compact disabled={Boolean(submitting)} loading={submitting === 'always'} onPress={() => handleReply('always')}>{t('chat:cards.alwaysAllow')}</Button>

@@ -16,7 +16,9 @@
     "send": "コマンドを送信",
     "terminateTitle": "ターミナルを終了しますか？",
     "terminateMessage": "{{title}}を終了しますか？",
-    "terminateAction": "終了"
+    "terminateAction": "終了",
+    "lineHint": "コマンドは1行ずつ送信されます。",
+    "new": "新しいターミナル"
   },
   "sessions": {
     "title": "ターミナル",

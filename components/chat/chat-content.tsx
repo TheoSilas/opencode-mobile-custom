@@ -3,7 +3,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Easing, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { ActivityIndicator, Button, Card, IconButton, ProgressBar, Text, TouchableRipple } from 'react-native-paper';
+import { ActivityIndicator, Button, Card, FAB, IconButton, Text, TouchableRipple } from 'react-native-paper';
 
 import { Colors } from '@/constants/theme';
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
@@ -111,7 +111,8 @@ type ChatContentProps = {
   onReplyToPermission: (requestId: string, reply: 'once' | 'always' | 'reject') => Promise<void>;
   onRejectQuestion: (requestId: string) => Promise<void>;
   onReplyToQuestion: (requestId: string, answers: PendingQuestionAnswer[]) => Promise<void>;
-  onSendStarterPrompt: (prompt: string) => void;
+  onReviewChanges: (messageId: string) => void;
+  onSelectStarterPrompt: (prompt: string) => void;
   onToggleSpeak: (entry: TranscriptEntry) => void;
   palette: Palette;
   pendingInteractions: number;
@@ -156,7 +157,8 @@ export function ChatContent({
   onRejectQuestion,
   onReplyToPermission,
   onReplyToQuestion,
-  onSendStarterPrompt,
+  onReviewChanges,
+  onSelectStarterPrompt,
   onToggleSpeak,
   palette,
   pendingInteractions,
@@ -172,6 +174,8 @@ export function ChatContent({
   const shouldPositionInitialTranscriptRef = useRef(false);
   const previousTranscriptRef = useRef({ sessionId: currentSessionId, length: displayTranscript.length });
   const completedTodoCount = currentTodos.filter((todo) => todo.status === 'completed').length;
+  const progressSlice = currentTodos.length ? Math.floor(completedTodoCount / currentTodos.length * 8) : 0;
+  const progressIcon = completedTodoCount === currentTodos.length ? 'check-circle' : progressSlice > 0 ? `circle-slice-${progressSlice}` : 'circle-outline';
   const currentQuestion = currentPendingQuestions[0];
   const isTurnScope = currentDiffScope === 'turn';
   const isLatestTurn = diffTurns.length === 0 || selectedDiffMessageId === diffTurns[diffTurns.length - 1]?.id;
@@ -202,7 +206,7 @@ export function ChatContent({
     previousTranscriptRef.current = { sessionId: currentSessionId, length: displayTranscript.length };
   }, [currentSessionId, displayTranscript.length]);
 
-  const extraData = useMemo(() => ({ copiedMessageId, speakingMessageId }), [copiedMessageId, speakingMessageId]);
+  const extraData = useMemo(() => ({ copiedMessageId, speakingMessageId, onReviewChanges }), [copiedMessageId, speakingMessageId, onReviewChanges]);
 
   return (
     <View style={styles.chatArea}>
@@ -215,7 +219,7 @@ export function ChatContent({
           contentContainerStyle={[
             styles.content,
             slim && slimStyles.content,
-            currentTodos.length > 0 || pendingInteractions > 0 ? { paddingBottom: 110 } : null,
+            pendingInteractions > 0 ? { paddingBottom: 110 } : null,
           ]}
           extraData={extraData}
           keyboardDismissMode="on-drag"
@@ -243,6 +247,7 @@ export function ChatContent({
                 flat={flatTranscript}
                 fontSize={transcriptFontSize}
                 slim={slim}
+                onReviewChanges={onReviewChanges}
                 onCopy={() => onCopyMessage(entry)}
                 onFork={entry.role === 'user' ? () => onForkMessage(entry.id) : undefined}
                 onRevert={entry.role === 'user' ? () => onRevertMessage(entry.id) : undefined}
@@ -271,9 +276,11 @@ export function ChatContent({
                 <View style={styles.promptStack}>
                   {STARTER_PROMPT_KEYS.map((key) => (
                     <TouchableRipple
+                      accessibilityRole="button"
+                      accessibilityLabel={t(key)}
                       key={key}
                       style={[styles.promptCard, { borderColor: palette.border, backgroundColor: palette.background }]}
-                      onPress={() => onSendStarterPrompt(t(key))}>
+                      onPress={() => onSelectStarterPrompt(key === 'chat:starter.prompts.implement' ? `${t(key)}\n${t('chat:starter.bugSymptoms')}` : t(key))}>
                       <View style={styles.promptCardInner}>
                         <MaterialCommunityIcons name="lightning-bolt" size={18} color={palette.tint} />
                         <Text variant="bodyMedium" style={{ color: palette.text }}>{t(key)}</Text>
@@ -330,10 +337,11 @@ export function ChatContent({
                   {currentDiffs.length > 0
                     ? t('chat:diff.filesChangedCompact', {
                         files: diffCount,
+                        count: diffCount,
                         additions: currentDiffs.reduce((total, diff) => total + diff.additions, 0),
                         deletions: currentDiffs.reduce((total, diff) => total + diff.deletions, 0),
                       })
-                    : t('chat:diff.filesChangedSimple', { files: diffCount })}
+                    : t('chat:diff.filesChangedSimple', { files: diffCount, count: diffCount })}
                 </Text>
               </View>
               <Text variant="labelMedium" style={{ color: palette.tint }}>{isRefreshingDiffs ? t('chat:diff.syncing') : status?.type || 'idle'}</Text>
@@ -398,9 +406,9 @@ export function ChatContent({
       ) : null}
 
       {activeTab === 'session' && currentPendingPermissions.length > 0 && !currentQuestion ? (
-        <View style={styles.todoOverlay}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={[styles.todoOverlay, { maxHeight: '75%' }]}>
           <PendingInteractionsCard permissions={currentPendingPermissions} onPermissionReply={onReplyToPermission} />
-        </View>
+        </ScrollView>
       ) : null}
       {activeTab === 'session' && currentQuestion && dismissedQuestionId === currentQuestion.id ? (
         <Card mode="elevated" style={[styles.todoOverlay, { backgroundColor: palette.surface, borderColor: palette.border }]}>
@@ -413,13 +421,17 @@ export function ChatContent({
           </Card.Content>
         </Card>
       ) : null}
-      {activeTab === 'session' && !currentQuestion && currentPendingPermissions.length === 0 && currentTodos.length > 0 ? <Pressable accessibilityRole="button" accessibilityLabel={t('chat:content.openProgressLabel', { completed: completedTodoCount, total: currentTodos.length })} onPress={() => setProgressVisible(true)} style={[styles.todoOverlay, { backgroundColor: palette.surface, borderColor: palette.border, padding: 12, gap: 8 }]}>
-        <View style={styles.todoHeader}>
-          <View style={styles.todoSummary}><Text variant="labelLarge" style={{ color: palette.text }}>{t('chat:content.progressTitle', { completed: completedTodoCount, total: currentTodos.length })}</Text><Text numberOfLines={1} variant="bodySmall" style={{ color: palette.muted }}>{currentTodos.find((todo) => todo.status === 'in_progress')?.content || (completedTodoCount === currentTodos.length ? t('chat:content.allTasksCompleted') : t('chat:content.openToSeeSteps'))}</Text></View>
-          <MaterialCommunityIcons name="arrow-expand" size={18} color={palette.muted} />
-        </View>
-        <ProgressBar progress={completedTodoCount / currentTodos.length} color={palette.tint} style={styles.todoProgress} />
-      </Pressable> : null}
+      {activeTab === 'session' && !currentQuestion && currentPendingPermissions.length === 0 && currentTodos.length > 0 ? (
+        <FAB
+          testID="chat-progress-button"
+          size="small"
+          icon={progressIcon}
+          accessibilityLabel={t('chat:content.openProgressLabel', { completed: completedTodoCount, total: currentTodos.length })}
+          onPress={() => setProgressVisible(true)}
+          style={[styles.progressFab, { backgroundColor: palette.surfaceAlt }]}
+          color={palette.tint}
+        />
+      ) : null}
       <OverlaySheet visible={activeTab === 'session' && !currentQuestion && currentPendingPermissions.length === 0 && progressVisible} testID="progress-overlay" title={t('chat:content.progress')} fitContent onClose={() => setProgressVisible(false)}>
         {currentTodos.map((todo, index) => <View key={`${todo.content}-${index}`} style={styles.todoItemRow}>
           <IconButton icon={todo.status === 'completed' ? 'check-circle' : todo.status === 'in_progress' ? 'progress-clock' : 'circle-outline'} size={20} disabled style={styles.todoStatusIcon} />

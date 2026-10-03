@@ -15,7 +15,15 @@
     "close": "Datei schließen",
     "savingNotice": "Beim Speichern werden deine Änderungen als VCS-Patch auf den Arbeitsbaum angewendet. Prüfe die Änderungen, bevor du fortfährst.",
     "savePatch": "Patch speichern",
-    "editingUnavailable": "Bearbeiten ist auf diesem Server nicht verfügbar."
+    "editingUnavailable": "Bearbeiten ist auf diesem Server nicht verfügbar.",
+    "added": "Hinzugefügt",
+    "modified": "Geändert",
+    "deleted": "Gelöscht",
+    "deletedUnavailable": "Der Inhalt gelöschter Dateien ist nicht verfügbar.",
+    "searchGuidance": "Suche nach Dateinamen, um weitere Dateien zu finden.",
+    "searching": "Suche läuft…",
+    "noMatches": "Keine Dateien entsprechen „{{query}}“.",
+    "resultsFor": "Ergebnisse für „{{query}}“"
   },
   "worktrees": {
     "title": "Worktrees",

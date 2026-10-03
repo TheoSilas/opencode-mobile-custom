@@ -16,7 +16,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { normalizeTranscriptFontSize } from '@/providers/opencode-preferences';
 import { type TranscriptEntry } from '@/lib/opencode/format';
-import { getTranscriptActivityLabel, isTranscriptDisplayMessage } from '@/lib/opencode/transcript';
+import { getTranscriptActivityLabel, getUserTurnForMessage, isTranscriptDisplayMessage } from '@/lib/opencode/transcript';
 import { getLatestContextTokens } from '@/lib/opencode/usage';
 import { openVoiceSettingsAsync } from '@/lib/voice/permissions';
 import { speakText, stopSpeaking } from '@/lib/voice/speech-output';
@@ -118,6 +118,15 @@ export function ChatView() {
     () => sessions.find((session) => session.id === currentSessionId) || activeSession,
     [activeSession, currentSessionId, sessions],
   );
+  const handleReviewChanges = useCallback((messageId: string) => {
+    const turnId = getUserTurnForMessage(currentMessages, messageId);
+    if (turnId) {
+      setDiffScope('turn');
+      selectDiffMessage(turnId);
+    }
+    setActiveTab('changes');
+  }, [currentMessages, selectDiffMessage, setDiffScope]);
+
   const contextTokens = useMemo(() => getLatestContextTokens(currentMessages) ?? 0, [currentMessages]);
   const contextModel = useMemo(
     () => availableModels.find((model) => model.providerID === selectedSession?.model?.providerID && model.modelID === selectedSession?.model?.id),
@@ -493,7 +502,6 @@ export function ChatView() {
           onConfirmStopConversation={handleConfirmStopConversation}
           onCreateSession={() => void handleNewSession()}
           onOpenSessionMenu={() => setSessionMenuVisible(true)}
-          onToggleConversationMode={() => void toggleConversationMode()}
           palette={palette}
           selectedSession={selectedSession}
           latestAssistantTurnUsage={latestAssistantTurnUsage}
@@ -503,7 +511,7 @@ export function ChatView() {
 
         <View style={[styles.tabsRow, { backgroundColor: palette.surface, borderBottomColor: palette.border }]}>
           <TopTab active={activeTab === 'session'} label={t('chat:view.tabSession')} onPress={() => setActiveTab('session')} slim={slim} />
-          <TopTab active={activeTab === 'changes'} label={t('chat:view.tabFilesChanged', { files: diffCount })} onPress={() => setActiveTab('changes')} slim={slim} />
+          <TopTab active={activeTab === 'changes'} label={t('chat:view.tabFilesChanged', { files: diffCount, count: diffCount })} onPress={() => setActiveTab('changes')} slim={slim} />
         </View>
 
         <ChatContent
@@ -556,7 +564,8 @@ export function ChatView() {
             ]);
           }}
           onUnrevert={() => currentSessionId ? void unrevertSession(currentSessionId).catch((error) => setSendFeedback(error instanceof Error ? error.message : t('chat:view.couldNotRestore'))) : undefined}
-          onSendStarterPrompt={(prompt) => void handleSendPrompt(prompt)}
+          onReviewChanges={handleReviewChanges}
+          onSelectStarterPrompt={(prompt) => setDraft(prompt)}
           onToggleSpeak={(entry) => void handleSpeakEntry(entry)}
           palette={palette}
           pendingInteractions={pendingInteractions}
@@ -584,6 +593,7 @@ export function ChatView() {
         ) : null}
 
         <ChatComposer
+          key={`${currentSessionId}:${activeTab}:${currentPendingPermissions.map((item) => item.id).join()}:${currentPendingQuestions.map((item) => item.id).join()}`}
           attachments={attachments}
           autoApproveAvailable={serverCapabilities.configWrite}
           availableAgents={availableAgents}
@@ -593,12 +603,12 @@ export function ChatView() {
           currentSessionId={currentSessionId}
           commands={commands}
           draft={draft}
-          insetsBottom={insets.bottom}
           isCreatingSession={isCreatingSession}
           isSpeechInputAvailable={isSpeechInputAvailable}
           isSpeechInputListening={isSpeechInputListening}
           isStoppingSession={isStoppingSession}
           isUpdatingAutoApprove={isUpdatingAutoApprove}
+          onToggleConversationMode={() => void toggleConversationMode()}
           onAttach={() => void handleAttach()}
           onDraftChange={(value) => {
             setSendFeedback(undefined);
@@ -617,11 +627,18 @@ export function ChatView() {
 
             void handleSendPrompt();
           }}
-          onToggleAutoApprove={() => {
+          onToggleAutoApprove={async () => {
+            setSendFeedback(undefined);
             setIsUpdatingAutoApprove(true);
-            void setAutoApprove(!chatPreferences.autoApprove)
-              .catch((error) => setSendFeedback(error instanceof Error ? error.message : t('chat:view.couldNotUpdateAutoApprove')))
-              .finally(() => setIsUpdatingAutoApprove(false));
+            try {
+              await setAutoApprove(!chatPreferences.autoApprove);
+              return true;
+            } catch (error) {
+              setSendFeedback(error instanceof Error ? error.message : t('chat:view.couldNotUpdateAutoApprove'));
+              return false;
+            } finally {
+              setIsUpdatingAutoApprove(false);
+            }
           }}
           onToggleRecording={() => void handleToggleRecording()}
           palette={palette}

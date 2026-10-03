@@ -15,7 +15,15 @@
     "close": "Fechar arquivo",
     "savingNotice": "Salvar aplica suas edições como um patch de VCS na árvore de trabalho. Revise as alterações antes de continuar.",
     "savePatch": "Salvar patch",
-    "editingUnavailable": "A edição não está disponível neste servidor."
+    "editingUnavailable": "A edição não está disponível neste servidor.",
+    "added": "Adicionado",
+    "modified": "Modificado",
+    "deleted": "Excluído",
+    "deletedUnavailable": "O conteúdo do arquivo excluído não está disponível.",
+    "searchGuidance": "Busque pelo nome para encontrar outros arquivos.",
+    "searching": "Buscando…",
+    "noMatches": "Nenhum arquivo corresponde a “{{query}}”.",
+    "resultsFor": "Resultados para “{{query}}”"
   },
   "worktrees": {
     "title": "Worktrees",

@@ -12,6 +12,7 @@ import {
 
 import { ConnectionProfiles } from '@/components/settings/connection-profiles';
 import { NativeSelect, type NativeSelectOption } from '@/components/ui/native-select';
+import { NumericSlider } from '@/components/ui/numeric-slider';
 import { TextInput } from '@/components/ui/text-input';
 import { renderProviderIcon } from '@/components/ui/provider-icon';
 import { Colors, Fonts } from '@/constants/theme';
@@ -156,7 +157,7 @@ export function AiDefaultsSection({
 
         <View style={styles.chipWrap}>
           {configuredProviders.map((provider) => (
-            <Chip key={provider.id} icon={({ size, color }) => renderProviderIcon(provider.id, size, color)} compact onClose={() => onRemoveProvider(provider.id)}>
+            <Chip key={provider.id} icon={({ size, color }) => renderProviderIcon(provider.id, size, color)} compact closeIconAccessibilityLabel={t('settings:providers.removeCredentials', { provider: getProviderCopy(provider.id, provider.label, t).label })} onClose={() => onRemoveProvider(provider.id)}>
               {getProviderCopy(provider.id, provider.label, t).label}
             </Chip>
           ))}
@@ -557,57 +558,6 @@ export function AppearanceSection({
   );
 }
 
-function NumericSlider({
-  label,
-  maximum,
-  minimum,
-  onValueChange,
-  palette,
-  step,
-  value,
-  valueLabel,
-}: {
-  label: string;
-  maximum: number;
-  minimum: number;
-  onValueChange: (value: number) => void;
-  palette: Palette;
-  step: number;
-  value: number;
-  valueLabel: string;
-}) {
-  const [width, setWidth] = useState(0);
-  const percentage = ((value - minimum) / (maximum - minimum)) * 100;
-
-  function setFromPosition(position: number) {
-    if (!width) return;
-    const raw = minimum + Math.max(0, Math.min(1, position / width)) * (maximum - minimum);
-    onValueChange(Number((Math.round(raw / step) * step).toFixed(2)));
-  }
-
-  return (
-    <View style={styles.numericSlider}>
-      <View style={styles.numericSliderHeader}>
-        <Text style={{ color: palette.text }}>{label}</Text>
-        <Text style={{ color: palette.muted }}>{valueLabel}</Text>
-      </View>
-      <View
-        accessibilityLabel={label}
-        accessibilityRole="adjustable"
-        accessibilityValue={{ max: maximum, min: minimum, now: value, text: valueLabel }}
-        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        onResponderGrant={(event) => setFromPosition(event.nativeEvent.locationX)}
-        onResponderMove={(event) => setFromPosition(event.nativeEvent.locationX)}
-        onStartShouldSetResponder={() => true}
-        style={[styles.sliderTrack, { backgroundColor: palette.border }]}
-      >
-        <View style={[styles.sliderProgress, { backgroundColor: palette.tint, width: `${percentage}%` }]} />
-        <View style={[styles.sliderThumb, { backgroundColor: palette.tint, left: `${percentage}%` }]} />
-      </View>
-    </View>
-  );
-}
-
 export function SettingSwitchRow({
   description,
   onValueChange,
@@ -623,12 +573,15 @@ export function SettingSwitchRow({
 }) {
   return (
     <List.Item
+      accessible={false}
       title={title}
       description={description}
       titleStyle={{ color: palette.text }}
       descriptionStyle={{ color: palette.muted }}
       right={() => (
         <NativeSwitch
+          accessibilityLabel={title}
+          accessibilityHint={description}
           ios_backgroundColor={palette.border}
           onValueChange={onValueChange}
           thumbColor={Platform.OS === 'android' ? (value ? palette.tint : '#f4f3f4') : undefined}
@@ -699,11 +652,6 @@ const styles = StyleSheet.create({
   voiceCheckRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   title: { fontWeight: '600' },
   connectionStatusCard: { borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  numericSlider: { gap: 8 },
-  numericSliderHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  sliderTrack: { borderRadius: 999, height: 6, justifyContent: 'center', marginHorizontal: 8, marginVertical: 10 },
-  sliderProgress: { borderRadius: 999, height: 6 },
-  sliderThumb: { borderRadius: 12, height: 24, marginLeft: -12, position: 'absolute', width: 24 },
   connectionStatusHeader: { gap: 6 },
   connectionStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   connectionStatusDot: { width: 10, height: 10, borderRadius: 999 },

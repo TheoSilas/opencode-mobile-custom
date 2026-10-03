@@ -71,7 +71,8 @@
     "configureProvider": "{{provider}}を設定",
     "oauthHint": "ブラウザーでプロバイダーのサインインフローが開きます。",
     "setupUnavailable": "このプロバイダーの設定詳細は現在利用できません。",
-    "couldNotComplete": "サインインを完了できませんでした。"
+    "couldNotComplete": "サインインを完了できませんでした。",
+    "removeCredentials": "{{provider}}の認証情報を削除"
   },
   "providerCopy": {
     "openai": {

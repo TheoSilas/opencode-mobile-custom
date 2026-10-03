@@ -71,7 +71,8 @@
     "configureProvider": "配置 {{provider}}",
     "oauthHint": "这将在浏览器中打开提供商的登录流程。",
     "setupUnavailable": "此提供商的设置详情目前不可用。",
-    "couldNotComplete": "无法完成登录。"
+    "couldNotComplete": "无法完成登录。",
+    "removeCredentials": "移除 {{provider}} 的凭据"
   },
   "providerCopy": {
     "openai": {

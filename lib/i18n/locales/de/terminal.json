@@ -16,7 +16,9 @@
     "send": "Befehl senden",
     "terminateTitle": "Terminal beenden?",
     "terminateMessage": "{{title}} beenden?",
-    "terminateAction": "Beenden"
+    "terminateAction": "Beenden",
+    "lineHint": "Befehle werden zeilenweise gesendet.",
+    "new": "Neues Terminal"
   },
   "sessions": {
     "title": "Terminals",

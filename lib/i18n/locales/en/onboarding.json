@@ -23,11 +23,12 @@
     "title": "Connect to OpenCode",
     "subtitle": "Point OpenCode Mobile at your running server. Username and password are optional.",
     "test": "Test connection",
-    "connect": "Connect",
+    "connect": "Connect & continue",
     "skip": "Skip",
     "testSuccess": "Connection succeeded.",
     "failed": "Could not connect to the server.",
-    "hint": "Example: http://192.168.1.10:4096. If you open a web UI at this address, use its API base URL instead, usually ending in /api."
+    "hint": "Example: http://192.168.1.10:4096. If you open a web UI at this address, use its API base URL instead, usually ending in /api.",
+    "pairHint": "Pair with Connect to link a device, or enter your server URL below."
   },
   "workspace": {
     "title": "Choose a workspace",
@@ -86,5 +87,7 @@
   "settingsAssistant": {
     "title": "Setup assistant",
     "summary": "Review connection, workspace, preferences, and permissions"
-  }
+  },
+  "reviewSetup": "Review setup",
+  "stepIndicator": "Step {{step}} of {{totalSteps}}"
 }

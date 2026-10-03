@@ -15,7 +15,15 @@
     "close": "关闭文件",
     "savingNotice": "保存会将你的编辑作为 VCS 补丁应用到工作树。请在继续前查看更改。",
     "savePatch": "保存补丁",
-    "editingUnavailable": "此服务器不支持编辑。"
+    "editingUnavailable": "此服务器不支持编辑。",
+    "added": "已添加",
+    "modified": "已修改",
+    "deleted": "已删除",
+    "deletedUnavailable": "已删除文件的内容不可用。",
+    "searchGuidance": "按文件名搜索以查找其他文件。",
+    "searching": "搜索中…",
+    "noMatches": "没有与“{{query}}”匹配的文件。",
+    "resultsFor": "“{{query}}”的搜索结果"
   },
   "worktrees": {
     "title": "工作树",

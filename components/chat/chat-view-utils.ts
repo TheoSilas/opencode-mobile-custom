@@ -13,5 +13,5 @@ export const REASONING_OPTIONS: { id: ReasoningLevel; labelKey: string }[] = [
 ];
 
 export function getAutoApproveIcon(autoApprove: boolean) {
-  return autoApprove ? 'shield-check' : 'shield-key';
+  return autoApprove ? 'alert-outline' : 'shield-outline';
 }

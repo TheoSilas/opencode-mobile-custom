@@ -3,14 +3,21 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, Modal, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { NumericSlider } from '@/components/ui/numeric-slider';
+import { useDismissOnBack } from '@/hooks/use-dismiss-on-back';
+import { REASONING_OPTIONS } from '@/components/chat/chat-view-utils';
 import { ControlButton } from '@/components/chat/chat-controls';
 import { renderProviderIcon } from '@/components/ui/provider-icon';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { ModelOption } from '@/providers/opencode-provider';
+import type { ModelOption, ReasoningLevel } from '@/providers/opencode-provider';
 
 type ModelPickerProps = {
   disabled?: boolean;
+  compact?: boolean;
+  reasoningLabel?: string;
+  reasoning?: ReasoningLevel;
+  onReasoningChange?: (value: ReasoningLevel) => void;
   models: ModelOption[];
   onSelect: (model: ModelOption) => void;
   recentModelIds?: string[];
@@ -20,10 +27,10 @@ type ModelPickerProps = {
 
 function getSelectedModelLabel(models: ModelOption[], selectedModelId: string | undefined, fallback: string) {
   const selected = models.find((model) => model.id === selectedModelId);
-  return selected ? `${selected.providerLabel} · ${selected.label}` : fallback;
+  return selected ? `${selected.label} · ${selected.providerLabel}` : fallback;
 }
 
-export function ModelPicker({ disabled = false, models, onSelect, recentModelIds, selectedModelId, slim = false }: ModelPickerProps) {
+export function ModelPicker({ disabled = false, models, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
@@ -75,6 +82,7 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
   }, []);
 
   const close = () => setVisible(false);
+  useDismissOnBack(visible, close);
   const select = (model: ModelOption) => {
     close();
     onSelect(model);
@@ -115,17 +123,30 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
 
   return (
     <>
-      <ControlButton
-        active={visible}
-        disabled={disabled || models.length === 0}
-        grow
-        icon={(props) => renderProviderIcon(selected?.providerID, props.size, props.color)}
-        maxWidth={220}
-        onPress={() => setVisible(true)}
-        slim={slim}
-        testID="chat-model-picker-trigger">
-        {getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}
-      </ControlButton>
+      {compact ? (
+        <Pressable
+          testID="chat-model-picker-trigger"
+          accessibilityRole="button"
+          accessibilityLabel={`${getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}${reasoningLabel ? ` · ${reasoningLabel}` : ''}`}
+          accessibilityState={{ disabled: disabled || models.length === 0 }}
+          disabled={disabled || models.length === 0}
+          onPress={() => { Keyboard.dismiss(); setVisible(true); }}
+          style={({ pressed }) => [styles.summary, { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 }]}>
+          <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryModel, { color: palette.text }]}>{selected?.label || t('chat:modelPicker.selectModel')}</Text>
+          {reasoningLabel ? <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.text }]}>{reasoningLabel}</Text> : null}
+        </Pressable>
+      ) : (
+        <ControlButton
+          active={visible}
+          disabled={disabled || models.length === 0}
+          grow
+          icon={(props) => renderProviderIcon(selected?.providerID, props.size, props.color)}
+          onPress={() => setVisible(true)}
+          slim={slim}
+          testID="chat-model-picker-trigger">
+          {getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}
+        </ControlButton>
+      )}
       <Modal animationType="slide" transparent visible={visible} onRequestClose={close}>
         <View style={[styles.overlay, { paddingBottom: keyboardHeight }]}>
           <Pressable accessible={false} style={styles.backdrop} onPress={close} />
@@ -136,6 +157,20 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
                   <Text style={[styles.closeLabel, { color: palette.tint }]}>{t('common:actions.close')}</Text>
                 </Pressable>
               </View>
+              {reasoning && onReasoningChange ? (
+                <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+                  <NumericSlider
+                    label={t('chat:composer.reasoning')}
+                    minimum={0}
+                    maximum={REASONING_OPTIONS.length - 1}
+                    step={1}
+                    value={Math.max(0, REASONING_OPTIONS.findIndex((option) => option.id === reasoning))}
+                    valueLabel={reasoningLabel || t(REASONING_OPTIONS.find((option) => option.id === reasoning)?.labelKey || 'chat:reasoning.default')}
+                    onValueChange={(index) => onReasoningChange(REASONING_OPTIONS[index].id)}
+                    palette={palette}
+                  />
+                </View>
+              ) : null}
               <View style={[styles.searchShell, { backgroundColor: palette.background, borderColor: palette.border }]}>
                 <MaterialCommunityIcons name="magnify" size={20} color={palette.muted} />
                 <TextInput
@@ -186,6 +221,9 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
 }
 
 const styles = StyleSheet.create({
+  summary: { justifyContent: 'center', alignItems: 'flex-end', minHeight: 44, gap: 0, paddingHorizontal: 4 },
+  summaryModel: { maxWidth: '100%', fontFamily: Fonts.sans, fontSize: 13, fontWeight: '600' },
+  summaryReasoning: { fontFamily: Fonts.sans, fontSize: 11, fontWeight: '600' },
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0, 0, 0, 0.28)', zIndex: 0 },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, elevation: 1, height: '82%', overflow: 'hidden', zIndex: 1 },

@@ -40,7 +40,10 @@
       "unknown": "不明",
       "none": "なし",
       "unnamed": "名前なし"
-    }
+    },
+    "tabFilesChanged_one": "{{files}} ファイルを変更",
+    "tabFilesChanged_many": "{{files}} ファイルを変更",
+    "tabFilesChanged_other": "{{files}} ファイルを変更"
   },
   "content": {
     "connectionIssue": "接続の問題",
@@ -58,7 +61,7 @@
     "untitledTask": "無題のタスク"
   },
   "cards": {
-    "respondToContinue": "応答して続行",
+    "respondToContinue": "承認が必要",
     "waitingForAnswer": "OpenCode は続行する前にあなたの回答を待っています。",
     "couldNotSubmitAnswer": "回答を送信できませんでした。",
     "couldNotRejectQuestion": "質問を拒否できませんでした。",
@@ -84,23 +87,46 @@
     "you": "あなた",
     "opencode": "OpenCode",
     "copied": "コピーしました",
-    "permissionRequest": "権限リクエスト",
+    "permissionRequest": "承認が必要",
     "allowOnce": "今回のみ許可",
     "alwaysAllow": "常に許可",
-    "deny": "拒否"
+    "deny": "拒否",
+    "readAloud": "返信を読み上げ",
+    "stopReadAloud": "読み上げを停止",
+    "fork": "このメッセージから分岐",
+    "revert": "このメッセージから元に戻す",
+    "reviewChanges": "変更を確認",
+    "futureApprovalScope": "常に許可は今後の次のパターンに適用されます：",
+    "unspecifiedScope": "サーバーは今後の承認の範囲を指定していません。",
+    "serverRuleDuration": "今後の承認ルールの有効期間はOpenCodeサーバーが決定します。",
+    "updatedPatches_one": "{{count}} パッチを更新",
+    "updatedPatches_many": "{{count}} パッチを更新",
+    "updatedPatches_other": "{{count}} パッチを更新",
+    "fileCount_one": "{{count}} ファイル",
+    "fileCount_many": "{{count}} ファイル",
+    "fileCount_other": "{{count}} ファイル"
   },
   "composer": {
     "chooseAssistantMode": "アシスタントモードを選択",
     "chooseReasoningLevel": "推論レベルを選択",
-    "autoApproveEnabled": "自動承認が有効",
-    "askPermission": "権限を確認",
+    "autoApproveEnabled": "自動承認",
+    "askPermission": "操作の前に確認",
     "conversationMode": "会話モード",
     "conversationHint": "アプリを開いている間は自然に話し続けられます。音声を聞き取り、あなたの発言を送信し、返信を読み上げて、また聞き取りを再開します。",
     "removeAttachment": "{{name}}を削除",
     "attachment": "添付ファイル",
     "listening": "聞き取り中",
     "conversationActive": "会話中",
-    "placeholder": "何でも質問してください..."
+    "placeholder": "何でも質問してください...",
+    "chatOptions": "チャット設定",
+    "agent": "エージェント",
+    "reasoning": "推論",
+    "approvals": "承認",
+    "attachFiles": "ファイルを添付",
+    "startDictation": "音声入力を開始",
+    "stopDictation": "音声入力を停止",
+    "sendTask": "タスクを送信",
+    "stopTask": "タスクを停止"
   },
   "header": {
     "pricingUnavailable": "料金を取得できません",
@@ -140,11 +166,11 @@
     "couldNotUpdate": "チャットを更新できませんでした。",
     "untitledChat": "無題のチャット",
     "favorites": "お気に入り",
-    "activeSessions": "他のワークスペースでアクティブ",
+    "activeSessions": "実行中と最近のチャット",
     "open": "{{title}}を開く",
     "swipeRemoveFavorite": "左にスワイプしてお気に入りから削除",
     "chats": "チャット",
-    "noChats": "このワークスペースにチャットが見つかりません。",
+    "noChats": "チャットがありません。",
     "rename": "名前を変更",
     "favorite": "お気に入りに追加",
     "unfavorite": "お気に入りから削除",
@@ -159,7 +185,9 @@
     "deleteConfirm": "“{{title}}”とすべてのデータが完全に削除されます。",
     "swipeChatActions": "左にスワイプでチャット操作",
     "noArchivedChats": "アーカイブ済みチャットはありません。",
-    "newChat": "新しいチャット"
+    "newChat": "新しいチャット",
+    "running": "実行中",
+    "noMatchingChats": "検索に一致するチャットがありません。"
   },
   "overlay": {
     "conversationMode": "会話モード",
@@ -187,10 +215,11 @@
     "title": "新しいタスクを開始",
     "description": "プロンプトを具体的にすると、OpenCode がワークスペースを調査し、進捗を表示して、ファイル変更をストリーミングします。",
     "prompts": {
-      "polish": "このモバイル UI を OpenCode の Web モードに近づくよう磨き込んでください。",
-      "review": "現在のワークスペースをレビューし、次に効果の高い修正を提案してください。",
-      "implement": "機能リクエストを実装し、作業の進行状況を随時知らせてください。"
-    }
+      "polish": "このプロジェクトを説明して",
+      "review": "最近の変更を確認して",
+      "implement": "バグの調査を手伝って"
+    },
+    "bugSymptoms": "症状：起きたことと期待した動作を記入してください。"
   },
   "reasoning": {
     "low": "低",
@@ -215,7 +244,13 @@
     "sourceTitle": "ファイル変更のソース",
     "changeSourceLabel": "ファイル変更のソースを変更。{{source}}",
     "showing": "{{scope}}を表示中",
-    "showingTurnSuffix": " · {{turn}}"
+    "showingTurnSuffix": " · {{turn}}",
+    "filesChangedSimple_one": "{{files}} ファイルを変更",
+    "filesChangedSimple_many": "{{files}} ファイルを変更",
+    "filesChangedSimple_other": "{{files}} ファイルを変更",
+    "filesChangedCompact_one": "{{files}} ファイルを変更 · +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_many": "{{files}} ファイルを変更 · +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_other": "{{files}} ファイルを変更 · +{{additions}} / -{{deletions}}"
   },
   "session": {
     "chooseWorkspace": "ワークスペースを選択",

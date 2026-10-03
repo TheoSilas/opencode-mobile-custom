@@ -10,11 +10,12 @@ import {
   Card,
   Divider,
   IconButton,
-  List,
   Snackbar,
   Text,
 } from 'react-native-paper';
 
+import { FilesPanel } from '@/components/workspace/files-panel';
+import { getConnectionScope } from '@/lib/connection-scope';
 import { Colors, Fonts } from '@/constants/theme';
 import { TextInput } from '@/components/ui/text-input';
 import { TopTab } from '@/components/chat/chat-controls';
@@ -29,7 +30,7 @@ export default function WorkspaceScreen() {
   const compact = width < 700;
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
-  const { connection, serverCapabilities } = useConnection();
+  const { connection, serverCapabilities, settings } = useConnection();
   const { chatPreferences } = usePreferences();
   const slim = chatPreferences.slimInterface === true;
   const {
@@ -57,7 +58,6 @@ export default function WorkspaceScreen() {
   } = useWorkspace();
   const [activePanel, setActivePanel] = useState<'files' | 'tools'>('files');
   const [workspacePickerVisible, setWorkspacePickerVisible] = useState(false);
-  const [fileQuery, setFileQuery] = useState('');
   const [fileDetailsOpen, setFileDetailsOpen] = useState(false);
   const [editingFile, setEditingFile] = useState<{ path: string; original: string; value: string }>();
   const [isSavingFile, setIsSavingFile] = useState(false);
@@ -118,12 +118,13 @@ export default function WorkspaceScreen() {
       {activePanel === 'files' ? <Card mode="contained" style={styles.panel}>
         <Card.Title title={t('workspace:files.title')} subtitle={vcsInfo?.branch ? t('workspace:files.branch', { branch: vcsInfo.branch }) : t('workspace:files.searchAndInspect')} />
         <Card.Content style={styles.fileSection}>
-          <View style={[styles.renameRow, compact && styles.compactFormRow]}>
-            <TextInput testID="workspace-file-search" mode="outlined" dense placeholder={t('workspace:files.searchPlaceholder')} value={fileQuery} onChangeText={setFileQuery} style={styles.renameInput} />
-            <Button mode="contained" onPress={() => void searchWorkspaceFiles(fileQuery).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.searchFiles')))}>{t('workspace:files.search')}</Button>
-          </View>
-          {serverCapabilities.fileStatus && workspaceFileStatuses.length > 0 ? <Text style={{ color: palette.muted }}>{t('workspace:files.changedFiles', { value: workspaceFileStatuses.length })}</Text> : null}
-          {workspaceFiles.map((path) => <List.Item key={path} title={path} onPress={() => void openWorkspaceFile(path).then(() => { setEditingFile(undefined); setFileDetailsOpen(true); }).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.openFile')))} />)}
+          <FilesPanel
+            key={`${getConnectionScope(settings)}:${activeProject?.path}`}
+            statuses={serverCapabilities.fileStatus ? workspaceFileStatuses : []}
+            files={workspaceFiles}
+            onSearch={searchWorkspaceFiles}
+            onOpen={(path) => { void openWorkspaceFile(path).then(() => { setEditingFile(undefined); setFileDetailsOpen(true); }).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.openFile'))); }}
+          />
           {selectedWorkspaceFile ? (
             <Modal visible={fileDetailsOpen} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setFileDetailsOpen(false)}>
               <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.background }} behavior="padding">

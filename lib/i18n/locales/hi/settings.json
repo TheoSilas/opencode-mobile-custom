@@ -71,7 +71,8 @@
     "configureProvider": "{{provider}} कॉन्फ़िगर करें",
     "oauthHint": "यह आपके ब्राउज़र में प्रदाता साइन-इन प्रक्रिया खोलता है।",
     "setupUnavailable": "इस प्रदाता के सेटअप विवरण अभी उपलब्ध नहीं हैं।",
-    "couldNotComplete": "साइन-इन पूरा नहीं किया जा सका।"
+    "couldNotComplete": "साइन-इन पूरा नहीं किया जा सका।",
+    "removeCredentials": "{{provider}} के क्रेडेंशियल हटाएँ"
   },
   "providerCopy": {
     "openai": {

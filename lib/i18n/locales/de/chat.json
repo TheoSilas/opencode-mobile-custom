@@ -40,7 +40,10 @@
       "unknown": "unbekannt",
       "none": "keine",
       "unnamed": "unbenannt"
-    }
+    },
+    "tabFilesChanged_one": "{{files}} Datei geändert",
+    "tabFilesChanged_many": "{{files}} Dateien geändert",
+    "tabFilesChanged_other": "{{files}} Dateien geändert"
   },
   "content": {
     "connectionIssue": "Verbindungsproblem",
@@ -58,7 +61,7 @@
     "untitledTask": "Unbenannte Aufgabe"
   },
   "cards": {
-    "respondToContinue": "Antworte, um fortzufahren",
+    "respondToContinue": "Freigabe erforderlich",
     "waitingForAnswer": "OpenCode wartet auf deine Antwort, bevor es fortfahren kann.",
     "couldNotSubmitAnswer": "Antwort konnte nicht gesendet werden.",
     "couldNotRejectQuestion": "Frage konnte nicht abgelehnt werden.",
@@ -84,23 +87,46 @@
     "you": "Du",
     "opencode": "OpenCode",
     "copied": "Kopiert",
-    "permissionRequest": "Berechtigungsanfrage",
+    "permissionRequest": "Freigabe erforderlich",
     "allowOnce": "Einmal erlauben",
     "alwaysAllow": "Immer erlauben",
-    "deny": "Ablehnen"
+    "deny": "Ablehnen",
+    "readAloud": "Antwort vorlesen",
+    "stopReadAloud": "Vorlesen stoppen",
+    "fork": "Ab dieser Nachricht verzweigen",
+    "revert": "Ab dieser Nachricht zurücksetzen",
+    "reviewChanges": "Änderungen prüfen",
+    "futureApprovalScope": "Immer erlauben gilt für diese zukünftigen Muster:",
+    "unspecifiedScope": "Der Server hat den Umfang zukünftiger Freigaben nicht angegeben.",
+    "serverRuleDuration": "Der OpenCode-Server bestimmt, wie lange zukünftige Freigaberegeln gelten.",
+    "updatedPatches_one": "{{count}} Patch aktualisiert",
+    "updatedPatches_many": "{{count}} Patches aktualisiert",
+    "updatedPatches_other": "{{count}} Patches aktualisiert",
+    "fileCount_one": "{{count}} Datei",
+    "fileCount_many": "{{count}} Dateien",
+    "fileCount_other": "{{count}} Dateien"
   },
   "composer": {
     "chooseAssistantMode": "Assistentenmodus wählen",
     "chooseReasoningLevel": "Schlussfolgerungsstufe wählen",
-    "autoApproveEnabled": "Automatische Genehmigung aktiviert",
-    "askPermission": "Um Erlaubnis bitten",
+    "autoApproveEnabled": "Automatisch freigeben",
+    "askPermission": "Vor Aktionen fragen",
     "conversationMode": "Konversationsmodus",
     "conversationHint": "Sprich einfach weiter, während die App geöffnet bleibt. Sie hört zu, sendet deinen Beitrag, liest die Antwort vor und hört dann wieder zu.",
     "removeAttachment": "{{name}} entfernen",
     "attachment": "Anhang",
     "listening": "Hört zu",
     "conversationActive": "Konversation aktiv",
-    "placeholder": "Frag alles..."
+    "placeholder": "Frag alles...",
+    "chatOptions": "Chatoptionen",
+    "agent": "Agent",
+    "reasoning": "Denkaufwand",
+    "approvals": "Freigaben",
+    "attachFiles": "Dateien anhängen",
+    "startDictation": "Diktat starten",
+    "stopDictation": "Diktat stoppen",
+    "sendTask": "Aufgabe senden",
+    "stopTask": "Aufgabe stoppen"
   },
   "header": {
     "pricingUnavailable": "Preise nicht verfügbar",
@@ -140,11 +166,11 @@
     "couldNotUpdate": "Chat konnte nicht aktualisiert werden.",
     "untitledChat": "Unbenannter Chat",
     "favorites": "Favoriten",
-    "activeSessions": "Aktiv über Arbeitsbereiche",
+    "activeSessions": "Laufend und zuletzt verwendet",
     "open": "{{title}} öffnen",
     "swipeRemoveFavorite": "Nach links wischen, um aus den Favoriten zu entfernen",
     "chats": "Chats",
-    "noChats": "In diesem Arbeitsbereich wurden keine Chats gefunden.",
+    "noChats": "Keine Chats gefunden.",
     "rename": "Umbenennen",
     "favorite": "Zu Favoriten hinzufügen",
     "unfavorite": "Aus Favoriten entfernen",
@@ -159,7 +185,9 @@
     "deleteConfirm": "“{{title}}” und alle zugehörigen Daten werden dauerhaft gelöscht.",
     "swipeChatActions": "Nach links wischen für Chat-Aktionen",
     "noArchivedChats": "Keine archivierten Chats.",
-    "newChat": "Neuer Chat"
+    "newChat": "Neuer Chat",
+    "running": "Läuft",
+    "noMatchingChats": "Keine Chats entsprechen deiner Suche."
   },
   "overlay": {
     "conversationMode": "Konversationsmodus",
@@ -187,10 +215,11 @@
     "title": "Neue Aufgabe starten",
     "description": "Formuliere die Eingabeaufforderung konkret, dann untersucht OpenCode den Arbeitsbereich, zeigt den Fortschritt an und streamt Dateiänderungen zurück.",
     "prompts": {
-      "polish": "Poliere diese mobile UI, damit sie sich dem OpenCode-Webmodus näher anfühlt.",
-      "review": "Überprüfe den aktuellen Arbeitsbereich und schlage den nächsten wirkungsvollsten Fix vor.",
-      "implement": "Setze die Funktionsanfrage um und halte mich auf dem Laufenden."
-    }
+      "polish": "Erkläre dieses Projekt",
+      "review": "Prüfe die letzten Änderungen",
+      "implement": "Hilf bei der Fehlersuche"
+    },
+    "bugSymptoms": "Symptome: Beschreibe, was passiert ist und was du erwartet hast."
   },
   "reasoning": {
     "low": "Niedrig",
@@ -215,7 +244,13 @@
     "sourceTitle": "Quelle der geänderten Dateien",
     "changeSourceLabel": "Quelle der geänderten Dateien ändern. {{source}}",
     "showing": "Zeigt {{scope}}",
-    "showingTurnSuffix": " · {{turn}}"
+    "showingTurnSuffix": " · {{turn}}",
+    "filesChangedSimple_one": "{{files}} Datei geändert",
+    "filesChangedSimple_many": "{{files}} Dateien geändert",
+    "filesChangedSimple_other": "{{files}} Dateien geändert",
+    "filesChangedCompact_one": "{{files}} Datei geändert, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_many": "{{files}} Dateien geändert, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_other": "{{files}} Dateien geändert, +{{additions}} / -{{deletions}}"
   },
   "session": {
     "chooseWorkspace": "Arbeitsbereich wählen",

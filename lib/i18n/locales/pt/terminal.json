@@ -16,7 +16,9 @@
     "send": "Enviar comando",
     "terminateTitle": "Encerrar o terminal?",
     "terminateMessage": "Encerrar {{title}}?",
-    "terminateAction": "Encerrar"
+    "terminateAction": "Encerrar",
+    "lineHint": "Os comandos são enviados uma linha por vez.",
+    "new": "Novo terminal"
   },
   "sessions": {
     "title": "Terminais",

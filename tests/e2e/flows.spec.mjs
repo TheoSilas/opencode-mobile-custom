@@ -212,7 +212,8 @@ async function connectToServer(page, url) {
   await ensureConnectionSection(page);
   await setActiveServerUrl(page, url);
   await reconnectActiveConnection(page);
-  await expect(page.getByRole('button', { name: /^Connection\. Connected/ })).toBeVisible({ timeout: 15_000 });
+  // Wait for this connection, rather than the previous server's still-visible status.
+  await expectConnectedTo(page, new URL(url).port);
   await closeSettingsOverlay(page);
   await goToTab(page, 'Chat');
   await expect(page.getByPlaceholder('Ask anything...')).toBeVisible({ timeout: 15_000 });
@@ -271,6 +272,7 @@ async function ensureAiSection(page) {
 
 async function sendPrompt(page, prompt) {
   await page.getByPlaceholder('Ask anything...').fill(prompt);
+  await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Send task');
   await page.getByTestId('chat-primary-button').click();
 }
 
@@ -301,15 +303,15 @@ test('happy path keeps the main chat flow stable', async ({ page, request }) => 
 
   await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Flow stayed stable against the fake OpenCode server/).first()).toBeVisible();
-  await page.getByText('1 Files Changed', { exact: true }).click();
-  await expect(page.getByText('1 files changed, +6 / -1', { exact: true })).toBeVisible();
+  await page.getByText('1 File Changed', { exact: true }).click();
+  await expect(page.getByText('1 file changed, +6 / -1', { exact: true })).toBeVisible();
   await page.getByText('app/(tabs)/index.tsx', { exact: true }).click();
   await expect(page.getByText(/export default function ChatLandingScreen/)).toBeVisible();
   await goToTab(page, 'Workspace');
   await expect(page.getByRole('tab', { name: 'Workspace' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Stabilize the chat flow', { exact: true })).toHaveCount(0);
   await page.getByText('Files', { exact: true }).click();
-  await expect(page.getByText('2 changed files', { exact: true })).toBeVisible();
+  await expect(page.getByText('Modified', { exact: true })).toHaveCount(2);
 });
 
 test('chat renders GFM tables, ordered lists, and tappable links', async ({ page, request }) => {
@@ -355,13 +357,13 @@ test('files changed follows the latest user turn', async ({ page, request }) => 
 
   await sendPrompt(page, 'Create the first file diff');
   await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });
-  await page.getByText('1 Files Changed', { exact: true }).click();
+  await page.getByText('1 File Changed', { exact: true }).click();
   await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible();
 
   await page.getByText('Session', { exact: true }).click();
   await sendPrompt(page, 'Create the second file diff');
   await expect(page.getByText(/Finished: Create the second file diff/).first()).toBeVisible({ timeout: 20_000 });
-  await page.getByText('1 Files Changed', { exact: true }).click();
+  await page.getByText('1 File Changed', { exact: true }).click();
   await expect(page.getByText('src/feature.ts', { exact: true })).toBeVisible();
   await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).not.toBeVisible();
 });
@@ -372,7 +374,7 @@ test('files changed switches between turn, uncommitted, and branch diffs', async
 
   await sendPrompt(page, 'Create a turn diff for scope switching');
   await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });
-  await page.getByText('1 Files Changed', { exact: true }).click();
+  await page.getByText('1 File Changed', { exact: true }).click();
   await expect(page.getByText('Latest turn diff', { exact: true })).toBeVisible();
   await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible();
 
@@ -395,7 +397,10 @@ test('permission requests unblock the agent flow', async ({ page, request }) => 
 
   await sendPrompt(page, 'Trigger a permission request');
 
-  await expect(page.getByText('Permission request', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Approval needed', { exact: true }).last()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Always allow applies to these future patterns:')).toBeVisible();
+  await expect(page.getByText('app/(tabs)/*', { exact: true })).toBeVisible();
+  await expect(page.getByText('The OpenCode server controls how long future approval rules apply.')).toBeVisible();
   await page.getByText('Allow once').click();
   await expect(page.getByText(/permission resolved/).first()).toBeVisible({ timeout: 20_000 });
 });
@@ -407,6 +412,8 @@ test('assistant questions unblock the agent flow', async ({ page, request }) => 
   await sendPrompt(page, 'Ask an implementation question');
 
   await expect(page.getByText('Which implementation should be used?', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Make the smallest safe change.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Include broader improvements.', { exact: true })).toBeVisible();
   await page.getByText('Minimal', { exact: true }).click();
   await page.getByText('Submit answer', { exact: true }).click();
   await expect(page.getByText(/selected Minimal/).first()).toBeVisible({ timeout: 20_000 });
@@ -518,8 +525,8 @@ test('workspace file search opens deterministic file content', async ({ page, re
   await page.getByText('Files', { exact: true }).click();
   await page.getByTestId('workspace-file-search').fill('demo');
   await page.getByText('Search', { exact: true }).click();
-  await expect(page.getByText('src/demo.ts', { exact: true })).toBeVisible();
-  await page.getByText('src/demo.ts', { exact: true }).click();
+  await expect(page.getByText('src/demo.ts', { exact: true }).last()).toBeVisible();
+  await page.getByText('src/demo.ts', { exact: true }).last().click();
   await expect(page.getByText(/OpenCode 1\.18\.3/)).toBeVisible();
 });
 
@@ -530,7 +537,7 @@ test('workspace files save through a conflict-checked VCS patch', async ({ page,
   await page.getByText('Files', { exact: true }).click();
   await page.getByTestId('workspace-file-search').fill('demo');
   await page.getByText('Search', { exact: true }).click();
-  await page.getByText('src/demo.ts', { exact: true }).click();
+  await page.getByText('src/demo.ts', { exact: true }).last().click();
   await page.getByText('Edit', { exact: true }).click();
   await page.getByTestId('workspace-file-editor').fill('export const demo = "OpenCode SDK 1.18.3";\n');
   await page.getByTestId('workspace-file-save-button').click();
@@ -576,7 +583,8 @@ test('terminal streams input and output over the PTY websocket', async ({ page, 
   await page.getByTestId('terminal-selector').click();
   await expect(page.getByTestId('terminal-picker-sheet')).toBeVisible();
   await page.getByTestId('terminal-picker').getByRole('button', { name: 'Close', exact: true }).click();
-  await page.getByTestId('terminal-create-button').click();
+  await expect(page.getByText('Commands are sent one line at a time.')).toBeVisible();
+  await page.getByRole('button', { name: 'New terminal', exact: true }).click();
   await page.getByTestId('terminal-line-input').fill('echo web');
   await page.getByRole('button', { name: 'Send command' }).click();
   await expect(page.getByTestId('terminal-output')).toContainText('ran: echo web');
@@ -627,12 +635,12 @@ test('chat model picker searches and groups models by provider', async ({ page, 
   await expect(modelPicker.getByText('OpenAI', { exact: true })).not.toBeVisible();
   await expect(modelPicker.getByText('Selected', { exact: true })).not.toBeVisible();
   await modelPicker.getByRole('button', { name: /^Auto / }).click();
-  await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('OpenRouter · Auto');
+  await expect(page.getByTestId('chat-model-picker-trigger')).toHaveAccessibleName('Auto · OpenRouter · Default');
 
   await page.getByTestId('chat-model-picker-trigger').click();
   await expect(page.getByTestId('chat-model-picker-search')).toHaveValue('');
   await modelPicker.getByRole('button', { name: /^GPT-4\.1 mini / }).click();
-  await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('OpenAI · GPT-4.1 mini');
+  await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('GPT-4.1 mini');
 
   await page.getByTestId('chat-model-picker-trigger').click();
   await expect(modelPicker.getByText('Selected', { exact: true })).toBeVisible();
@@ -652,7 +660,7 @@ test('polling fallback still finishes the flow when SSE is unavailable', async (
   await sendPrompt(page, 'Finish through polling fallback');
 
   await expect(page.getByText(/Finished: Finish through polling fallback/).first()).toBeVisible({ timeout: 40_000 });
-  await page.getByText('1 Files Changed', { exact: true }).click();
+  await page.getByText('1 File Changed', { exact: true }).click();
   await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible({ timeout: 40_000 });
 });
 
@@ -821,7 +829,8 @@ test('connects to an OpenCode 2 server and completes a prompt', async ({ page, r
     await expect(page.getByRole('button', { name: 'Open progress. 2 of 2 tasks completed' })).toBeVisible();
 
     // Unsupported V2 actions are hidden rather than failing at tap time.
-    await expect(page.getByText('Ask permission', { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('chat-approve-button')).toHaveCount(0);
+    await expect(page.getByTestId('chat-agent-button')).toBeVisible();
     await openChatLibrary(page);
     await expect(page.getByRole('button', { name: 'Archived', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Rename / }).first()).toBeVisible();
@@ -867,7 +876,7 @@ test('OpenCode 2 permission requests unblock the agent flow', async ({ page, req
     await openReadyChat(page);
     await connectToServer(page, `http://127.0.0.1:${port}`);
     await sendPrompt(page, 'Trigger a permission request');
-    await expect(page.getByText('Permission request', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Approval needed', { exact: true }).last()).toBeVisible({ timeout: 15_000 });
     await page.getByText('Allow once').click();
     await expect(page.getByText(/permission resolved/).first()).toBeVisible({ timeout: 20_000 });
   } finally {
@@ -928,7 +937,7 @@ test('OpenCode 2 files changed reads location-scoped VCS diffs', async ({ page, 
     await sendPrompt(page, 'Check the OpenCode 2 file changes');
     await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('tab', { name: /Files Changed/ }).click();
+    await page.getByRole('tab', { name: /Files? Changed/ }).click();
     await expect(page.getByText('Latest turn diff', { exact: true })).toBeVisible();
 
     // V2 answers unscoped VCS calls for the server's own directory, so the
@@ -1093,7 +1102,7 @@ test('chat library lists recently used sessions from other workspaces and switch
   await openReadyChat(page);
   await openChatLibrary(page);
 
-  await expect(page.getByText('Active across workspaces', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Running & recent', { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('chat-library').getByText('Recent Secondary Session', { exact: true })).toBeVisible();
   await expect(page.getByTestId('chat-library').getByText('secondary-project', { exact: false }).first()).toBeVisible();
 
@@ -1105,7 +1114,7 @@ test('chat library lists recently used sessions from other workspaces and switch
   // The group is connection-wide, so it is still listed after switching to the
   // workspace that owns the session (and the session is not duplicated below).
   await openChatLibrary(page);
-  await expect(page.getByText('Active across workspaces', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Running & recent', { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('chat-library').getByRole('button', { name: 'Open Recent Secondary Session' })).toHaveCount(1);
 });
 
@@ -1127,7 +1136,8 @@ test('chat library lists running sessions from other workspaces', async ({ page,
   await openReadyChat(page);
   await openChatLibrary(page);
 
-  await expect(page.getByText('Active across workspaces', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Running & recent', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('chat-library').getByText(/Running · secondary-project/)).toBeVisible();
   await expect(page.getByTestId('chat-library').getByText('Running Secondary Session', { exact: true })).toBeVisible();
   await expect(page.getByTestId('chat-library').getByText('secondary-project', { exact: false }).first()).toBeVisible();
 });
@@ -1160,7 +1170,7 @@ test('saved connections keep sessions, caches, and model preferences separate', 
   await goToTab(page, 'Chat');
   await page.getByTestId('chat-model-picker-trigger').click();
   await page.getByTestId('chat-model-picker').getByRole('button', { name: /^Auto / }).click();
-  await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('OpenRouter · Auto');
+  await expect(page.getByTestId('chat-model-picker-trigger')).toHaveAccessibleName('Auto · OpenRouter · Default');
 
   // Connection B is a separate process with separate server state but the same
   // project paths, which is the cache-isolation case.
@@ -1173,7 +1183,7 @@ test('saved connections keep sessions, caches, and model preferences separate', 
     await expectConnectedTo(page, String(port));
 
     await goToTab(page, 'Chat');
-    await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('OpenAI · GPT-4.1 mini', { timeout: 15_000 });
+    await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('GPT-4.1 mini', { timeout: 15_000 });
     await sendPrompt(page, 'Server B session');
     await expect(page.getByText(/Finished: Server B session/).first()).toBeVisible({ timeout: 20_000 });
 
@@ -1183,7 +1193,7 @@ test('saved connections keep sessions, caches, and model preferences separate', 
     await connectToSavedConnection(page, 'Server A');
     await expectConnectedTo(page, '44096');
     await goToTab(page, 'Chat');
-    await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('OpenRouter · Auto', { timeout: 15_000 });
+    await expect(page.getByTestId('chat-model-picker-trigger')).toHaveAccessibleName('Auto · OpenRouter · Default', { timeout: 15_000 });
     await openChatLibrary(page);
     await expect(page.getByTestId('chat-library').getByRole('button', { name: 'Open Server A session' }).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('chat-library').getByRole('button', { name: 'Open Server B session' })).toHaveCount(0);
@@ -1194,7 +1204,7 @@ test('saved connections keep sessions, caches, and model preferences separate', 
     await connectToSavedConnection(page, 'Server B');
     await expectConnectedTo(page, String(port));
     await goToTab(page, 'Chat');
-    await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('OpenAI · GPT-4.1 mini', { timeout: 15_000 });
+    await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('GPT-4.1 mini', { timeout: 15_000 });
     await openChatLibrary(page);
     await expect(page.getByTestId('chat-library').getByRole('button', { name: 'Open Server B session' }).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('chat-library').getByRole('button', { name: 'Open Server A session' })).toHaveCount(0);
@@ -1262,3 +1272,142 @@ for (const protocol of ['v1', 'v2']) {
     }
   });
 }
+
+
+test('composer exposes direct approvals, agent selection and thinking in the model picker without losing drafts', async ({ page, request }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await resetScenario(request, 'happy-path');
+  await openReadyChat(page);
+  const prompt = page.getByTestId('chat-prompt-input');
+  const approvals = page.getByTestId('chat-approve-button');
+  const agent = page.getByTestId('chat-agent-button');
+  const model = page.getByTestId('chat-model-picker-trigger');
+  await expect(model).toHaveAccessibleName('GPT-4.1 mini · OpenAI · Default');
+  await expect(page.getByTestId('chat-secondary-button')).toHaveAccessibleName('Start dictation');
+  await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Start conversation mode');
+  await expect(page.getByRole('button', { name: 'Start conversation mode', exact: true })).toHaveCount(1);
+  await expect(approvals).toHaveAccessibleName('Approvals: Ask before actions');
+  await expect(agent).toHaveAccessibleName('Agent: Build');
+  await prompt.fill('Keep this draft');
+  await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Send task');
+  await expect(page.getByRole('button', { name: 'Start conversation mode', exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('chat-secondary-button')).toHaveAccessibleName('Start dictation');
+  await model.click();
+  const picker = page.getByTestId('chat-model-picker');
+  const thinking = picker.getByRole('slider', { name: 'Reasoning', exact: true });
+  await expect(thinking).toHaveAttribute('aria-valuenow', '1');
+  await thinking.focus();
+  await thinking.press('End');
+  await expect(thinking).toHaveAttribute('aria-valuetext', 'High');
+  // Thinking remains adjustable while comparing/selecting models.
+  await expect(picker.getByText('Selected', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(picker).toHaveCount(0);
+  await expect(model).toHaveAccessibleName('GPT-4.1 mini · OpenAI · High');
+  await expect(prompt).toHaveValue('Keep this draft');
+  await agent.click();
+  await page.getByText('General', { exact: true }).click();
+  await expect(agent).toHaveAccessibleName('Agent: General');
+  await expect(prompt).toHaveValue('Keep this draft');
+  await page.route('**/config?**', (route) => route.request().method() === 'PATCH' ? route.fulfill({ status: 500, json: { message: 'Could not update approvals' } }) : route.continue());
+  await approvals.click();
+  await expect(page.getByText('Action failed', { exact: true })).toBeVisible();
+  await expect(approvals).toHaveAccessibleName('Approvals: Ask before actions');
+  await page.unroute('**/config?**');
+  await approvals.click();
+  await expect(approvals).toHaveAccessibleName('Approvals: Auto-approve');
+  await approvals.click();
+  await expect(approvals).toHaveAccessibleName('Approvals: Ask before actions');
+  await expect(prompt).toHaveValue('Keep this draft');
+  await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Send task');
+  await expect(page.getByTestId('chat-attach-button')).toHaveAccessibleName('Attach files');
+  await goToTab(page, 'Workspace');
+  await goToTab(page, 'Chat');
+  await expect(page.getByTestId('chat-model-picker')).toHaveCount(0);
+});
+
+test('starter examples fill without sending and library empty copy follows visible chats', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await openReadyChat(page);
+  await page.getByText('Explain this project', { exact: true }).click();
+  await expect(page.getByTestId('chat-prompt-input')).toHaveValue('Explain this project');
+  await expect(page.getByText('Start a new task')).toBeVisible();
+  await page.getByText('Help investigate a bug', { exact: true }).click();
+  await expect(page.getByTestId('chat-prompt-input')).toHaveValue(/Symptoms:/);
+  await openChatLibrary(page);
+  const library = page.getByTestId('chat-library');
+  await expect(library.getByRole('button', { name: /^Open / }).first()).toBeVisible();
+  await expect(library.getByText('No chats found.', { exact: true })).toHaveCount(0);
+  await page.getByTestId('chat-library-search').fill('not-a-chat-zz');
+  await expect(library.getByText('No chats match your search.', { exact: true })).toBeVisible();
+});
+
+test('workspace shows changed files, deleted scope, search states and failure recovery', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await page.route('**/file/status?**', (route) => route.fulfill({ json: [
+    { path: 'src/demo.ts', status: 'modified', added: 2, removed: 1 },
+    { path: 'README.md', status: 'added', added: 1, removed: 0 },
+    { path: 'removed.ts', status: 'deleted', added: 0, removed: 1 },
+  ] }));
+  await openReadyChat(page);
+  await goToTab(page, 'Workspace');
+  await expect(page.getByText('Deleted file content is unavailable.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeDisabled();
+  await page.getByText('src/demo.ts', { exact: true }).click();
+  await expect(page.getByText(/OpenCode 1\.18\.3/)).toBeVisible();
+  await page.getByLabel('Close file').click();
+  await expect(page.getByLabel('Close file')).toHaveCount(0);
+  const search = page.getByTestId('workspace-file-search');
+  await search.fill('no-match-zz');
+  await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeEnabled();
+  await expect(search).toBeFocused();
+  await search.press('Enter');
+  await expect(page.getByText('No files match “no-match-zz”.')).toBeVisible();
+  await page.route('**/find/file?**', (route) => route.fulfill({ status: 500, json: { message: 'Search unavailable' } }));
+  await search.fill('demo');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(page.getByText(/Search unavailable|500|search workspace files/i).first()).toBeVisible();
+  await page.unroute('**/find/file?**');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(page.getByText('Results for “demo”')).toBeVisible();
+});
+
+test('completed progress stays compact and patch review selects its turn after a later response', async ({ page, request }) => {
+  const port = await getFreePort();
+  const server = spawnV1Server(port);
+  try {
+    await waitForServer(request, `http://127.0.0.1:${port}/path`);
+    await request.post(`http://127.0.0.1:${port}/session`, { data: { title: 'Review turns' } });
+    await page.addInitScript((serverUrl) => { globalThis.localStorage.setItem('opencode-mobile.settings', JSON.stringify({ serverUrl, username: '', directory: '/workspace/demo-project' })); }, `http://127.0.0.1:${port}`);
+    await openReadyChat(page);
+    await expect(page.getByRole('button', { name: 'Open chats. Review turns' })).toBeVisible();
+    await sendPrompt(page, 'Review first turn');
+    await expect(page.getByText(/Finished: Review first turn/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('All tasks completed', { exact: true })).toHaveCount(0);
+    const progressFab = page.getByTestId('chat-progress-button');
+    await expect(progressFab).toHaveAccessibleName('Open progress. 2 of 2 tasks completed');
+    const progressBounds = await progressFab.boundingBox();
+    expect(progressBounds.width).toBeLessThanOrEqual(56);
+    expect(progressBounds.height).toBeLessThanOrEqual(56);
+    // Present deterministic provider-owned todo snapshots through the existing endpoint.
+    let completed = 0;
+    await page.route('**/session/*/todo?**', (route) => route.fulfill({ json: [
+      { content: 'Validate session transcript', status: completed >= 1 ? 'completed' : 'in_progress', priority: 'high' },
+      { content: 'Confirm fake server integration', status: completed >= 2 ? 'completed' : 'pending', priority: 'medium' },
+    ] }));
+    for (completed of [0, 1, 2]) {
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await expect(progressFab).toHaveAccessibleName(`Open progress. ${completed} of 2 tasks completed`);
+    }
+    await page.unroute('**/session/*/todo?**');
+    await page.getByRole('button', { name: /^Open progress/ }).click();
+    await expect(page.getByTestId('progress-overlay')).toBeVisible();
+    await page.getByTestId('progress-overlay').getByRole('button', { name: 'Close', exact: true }).click();
+    await sendPrompt(page, 'Review second turn');
+    await expect(page.getByText(/Finished: Review second turn/).first()).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Updated 1 patch. Review changes' }).first().click();
+    await expect(page.getByText('Selected turn diff', { exact: true })).toBeVisible();
+    await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible();
+    await expect(page.getByText('src/feature.ts', { exact: true })).toHaveCount(0);
+  } finally { server.kill('SIGTERM'); }
+});

@@ -15,7 +15,15 @@
     "close": "Cerrar archivo",
     "savingNotice": "Guardar aplica tus ediciones como un parche de VCS al árbol de trabajo. Revisa los cambios antes de continuar.",
     "savePatch": "Guardar parche",
-    "editingUnavailable": "La edición no está disponible en este servidor."
+    "editingUnavailable": "La edición no está disponible en este servidor.",
+    "added": "Añadido",
+    "modified": "Modificado",
+    "deleted": "Eliminado",
+    "deletedUnavailable": "El contenido del archivo eliminado no está disponible.",
+    "searchGuidance": "Busca por nombre para encontrar otros archivos.",
+    "searching": "Buscando…",
+    "noMatches": "Ningún archivo coincide con «{{query}}».",
+    "resultsFor": "Resultados para «{{query}}»"
   },
   "worktrees": {
     "title": "Árboles de trabajo",

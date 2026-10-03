@@ -63,3 +63,17 @@ assert.deepEqual(
 );
 
 console.log('format tests passed');
+
+const transcriptSource = await readFile(new URL('../lib/opencode/transcript.ts', import.meta.url), 'utf8');
+const transcriptOutput = ts.transpileModule(transcriptSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
+const { getUserTurnForMessage } = await import(`data:text/javascript,${encodeURIComponent(transcriptOutput)}`);
+const turnRecords = [
+  { info: { id: 'user-a', role: 'user' }, parts: [] },
+  { info: { id: 'reply-a', role: 'assistant', parentID: 'user-a' }, parts: [] },
+  { info: { id: 'user-b', role: 'user' }, parts: [] },
+  { info: { id: 'reply-b', role: 'assistant', parentID: 'user-b' }, parts: [] },
+];
+assert.equal(getUserTurnForMessage(turnRecords, 'reply-a'), 'user-a');
+assert.equal(getUserTurnForMessage(turnRecords, 'reply-b'), 'user-b');
+assert.equal(getUserTurnForMessage(turnRecords.slice(2), 'reply-a'), undefined);
+assert.equal(getUserTurnForMessage([{ info: { id: 'orphan', role: 'assistant', parentID: 'missing' }, parts: [] }], 'orphan'), undefined);

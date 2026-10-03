@@ -427,3 +427,11 @@ voice, background notification, and virtualized-list scrolling/accessibility che
 remain necessary. Changes under `tests/e2e/` or `tests/fake-opencode/` require
 explicit human validation as specified by `AGENTS.md`, even after all automated
 gates pass.
+
+## UX simplification validation
+
+The existing Playwright flows now cover direct approval and mode controls, thinking-slider adjustment in the model picker, draft retention, picker dismissal, settings updates, unsupported approvals, model-first names, starter draft selection, library search-empty copy, immediate changed-file opening, deleted content explanation, search failure recovery, completion overlays, patch-to-turn review, approval scopes, question descriptions, and setup's single action. The fake completion message now includes its existing parent user message ID to cover review navigation. File-state/error edge cases use browser route overrides. Both test and fake-server edits require human validation.
+
+Before committing this change, run the static, fake-server and full web gates. Native manual checks must cover iOS light/dark, regular/slim, larger text, keyboard visibility, pending blockers, VoiceOver action names/slider adjustment/focus, and Android hardware/soft keyboard Back behavior. Test edits require explicit human validation under AGENTS.md. Automated browser checks do not replace these native checks.
+
+The composer approval toggle is now the sole Chat approval affordance: the shield represents asking, the warning represents auto-approval, and unsupported V2 servers omit the control. The adjacent agent icon opens the existing selector. Thinking is adjusted through the shared Settings slider at the top of the model picker. The composer flow covers direct approval failure/retry, agent selection, thinking keyboard adjustment, draft retention and picker dismissal.

@@ -9,8 +9,7 @@ import { BackHandler, Platform } from 'react-native';
  * screen. Registration only happens while `visible` is true, and the latest
  * `onDismiss` is always invoked without re-subscribing on every render.
  *
- * This is a no-op on platforms without a hardware back button (iOS, web): React
- * Native Web's `BackHandler` is unsupported and logs an error if used.
+ * Web overlays dismiss with Escape without registering the unsupported web BackHandler.
  */
 export function useDismissOnBack(visible: boolean, onDismiss: () => void) {
   const onDismissRef = useRef(onDismiss);
@@ -20,8 +19,19 @@ export function useDismissOnBack(visible: boolean, onDismiss: () => void) {
   }, [onDismiss]);
 
   useEffect(() => {
-    if (!visible || Platform.OS === 'web') {
+    if (!visible) {
       return undefined;
+    }
+
+    if (Platform.OS === 'web') {
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          onDismissRef.current();
+        }
+      };
+      window.addEventListener('keydown', onKeyDown);
+      return () => window.removeEventListener('keydown', onKeyDown);
     }
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {

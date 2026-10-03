@@ -15,7 +15,15 @@
     "close": "Close file",
     "savingNotice": "Saving applies your edits as a VCS patch to the working tree. Review the changes before continuing.",
     "savePatch": "Save patch",
-    "editingUnavailable": "Editing is not available on this server."
+    "editingUnavailable": "Editing is not available on this server.",
+    "added": "Added",
+    "modified": "Modified",
+    "deleted": "Deleted",
+    "deletedUnavailable": "Deleted file content is unavailable.",
+    "searchGuidance": "Search by filename to find other files.",
+    "searching": "Searching…",
+    "noMatches": "No files match “{{query}}”.",
+    "resultsFor": "Results for “{{query}}”"
   },
   "worktrees": {
     "title": "Worktrees",

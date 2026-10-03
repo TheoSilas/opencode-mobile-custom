@@ -71,7 +71,8 @@
     "configureProvider": "Configurar {{provider}}",
     "oauthHint": "Esto abre el flujo de inicio de sesión del proveedor en tu navegador.",
     "setupUnavailable": "Los detalles de configuración de este proveedor no están disponibles ahora mismo.",
-    "couldNotComplete": "No se pudo completar el inicio de sesión."
+    "couldNotComplete": "No se pudo completar el inicio de sesión.",
+    "removeCredentials": "Eliminar credenciales de {{provider}}"
   },
   "providerCopy": {
     "openai": {

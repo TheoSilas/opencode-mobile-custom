@@ -40,7 +40,10 @@
       "unknown": "inconnu",
       "none": "aucun",
       "unnamed": "sans nom"
-    }
+    },
+    "tabFilesChanged_one": "{{files}} fichier modifié",
+    "tabFilesChanged_many": "{{files}} fichiers modifiés",
+    "tabFilesChanged_other": "{{files}} fichiers modifiés"
   },
   "content": {
     "connectionIssue": "Problème de connexion",
@@ -58,7 +61,7 @@
     "untitledTask": "Tâche sans titre"
   },
   "cards": {
-    "respondToContinue": "Réponds pour continuer",
+    "respondToContinue": "Autorisation nécessaire",
     "waitingForAnswer": "OpenCode attend ta réponse avant de pouvoir continuer.",
     "couldNotSubmitAnswer": "Impossible d'envoyer la réponse.",
     "couldNotRejectQuestion": "Impossible de rejeter la question.",
@@ -84,23 +87,46 @@
     "you": "Toi",
     "opencode": "OpenCode",
     "copied": "Copié",
-    "permissionRequest": "Demande d'autorisation",
+    "permissionRequest": "Autorisation nécessaire",
     "allowOnce": "Autoriser une fois",
     "alwaysAllow": "Toujours autoriser",
-    "deny": "Refuser"
+    "deny": "Refuser",
+    "readAloud": "Lire la réponse à voix haute",
+    "stopReadAloud": "Arrêter la lecture",
+    "fork": "Créer une branche depuis ce message",
+    "revert": "Annuler depuis ce message",
+    "reviewChanges": "Examiner les modifications",
+    "futureApprovalScope": "Toujours autoriser concerne ces motifs futurs :",
+    "unspecifiedScope": "Le serveur ne précise pas la portée des autorisations futures.",
+    "serverRuleDuration": "Le serveur OpenCode détermine la durée des règles d’autorisation futures.",
+    "updatedPatches_one": "{{count}} correctif mis à jour",
+    "updatedPatches_many": "{{count}} correctifs mis à jour",
+    "updatedPatches_other": "{{count}} correctifs mis à jour",
+    "fileCount_one": "{{count}} fichier",
+    "fileCount_many": "{{count}} fichiers",
+    "fileCount_other": "{{count}} fichiers"
   },
   "composer": {
     "chooseAssistantMode": "Choisis le mode de l'assistant",
     "chooseReasoningLevel": "Choisis le niveau de raisonnement",
-    "autoApproveEnabled": "Approbation automatique activée",
-    "askPermission": "Demander l'autorisation",
+    "autoApproveEnabled": "Autoriser automatiquement",
+    "askPermission": "Demander avant chaque action",
     "conversationMode": "Mode conversation",
     "conversationHint": "Continue à parler naturellement tant que l'app reste ouverte. Elle écoute, envoie ton tour, lit la réponse, puis écoute à nouveau.",
     "removeAttachment": "Retirer {{name}}",
     "attachment": "pièce jointe",
     "listening": "Écoute",
     "conversationActive": "Conversation active",
-    "placeholder": "Demande n'importe quoi..."
+    "placeholder": "Demande n'importe quoi...",
+    "chatOptions": "Options du chat",
+    "agent": "Agent",
+    "reasoning": "Raisonnement",
+    "approvals": "Autorisations",
+    "attachFiles": "Joindre des fichiers",
+    "startDictation": "Démarrer la dictée",
+    "stopDictation": "Arrêter la dictée",
+    "sendTask": "Envoyer la tâche",
+    "stopTask": "Arrêter la tâche"
   },
   "header": {
     "pricingUnavailable": "Tarification indisponible",
@@ -140,11 +166,11 @@
     "couldNotUpdate": "Impossible de mettre à jour le chat.",
     "untitledChat": "Chat sans titre",
     "favorites": "Favoris",
-    "activeSessions": "Actives dans d'autres espaces",
+    "activeSessions": "En cours et récents",
     "open": "Ouvrir {{title}}",
     "swipeRemoveFavorite": "Glisse vers la gauche pour retirer des favoris",
     "chats": "Chats",
-    "noChats": "Aucun chat trouvé dans cet espace de travail.",
+    "noChats": "Aucun chat trouvé.",
     "rename": "Renommer",
     "favorite": "Ajouter aux favoris",
     "unfavorite": "Retirer des favoris",
@@ -159,7 +185,9 @@
     "deleteConfirm": "« {{title}} » et toutes ses données seront définitivement supprimés.",
     "swipeChatActions": "Glisse vers la gauche pour les actions du chat",
     "noArchivedChats": "Aucun chat archivé.",
-    "newChat": "Nouveau chat"
+    "newChat": "Nouveau chat",
+    "running": "En cours",
+    "noMatchingChats": "Aucun chat ne correspond à votre recherche."
   },
   "overlay": {
     "conversationMode": "Mode conversation",
@@ -187,10 +215,11 @@
     "title": "Démarrer une nouvelle tâche",
     "description": "Garde la consigne précise et OpenCode inspectera l'espace de travail, affichera la progression et diffusera les modifications de fichiers.",
     "prompts": {
-      "polish": "Peaufine cette interface mobile pour qu'elle se rapproche du mode web d'OpenCode.",
-      "review": "Passe en revue l'espace de travail actuel et propose la prochaine correction à plus fort impact.",
-      "implement": "Implémente la demande de fonctionnalité et tiens-moi au courant au fur et à mesure."
-    }
+      "polish": "Explique ce projet",
+      "review": "Examine les modifications récentes",
+      "implement": "Aide-moi à trouver un bug"
+    },
+    "bugSymptoms": "Symptômes : décrivez ce qui s’est passé et ce que vous attendiez."
   },
   "reasoning": {
     "low": "Faible",
@@ -215,7 +244,13 @@
     "sourceTitle": "Source des fichiers modifiés",
     "changeSourceLabel": "Modifier la source des fichiers modifiés. {{source}}",
     "showing": "Affichage de {{scope}}",
-    "showingTurnSuffix": " · {{turn}}"
+    "showingTurnSuffix": " · {{turn}}",
+    "filesChangedSimple_one": "{{files}} fichier modifié",
+    "filesChangedSimple_many": "{{files}} fichiers modifiés",
+    "filesChangedSimple_other": "{{files}} fichiers modifiés",
+    "filesChangedCompact_one": "{{files}} fichier modifié, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_many": "{{files}} fichiers modifiés, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_other": "{{files}} fichiers modifiés, +{{additions}} / -{{deletions}}"
   },
   "session": {
     "chooseWorkspace": "Choisis un espace de travail",

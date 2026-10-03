@@ -40,6 +40,7 @@ export function SelectControl<T extends string>({
       title={title}
       renderTrigger={({ disabled: triggerDisabled, open, openState }) => (
         <ControlButton
+          accessibilityLabel={`${title || label}: ${label}`}
           active={openState}
           disabled={triggerDisabled}
           grow={grow}
@@ -57,6 +58,7 @@ export function SelectControl<T extends string>({
 
 export function ControlButton({
   active = false,
+  accessibilityLabel,
   children,
   disabled = false,
   grow = false,
@@ -70,6 +72,7 @@ export function ControlButton({
   testID,
 }: {
   active?: boolean;
+  accessibilityLabel?: string;
   children: string;
   disabled?: boolean;
   grow?: boolean;
@@ -94,6 +97,8 @@ export function ControlButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || children}
+      accessibilityState={{ disabled: disabled || loading }}
       disabled={disabled}
       onPress={onPress}
       testID={testID}
@@ -110,7 +115,7 @@ export function ControlButton({
         {!loading && icon ? icon({ size: iconSize, color: textColor }) : null}
         {!loading && !icon && iconName ? <MaterialCommunityIcons name={iconName} size={iconSize} color={textColor} /> : null}
         {!iconOnly ? (
-          <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.controlButtonLabel, slim && { fontSize: 13 }, { color: textColor }]}>
+          <Text maxFontSizeMultiplier={1.5} numberOfLines={1} ellipsizeMode="tail" style={[styles.controlButtonLabel, slim && { fontSize: 13 }, { color: textColor }]}>
             {children}
           </Text>
         ) : null}
@@ -125,8 +130,8 @@ export function TopTab({ active, label, onPress, slim = false }: { active: boole
 
   return (
     <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} aria-selected={active} style={styles.topTab} onPress={onPress}>
-      <View style={[styles.topTabInner, active && { borderBottomColor: palette.tint, borderBottomWidth: 2 }, slim && { paddingVertical: 8 }]}> 
-        <Text style={[styles.topTabLabel, slim && { fontSize: 14 }, { color: active ? palette.text : palette.muted, fontWeight: active ? '700' : '500' }]}> 
+      <View style={[styles.topTabInner, active && { borderBottomColor: palette.tint, borderBottomWidth: 2 }, slim && { paddingVertical: 8 }]}>
+        <Text maxFontSizeMultiplier={1.5} style={[styles.topTabLabel, slim && { fontSize: 14 }, { color: active ? palette.text : palette.muted, fontWeight: active ? '700' : '500' }]}>
           {label}
         </Text>
       </View>

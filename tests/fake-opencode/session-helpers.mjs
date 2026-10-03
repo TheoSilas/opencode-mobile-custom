@@ -109,7 +109,7 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
     createMessage(sessionId, 'assistant', [
       { type: 'text', text: assistantText },
       { type: 'patch', files: diff.map((entry) => entry.file) },
-    ]);
+    ], { parentID: latestUserMessage?.info.id });
     state.sessionStatuses[sessionId] = { type: 'idle' };
     emitEvent({
       type: 'session.diff',

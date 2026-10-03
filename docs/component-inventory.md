@@ -96,7 +96,8 @@ type ChatContentProps = {
   onRejectQuestion: (requestId: string) => void
   onReplyToPermission: (requestId: string, reply: 'once' | 'always' | 'reject') => void
   onReplyToQuestion: (requestId: string, answers: string[][]) => void
-  onSendStarterPrompt: (prompt: string) => void
+  onSelectStarterPrompt: (prompt: string) => void // fills draft, never sends
+  onReviewChanges: (messageId: string) => void // resolves the current session's parent user turn
   onToggleSpeak: (entry: TranscriptEntry) => void
   palette: Palette
   pendingInteractions: number
@@ -118,8 +119,11 @@ type ChatContentProps = {
 
 ### Responsibility
 
-- render controls for agent/model/reasoning selection
-- render auto-approve toggle
+- render a rounded text area with a bottom toolbar: attachment, direct approval toggle and agent-mode icon, model/reasoning summary, dictation, and voice/send/stop
+- expose supported Approvals only through a direct toolbar toggle (shield when asking, warning when auto-approving); hide it for unsupported V2 servers
+- open the existing agent selector from a mode icon beside Approvals
+- open the model picker from the selected model/reasoning summary, with a reasoning slider above model search
+- dismiss the keyboard when opening selectors while preserving the parent-owned draft; model picker dismisses on Back/Escape or session/tab changes
 - render optional conversation banner
 - render attachments, voice status, prompt input, and action buttons
 
@@ -133,7 +137,6 @@ type ChatComposerProps = {
   connectionStatus: 'idle' | 'connecting' | 'connected' | 'error'
   conversation: { active: boolean; isListening: boolean; phase: string; statusLabel?: string }
   draft: string
-  insetsBottom: number
   isCreatingSession: boolean
   isSpeechInputAvailable: boolean
   isSpeechInputListening: boolean
@@ -143,8 +146,9 @@ type ChatComposerProps = {
   onDraftChange: (value: string) => void
   onRemoveAttachment: (index: number) => void
   onSend: () => void
-  onToggleAutoApprove: () => void
+  onToggleAutoApprove: () => Promise<boolean>
   onToggleRecording: () => void
+  onToggleConversationMode: () => void
   palette: Palette
   selectedAgentLabel: string
   showSendAction: boolean
@@ -160,7 +164,7 @@ type ChatComposerProps = {
 
 - todos are server-owned and displayed in the chat overlay with disabled status icons; the UI has no todo mutation action
 - typing `/` shows up to six matching server commands; selecting one fills the draft
-- model selection uses a searchable sheet grouped by provider; the trigger displays `Provider · Model`
+- model selection uses a searchable sheet grouped by provider; the composer trigger displays the selected model and reasoning; its accessible name includes model, provider, and reasoning
 
 ## `components/chat/model-picker.tsx`
 
@@ -171,12 +175,13 @@ type ChatComposerProps = {
 - pin a `Selected` and `Recent` section above the provider groups (hidden while searching)
 - own only local modal visibility and search-query state
 - return the selected `ModelOption` to the composer, which persists it through the provider
+- optionally render the shared numeric slider for discrete Low/Default/High reasoning above model search, using provider-owned preferences
 
 ## `components/chat/chat-header.tsx`
 
 ### Responsibility
 
-- top app bar
+- top app bar with New Chat and usage actions; voice chat starts from the composer waveform only
 - active session and workspace title that opens the Chats overlay
 - compact current-session usage summary and usage breakdown sheet
 - mounting point for conversation overlay
@@ -192,7 +197,6 @@ type ChatHeaderProps = {
   onConfirmStopConversation: () => void
   onCreateSession: () => void
   onOpenLibrary: () => void
-  onToggleConversationMode: () => void
   palette: Palette
   selectedSession?: Session
   activeProjectLabel?: string
@@ -553,7 +557,8 @@ Responsibility:
 
 ## `components/onboarding/onboarding-step.tsx`
 
-- shared step chrome: back action, step progress, title/subtitle, scrollable body, pinned footer
+- shared translated step chrome: back action, step progress, title/subtitle, scrollable body, pinned footer
+- Review setup appears beside the step indicator when reopened from Settings
 - keeps every step visually consistent without duplicating layout
 
 ## `components/onboarding/project-options.tsx`
@@ -765,3 +770,25 @@ But parity is easiest if these responsibilities remain separated:
 - one provider configuration dialog
 - one platform-aware select abstraction
 - one central provider/orchestrator
+
+## UX simplification contracts
+
+- `ChatContent` renders task progress as a right-side floating FAB with a filling icon. The detailed progress overlay remains available. Patch summary chips open Changes and select their parent user turn when that message is present in the current session; otherwise the existing changes scope is retained. `TranscriptMessage` memoization includes the review callback to keep the session mapping current.
+- The chat library's connection-wide group is Running & recent, with an explicit Running indicator. Deduplicated chats do not create an empty Chats section. Search-empty copy is distinct from a truly empty library.
+- `components/workspace/files-panel.tsx` renders provider-owned changed-file statuses immediately. Added/modified files use the existing reader; deleted rows explain unavailable content. Button and keyboard search share one guarded handler. Query, submitted query, loading, and failure presentation are local and reset with the connection/workspace key; results remain provider-owned.
+- Setup has one guarded Connect & continue action through `switchConnection`. Input survives failures; connection controls and Skip are disabled while submitting. Connect pairing remains secondary.
+- Approval cards separate the current resources from server-provided future `always` patterns and explain that the server controls rule duration. Missing patterns explicitly have unspecified scope. Question descriptions appear before selection, while existing custom/multiple/conditional answer handling remains intact.
+- Starter examples fill the draft; the bug example appends a symptoms prompt. Terminal's empty state calls the existing creation handler and describes line-at-a-time commands.
+- Icon actions and provider-credential removal expose translated action names. All supported locales carry matching keys and plural forms.
+
+Compact control labels scale up to 1.5× (tab-bar labels 1.3×) to keep fixed chrome readable at accessibility text sizes. At font scales above 1.3, the model/reasoning summary moves above the icon toolbar to preserve room for both values. The summary opens the existing model picker and thinking slider; its accessible name includes provider and reasoning. The approval icon toggles directly, the adjacent mode icon opens the agent selector, the left plus always attaches, the microphone always dictates, and the right action starts/stops conversation mode for an empty draft or sends/stops the task. Transcript text continues to use its existing scaling. Full action/model names remain exposed to accessibility.
+
+## `components/ui/numeric-slider.tsx`
+
+The existing Settings numeric slider is shared with the model picker. It owns measured track width only; callers own the value and updates. It supports a 44px pointer target, discrete steps, Home/End/arrow keys on web, and increment/decrement accessibility actions on native. Settings voice/volume/font controls retain their existing ranges and provider callbacks.
+
+The composer microphone starts direct speech-to-text dictation into the draft, preserving existing text and never submitting automatically. Empty drafts show the waveform action for conversation mode; text or attachments switch it to Send. Running tasks retain Stop. The top bar has no duplicate voice-chat action; conversation overlay and Back-stop handling remain in the existing header shell.
+
+Composer spacing uses 8px side margins and 6px top/bottom gaps (6px sides and 4px gaps in slim mode), with 8px/4px card top/bottom padding. It does not add another bottom safe-area inset because the visible tab bar owns that inset. Keyboard avoidance and tab visibility remain unchanged.
+
+Task progress floats at the chat area's bottom-right as a 48px Paper FAB. Its standard circle-slice icon fills in eight stages from the provider-owned completion ratio, becoming a checkmark when all tasks complete. Its translated accessible name contains completed/total counts. Tapping retains the existing detailed overlay. It hides while a permission/question blocks the chat. The FAB is positioned absolutely on the right and reserves no transcript row or extra padding. Only blocking-card clearance remains.

@@ -23,11 +23,12 @@
     "title": "Connect to OpenCode",
     "subtitle": "Point OpenCode Mobile at your running server. Username and password are optional.",
     "test": "Test connection",
-    "connect": "Connect",
+    "connect": "जुड़ें और जारी रखें",
     "skip": "Skip",
     "testSuccess": "Connection succeeded.",
     "failed": "Could not connect to the server.",
-    "hint": "Example: http://192.168.1.10:4096. If you open a web UI at this address, use its API base URL instead, usually ending in /api."
+    "hint": "Example: http://192.168.1.10:4096. If you open a web UI at this address, use its API base URL instead, usually ending in /api.",
+    "pairHint": "डिवाइस जोड़ने के लिए Connect का उपयोग करें या नीचे सर्वर URL दर्ज करें।"
   },
   "workspace": {
     "title": "Choose a workspace",
@@ -86,5 +87,7 @@
   "settingsAssistant": {
     "title": "Setup assistant",
     "summary": "Review connection, workspace, preferences, and permissions"
-  }
+  },
+  "reviewSetup": "सेटअप की समीक्षा करें",
+  "stepIndicator": "चरण {{step}} / {{totalSteps}}"
 }

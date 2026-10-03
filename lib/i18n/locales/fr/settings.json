@@ -71,7 +71,8 @@
     "configureProvider": "Configurer {{provider}}",
     "oauthHint": "Cela ouvre le flux de connexion du fournisseur dans ton navigateur.",
     "setupUnavailable": "Les détails de configuration de ce fournisseur sont indisponibles pour le moment.",
-    "couldNotComplete": "Impossible de terminer la connexion."
+    "couldNotComplete": "Impossible de terminer la connexion.",
+    "removeCredentials": "Supprimer les identifiants de {{provider}}"
   },
   "providerCopy": {
     "openai": {

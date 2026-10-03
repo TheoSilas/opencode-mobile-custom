@@ -40,7 +40,10 @@
       "unknown": "desconhecido",
       "none": "nenhum",
       "unnamed": "sem nome"
-    }
+    },
+    "tabFilesChanged_one": "{{files}} arquivo alterado",
+    "tabFilesChanged_many": "{{files}} arquivos alterados",
+    "tabFilesChanged_other": "{{files}} arquivos alterados"
   },
   "content": {
     "connectionIssue": "Problema de conexão",
@@ -58,7 +61,7 @@
     "untitledTask": "Tarefa sem título"
   },
   "cards": {
-    "respondToContinue": "Responda para continuar",
+    "respondToContinue": "Aprovação necessária",
     "waitingForAnswer": "O OpenCode está aguardando sua resposta antes de continuar.",
     "couldNotSubmitAnswer": "Não foi possível enviar a resposta.",
     "couldNotRejectQuestion": "Não foi possível rejeitar a pergunta.",
@@ -84,23 +87,46 @@
     "you": "Você",
     "opencode": "OpenCode",
     "copied": "Copiado",
-    "permissionRequest": "Solicitação de permissão",
+    "permissionRequest": "Aprovação necessária",
     "allowOnce": "Permitir uma vez",
     "alwaysAllow": "Permitir sempre",
-    "deny": "Negar"
+    "deny": "Negar",
+    "readAloud": "Ler resposta em voz alta",
+    "stopReadAloud": "Parar leitura",
+    "fork": "Criar ramificação a partir desta mensagem",
+    "revert": "Reverter a partir desta mensagem",
+    "reviewChanges": "Revisar alterações",
+    "futureApprovalScope": "Sempre permitir aplica-se a estes padrões futuros:",
+    "unspecifiedScope": "O servidor não especificou o escopo das aprovações futuras.",
+    "serverRuleDuration": "O servidor OpenCode controla a duração das regras de aprovação futuras.",
+    "updatedPatches_one": "{{count}} patch atualizado",
+    "updatedPatches_many": "{{count}} patches atualizados",
+    "updatedPatches_other": "{{count}} patches atualizados",
+    "fileCount_one": "{{count}} arquivo",
+    "fileCount_many": "{{count}} arquivos",
+    "fileCount_other": "{{count}} arquivos"
   },
   "composer": {
     "chooseAssistantMode": "Escolha o modo do assistente",
     "chooseReasoningLevel": "Escolha o nível de raciocínio",
-    "autoApproveEnabled": "Aprovação automática ativada",
-    "askPermission": "Pedir permissão",
+    "autoApproveEnabled": "Aprovar automaticamente",
+    "askPermission": "Perguntar antes de agir",
     "conversationMode": "Modo conversa",
     "conversationHint": "Continue falando naturalmente enquanto o app estiver aberto. Ele ouve, envia seu turno, lê a resposta e volta a ouvir.",
     "removeAttachment": "Remover {{name}}",
     "attachment": "anexo",
     "listening": "Ouvindo",
     "conversationActive": "Conversa ativa",
-    "placeholder": "Pergunte qualquer coisa..."
+    "placeholder": "Pergunte qualquer coisa...",
+    "chatOptions": "Opções do chat",
+    "agent": "Agente",
+    "reasoning": "Raciocínio",
+    "approvals": "Aprovações",
+    "attachFiles": "Anexar arquivos",
+    "startDictation": "Iniciar ditado",
+    "stopDictation": "Parar ditado",
+    "sendTask": "Enviar tarefa",
+    "stopTask": "Parar tarefa"
   },
   "header": {
     "pricingUnavailable": "Preço indisponível",
@@ -140,11 +166,11 @@
     "couldNotUpdate": "Não foi possível atualizar o chat.",
     "untitledChat": "Chat sem título",
     "favorites": "Favoritos",
-    "activeSessions": "Ativas em outros espaços",
+    "activeSessions": "Em execução e recentes",
     "open": "Abrir {{title}}",
     "swipeRemoveFavorite": "Deslize para a esquerda para remover dos favoritos",
     "chats": "Chats",
-    "noChats": "Nenhum chat encontrado neste espaço de trabalho.",
+    "noChats": "Nenhum chat encontrado.",
     "rename": "Renomear",
     "favorite": "Favoritar",
     "unfavorite": "Desfavoritar",
@@ -159,7 +185,9 @@
     "deleteConfirm": "“{{title}}” e todos os seus dados serão excluídos permanentemente.",
     "swipeChatActions": "Deslize para a esquerda para ver ações do chat",
     "noArchivedChats": "Nenhum chat arquivado.",
-    "newChat": "Novo chat"
+    "newChat": "Novo chat",
+    "running": "Em execução",
+    "noMatchingChats": "Nenhum chat corresponde à sua busca."
   },
   "overlay": {
     "conversationMode": "Modo conversa",
@@ -187,10 +215,11 @@
     "title": "Inicie uma nova tarefa",
     "description": "Seja específico no prompt e o OpenCode vai inspecionar o espaço de trabalho, mostrar o progresso e transmitir as alterações de arquivos.",
     "prompts": {
-      "polish": "Refine esta interface mobile para ficar mais próxima do modo web do OpenCode.",
-      "review": "Revise o espaço de trabalho atual e sugira a próxima correção de maior impacto.",
-      "implement": "Implemente o recurso solicitado e me mantenha atualizado enquanto trabalha."
-    }
+      "polish": "Explique este projeto",
+      "review": "Revise as alterações recentes",
+      "implement": "Ajude a investigar um bug"
+    },
+    "bugSymptoms": "Sintomas: descreva o que aconteceu e o que você esperava."
   },
   "reasoning": {
     "low": "Baixo",
@@ -215,7 +244,13 @@
     "sourceTitle": "Fonte dos arquivos alterados",
     "changeSourceLabel": "Alterar a fonte dos arquivos alterados. {{source}}",
     "showing": "Mostrando {{scope}}",
-    "showingTurnSuffix": " · {{turn}}"
+    "showingTurnSuffix": " · {{turn}}",
+    "filesChangedSimple_one": "{{files}} arquivo alterado",
+    "filesChangedSimple_many": "{{files}} arquivos alterados",
+    "filesChangedSimple_other": "{{files}} arquivos alterados",
+    "filesChangedCompact_one": "{{files}} arquivo alterado, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_many": "{{files}} arquivos alterados, +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_other": "{{files}} arquivos alterados, +{{additions}} / -{{deletions}}"
   },
   "session": {
     "chooseWorkspace": "Escolha um espaço de trabalho",

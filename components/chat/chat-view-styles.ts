@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
 
@@ -43,12 +43,16 @@ export const styles = StyleSheet.create({
   paginationRow: { alignItems: 'center', paddingVertical: 4 },
   loadingRow: { flexDirection: 'row', gap: 10, alignItems: 'center', paddingHorizontal: 8, paddingBottom: 8 },
   composer: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: Platform.select({ ios: 24, default: 12 }),
-    gap: 10,
+    paddingHorizontal: 8,
+    paddingTop: 6,
+    paddingBottom: 6,
+    gap: 6,
     borderTopWidth: 1,
   },
+  composerCard: { borderRadius: 28, paddingHorizontal: 8, paddingTop: 8, paddingBottom: 4 },
+  composerTextArea: { backgroundColor: 'transparent', fontSize: 17, marginHorizontal: 8, paddingVertical: 0 },
+  composerToolbar: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  composerModelSummary: { flex: 1, minWidth: 0 },
   composerDockRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   inputShell: { borderWidth: 1, borderRadius: 22, paddingLeft: 12, paddingRight: 6, paddingTop: 0, paddingBottom: 0, minHeight: 48, justifyContent: 'center' },
   inputShellFlex: { flex: 1 },
@@ -81,7 +85,7 @@ export const styles = StyleSheet.create({
   todoOverlay: { position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 2, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   todoHeader: { minHeight: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   todoHeaderContent: { gap: 4 },
-  todoProgress: { height: 4, borderRadius: 2 },
+  progressFab: { position: 'absolute', right: 12, bottom: 8, zIndex: 2, borderRadius: 24, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   todoSummary: { flex: 1 },
   todoToggleButton: { width: 40, height: 40, margin: 0 },
   todoListScroll: { maxHeight: 240 },
@@ -98,9 +102,10 @@ export const slimStyles = StyleSheet.create({
   transcriptItem: { marginBottom: 6 },
   transcriptItemFlat: { marginBottom: 2 },
   composer: {
-    paddingTop: 6,
-    paddingBottom: Platform.select({ ios: 14, default: 8 }),
-    gap: 6,
+    paddingHorizontal: 6,
+    paddingTop: 4,
+    paddingBottom: 4,
+    gap: 4,
   },
   controlsRow: { gap: 4 },
   inputShell: { borderRadius: 16, paddingLeft: 10, paddingRight: 4, minHeight: 40 },

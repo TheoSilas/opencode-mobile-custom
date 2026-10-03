@@ -36,6 +36,8 @@ test('fresh install walks through onboarding into a working chat', async ({ page
 
   await page.getByTestId('onboarding-welcome-start').click();
   await expect(page.getByTestId('onboarding-connect')).toBeVisible();
+  await expect(page.getByTestId('onboarding-connect-test')).toHaveCount(0);
+  await expect(page.getByTestId('onboarding-connect-continue')).toHaveText('Connect & continue');
 
   await page.getByTestId('onboarding-server-url').fill(FAKE_SERVER_URL);
   await page.getByTestId('onboarding-connect-continue').click();
@@ -147,6 +149,7 @@ test('Settings reopens the setup assistant without wiping the connection', async
   await setupAssistant.click();
 
   await expect(page.getByTestId('onboarding-connect')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Review setup · Step 2 of 6')).toBeVisible();
   await expect(page.getByTestId('onboarding-server-url')).toHaveValue(FAKE_SERVER_URL);
 
   await page.getByTestId('onboarding-connect-continue').click();
@@ -161,4 +164,25 @@ test('Settings reopens the setup assistant without wiping the connection', async
   // Review mode returns to Settings with the app still usable.
   await page.getByRole('tab', { name: 'Chat' }).click();
   await waitForChat(page);
+});
+
+
+test('connection prevents duplicate submissions and disables Skip while validating', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('onboarding-welcome-start').click();
+  await page.getByTestId('onboarding-server-url').fill(FAKE_SERVER_URL);
+  let probes = 0;
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  await page.route('**/global/health', async (route) => { probes += 1; await pending; await route.continue(); });
+  const connect = page.getByTestId('onboarding-connect-continue');
+  await connect.dispatchEvent('click');
+  await connect.dispatchEvent('click');
+  await expect(connect).toBeDisabled();
+  await expect(page.getByTestId('onboarding-connect-skip')).toBeDisabled();
+  await expect(page.getByTestId('onboarding-server-url')).not.toBeEditable();
+  await expect.poll(() => probes).toBe(1);
+  release();
+  await expect(page.getByTestId('onboarding-workspace')).toBeVisible({ timeout: 20_000 });
+  expect(probes).toBe(1);
 });

@@ -40,7 +40,10 @@
       "unknown": "未知",
       "none": "无",
       "unnamed": "未命名"
-    }
+    },
+    "tabFilesChanged_one": "{{files}} 个文件已更改",
+    "tabFilesChanged_many": "{{files}} 个文件已更改",
+    "tabFilesChanged_other": "{{files}} 个文件已更改"
   },
   "content": {
     "connectionIssue": "连接问题",
@@ -58,7 +61,7 @@
     "untitledTask": "未命名任务"
   },
   "cards": {
-    "respondToContinue": "回复以继续",
+    "respondToContinue": "需要批准",
     "waitingForAnswer": "OpenCode 正在等待你的回答，然后才能继续。",
     "couldNotSubmitAnswer": "无法提交回答。",
     "couldNotRejectQuestion": "无法拒绝问题。",
@@ -84,23 +87,46 @@
     "you": "你",
     "opencode": "OpenCode",
     "copied": "已复制",
-    "permissionRequest": "权限请求",
+    "permissionRequest": "需要批准",
     "allowOnce": "允许一次",
     "alwaysAllow": "始终允许",
-    "deny": "拒绝"
+    "deny": "拒绝",
+    "readAloud": "朗读回复",
+    "stopReadAloud": "停止朗读",
+    "fork": "从此消息创建分支",
+    "revert": "从此消息撤销",
+    "reviewChanges": "查看更改",
+    "futureApprovalScope": "始终允许适用于以下未来模式：",
+    "unspecifiedScope": "服务器未指定未来审批的范围。",
+    "serverRuleDuration": "OpenCode 服务器决定未来审批规则的有效期限。",
+    "updatedPatches_one": "已更新 {{count}} 个补丁",
+    "updatedPatches_many": "已更新 {{count}} 个补丁",
+    "updatedPatches_other": "已更新 {{count}} 个补丁",
+    "fileCount_one": "{{count}} 个文件",
+    "fileCount_many": "{{count}} 个文件",
+    "fileCount_other": "{{count}} 个文件"
   },
   "composer": {
     "chooseAssistantMode": "选择助手模式",
     "chooseReasoningLevel": "选择推理级别",
-    "autoApproveEnabled": "已启用自动批准",
-    "askPermission": "请求权限",
+    "autoApproveEnabled": "自动批准",
+    "askPermission": "操作前询问",
     "conversationMode": "对话模式",
     "conversationHint": "应用保持打开时可持续自然对话。它会监听、发送你的发言、朗读回复，然后再次监听。",
     "removeAttachment": "移除 {{name}}",
     "attachment": "附件",
     "listening": "正在聆听",
     "conversationActive": "对话进行中",
-    "placeholder": "随便问点什么…"
+    "placeholder": "随便问点什么…",
+    "chatOptions": "聊天选项",
+    "agent": "代理",
+    "reasoning": "推理",
+    "approvals": "审批",
+    "attachFiles": "附加文件",
+    "startDictation": "开始语音输入",
+    "stopDictation": "停止语音输入",
+    "sendTask": "发送任务",
+    "stopTask": "停止任务"
   },
   "header": {
     "pricingUnavailable": "价格不可用",
@@ -140,11 +166,11 @@
     "couldNotUpdate": "无法更新聊天。",
     "untitledChat": "未命名聊天",
     "favorites": "收藏",
-    "activeSessions": "其他工作区中的活动会话",
+    "activeSessions": "运行中及最近的聊天",
     "open": "打开 {{title}}",
     "swipeRemoveFavorite": "左滑取消收藏",
     "chats": "聊天",
-    "noChats": "此工作区中没有找到聊天。",
+    "noChats": "未找到聊天。",
     "rename": "重命名",
     "favorite": "收藏",
     "unfavorite": "取消收藏",
@@ -159,7 +185,9 @@
     "deleteConfirm": "“{{title}}”及其所有数据将被永久删除。",
     "swipeChatActions": "左滑查看聊天操作",
     "noArchivedChats": "没有已归档的聊天。",
-    "newChat": "新建聊天"
+    "newChat": "新建聊天",
+    "running": "运行中",
+    "noMatchingChats": "没有与搜索匹配的聊天。"
   },
   "overlay": {
     "conversationMode": "对话模式",
@@ -187,10 +215,11 @@
     "title": "开始新任务",
     "description": "保持提示词具体，OpenCode 会检查工作区、显示进度，并流式返回文件更改。",
     "prompts": {
-      "polish": "优化此移动端 UI，使其更接近 OpenCode 网页模式。",
-      "review": "检查当前工作区并建议下一个影响最大的修复。",
-      "implement": "实现该功能请求，并在处理过程中持续向我更新进展。"
-    }
+      "polish": "解释这个项目",
+      "review": "查看最近的更改",
+      "implement": "帮助调查错误"
+    },
+    "bugSymptoms": "症状：请描述实际发生的情况和预期结果。"
   },
   "reasoning": {
     "low": "低",
@@ -215,7 +244,13 @@
     "sourceTitle": "文件更改来源",
     "changeSourceLabel": "更改文件更改来源。{{source}}",
     "showing": "显示 {{scope}}",
-    "showingTurnSuffix": " · {{turn}}"
+    "showingTurnSuffix": " · {{turn}}",
+    "filesChangedSimple_one": "{{files}} 个文件已更改",
+    "filesChangedSimple_many": "{{files}} 个文件已更改",
+    "filesChangedSimple_other": "{{files}} 个文件已更改",
+    "filesChangedCompact_one": "{{files}} 个文件已更改 · +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_many": "{{files}} 个文件已更改 · +{{additions}} / -{{deletions}}",
+    "filesChangedCompact_other": "{{files}} 个文件已更改 · +{{additions}} / -{{deletions}}"
   },
   "session": {
     "chooseWorkspace": "选择工作区",

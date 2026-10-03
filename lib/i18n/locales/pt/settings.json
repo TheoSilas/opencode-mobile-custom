@@ -71,7 +71,8 @@
     "configureProvider": "Configurar {{provider}}",
     "oauthHint": "Isso abre o fluxo de login do provedor no seu navegador.",
     "setupUnavailable": "Os detalhes de configuração deste provedor estão indisponíveis no momento.",
-    "couldNotComplete": "Não foi possível concluir o login."
+    "couldNotComplete": "Não foi possível concluir o login.",
+    "removeCredentials": "Remover credenciais de {{provider}}"
   },
   "providerCopy": {
     "openai": {

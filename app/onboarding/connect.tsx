@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { Button, HelperText, Text } from 'react-native-paper';
@@ -23,11 +23,11 @@ export default function OnboardingConnectScreen() {
   const [username, setUsername] = useState(settings.username);
   const [password, setPassword] = useState(settings.password);
   const [error, setError] = useState<string>();
-  const [feedback, setFeedback] = useState<string>();
   const [connecting, setConnecting] = useState(false);
-  const [testing, setTesting] = useState(false);
+  const submitting = useRef(false);
 
-  async function attempt(advance: boolean) {
+  async function attempt() {
+    if (submitting.current) return;
     const trimmedUrl = serverUrl.trim();
     if (!trimmedUrl) {
       setError(t('settings:connection.errors.serverUrl'));
@@ -39,9 +39,8 @@ export default function OnboardingConnectScreen() {
     }
 
     setError(undefined);
-    setFeedback(undefined);
-    const setBusy = advance ? setConnecting : setTesting;
-    setBusy(true);
+    submitting.current = true;
+    setConnecting(true);
     try {
       // Reuses the exact profile-switch path: it persists the URL/username,
       // stores the password in SecureStore, resolves the server contract, loads
@@ -52,15 +51,12 @@ export default function OnboardingConnectScreen() {
         return;
       }
 
-      if (advance) {
-        router.push('/onboarding/workspace');
-        return;
-      }
-      setFeedback(t('onboarding:connect.testSuccess'));
+      router.push('/onboarding/workspace');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('onboarding:connect.failed'));
     } finally {
-      setBusy(false);
+      submitting.current = false;
+      setConnecting(false);
     }
   }
 
@@ -71,37 +67,30 @@ export default function OnboardingConnectScreen() {
       title={t('onboarding:connect.title')}
       subtitle={t('onboarding:connect.subtitle')}
       testID="onboarding-connect"
-      onBack={() => router.back()}
+      onBack={connecting ? undefined : () => router.back()}
       footer={
         <>
           <Button
             mode="text"
             style={{ marginRight: 'auto' }}
             testID="onboarding-connect-skip"
-            disabled={connecting || testing}
+            disabled={connecting}
             onPress={() => router.push('/onboarding/workspace')}>
             {t('onboarding:connect.skip')}
-          </Button>
-          <Button
-            mode="outlined"
-            testID="onboarding-connect-test"
-            loading={testing}
-            disabled={connecting || testing}
-            onPress={() => void attempt(false)}>
-            {t('onboarding:connect.test')}
           </Button>
           <Button
             mode="contained"
             testID="onboarding-connect-continue"
             loading={connecting}
-            disabled={connecting || testing}
-            onPress={() => void attempt(true)}>
+            disabled={connecting}
+            onPress={() => void attempt()}>
             {t('onboarding:connect.connect')}
           </Button>
         </>
       }>
       <TextInput
         mode="outlined"
+        editable={!connecting}
         testID="onboarding-server-url"
         label={t('settings:connection.fields.serverUrl')}
         value={serverUrl}
@@ -110,9 +99,10 @@ export default function OnboardingConnectScreen() {
         autoCorrect={false}
         placeholder="http://192.168.1.10:4096"
       />
-      {connectSetup.enabled ? <Button testID="onboarding-pair-connect" mode="outlined" icon="qrcode-scan" onPress={() => router.push('/pair')}>{t('settings:connect.entry')}</Button> : null}
+      {connectSetup.enabled ? <><Text variant="bodySmall" style={{ color: palette.muted }}>{t('onboarding:connect.pairHint')}</Text><Button disabled={connecting} testID="onboarding-pair-connect" mode="outlined" icon="qrcode-scan" onPress={() => router.push('/pair')}>{t('settings:connect.entry')}</Button></> : null}
       <TextInput
         mode="outlined"
+        editable={!connecting}
         testID="onboarding-server-username"
         label={t('settings:connection.fields.username')}
         value={username}
@@ -122,6 +112,7 @@ export default function OnboardingConnectScreen() {
       />
       <TextInput
         mode="outlined"
+        editable={!connecting}
         testID="onboarding-server-password"
         label={t('settings:connection.fields.password')}
         value={password}
@@ -136,7 +127,6 @@ export default function OnboardingConnectScreen() {
           <HelperText type="error" visible>{error}</HelperText>
         </View>
       ) : null}
-      {feedback ? <HelperText type="info" visible>{feedback}</HelperText> : null}
 
       <Text variant="bodySmall" style={{ color: palette.muted }}>{t('onboarding:connect.hint')}</Text>
     </OnboardingStep>

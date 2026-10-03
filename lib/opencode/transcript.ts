@@ -1,4 +1,4 @@
-import type { TranscriptDetail, TranscriptEntry } from '@/lib/opencode/format';
+import type { SessionMessageRecord, TranscriptDetail, TranscriptEntry } from '@/lib/opencode/format';
 
 export function getTranscriptActivityLabel(entry: TranscriptEntry) {
   const runningTool = entry.details.find((detail) => detail.kind === 'tool' && detail.status === 'running');
@@ -37,7 +37,7 @@ export function isTranscriptDisplayMessage(entry: TranscriptEntry) {
   return Boolean(entry.text.trim() || entry.error);
 }
 
-export function summarizeTranscriptDetails(details: TranscriptDetail[]) {
+export function summarizeTranscriptDetails(details: TranscriptDetail[], labels?: { patches: (count: number) => string; files: (count: number) => string }) {
   const patches = details.filter((detail) => detail.kind === 'patch').length;
   const files = details.filter((detail) => detail.kind === 'file').length;
   const runningTool = details.find((detail) => detail.kind === 'tool' && detail.status === 'running');
@@ -49,11 +49,11 @@ export function summarizeTranscriptDetails(details: TranscriptDetail[]) {
   }
 
   if (patches > 0) {
-    summaries.push(`Updated ${patches} patch${patches === 1 ? '' : 'es'}`);
+    summaries.push(labels?.patches(patches) ?? `Updated ${patches} patch${patches === 1 ? '' : 'es'}`);
   }
 
   if (files > 0) {
-    summaries.push(`${files} file${files === 1 ? '' : 's'}`);
+    summaries.push(labels?.files(files) ?? `${files} file${files === 1 ? '' : 's'}`);
   }
 
   if (failedRetry) {
@@ -61,4 +61,12 @@ export function summarizeTranscriptDetails(details: TranscriptDetail[]) {
   }
 
   return summaries;
+}
+
+/** Match only a parent user message present in this session. */
+export function getUserTurnForMessage(records: SessionMessageRecord[], messageId: string) {
+  const message = records.find((record) => record.info.id === messageId)?.info;
+  if (!message) return undefined;
+  const parentId = message.role === 'user' ? message.id : message.parentID;
+  return records.find((record) => record.info.role === 'user' && record.info.id === parentId)?.info.id;
 }

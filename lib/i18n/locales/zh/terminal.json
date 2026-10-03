@@ -16,7 +16,9 @@
     "send": "发送命令",
     "terminateTitle": "终止终端？",
     "terminateMessage": "终止 {{title}}？",
-    "terminateAction": "终止"
+    "terminateAction": "终止",
+    "lineHint": "命令每次发送一行。",
+    "new": "新建终端"
   },
   "sessions": {
     "title": "终端",

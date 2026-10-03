@@ -30,7 +30,6 @@ type ChatHeaderProps = {
   onConfirmStopConversation: () => void;
   onCreateSession: () => void;
   onOpenSessionMenu: () => void;
-  onToggleConversationMode: () => void;
   palette: Palette;
   selectedSession?: Session;
   contextLimit?: number;
@@ -51,7 +50,6 @@ export function ChatHeader({
   onConfirmStopConversation,
   onCreateSession,
   onOpenSessionMenu,
-  onToggleConversationMode,
   palette,
   selectedSession,
   latestAssistantTurnUsage,
@@ -84,10 +82,10 @@ export function ChatHeader({
           <Pressable accessibilityRole="button" accessibilityLabel={t('chat:header.openChats', { title: selectedSession?.title || t('chat:header.untitledChat') })} onPress={onOpenSessionMenu} style={({ pressed }) => [styles.headerSessionAnchor, pressed && styles.headerSessionAnchorPressed]}>
             <View style={styles.headerSessionContent}>
               <View style={styles.headerSessionTextWrap}>
-                <Text numberOfLines={1} variant="titleMedium" style={[styles.headerTitle, { color: palette.text }]}> 
+                <Text maxFontSizeMultiplier={1.5} numberOfLines={1} variant="titleMedium" style={[styles.headerTitle, { color: palette.text }]}>
                   {selectedSession?.title || t('chat:header.untitledChat')}
                 </Text>
-                <NativeText numberOfLines={1} style={[styles.headerUsage, { color: palette.muted }]}>
+                <NativeText maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.headerUsage, { color: palette.muted }]}>
                   {activeProjectLabel || t('chat:header.chooseWorkspace')}
                 </NativeText>
               </View>
@@ -98,12 +96,6 @@ export function ChatHeader({
         <View style={styles.headerActions}>
           <Appbar.Action icon="plus" accessibilityLabel={t('chat:header.newChat')} onPress={onCreateSession} disabled={isCreatingSession || connectionStatus !== 'connected'} />
           <Appbar.Action icon={usageIcon} onPress={() => setUsageVisible(true)} accessibilityLabel={t('chat:header.showUsage')} />
-          <Appbar.Action
-            icon={conversation.active ? 'phone-hangup' : 'headset'}
-            accessibilityLabel={conversation.active ? t('chat:header.stopConversationMode') : t('chat:header.startConversationMode')}
-            onPress={onToggleConversationMode}
-            disabled={connectionStatus !== 'connected' || isCreatingSession}
-          />
         </View>
       </Appbar.Header>
       <Portal>
