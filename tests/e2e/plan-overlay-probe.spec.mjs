@@ -23,7 +23,9 @@ test('probe: V1 plan overlay appears after completion', async ({ page, request }
   await expect(page.getByText('Start a new task')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByPlaceholder('Ask anything...')).toBeVisible();
 
+  await page.getByPlaceholder('Ask anything...').click();
   await page.getByPlaceholder('Ask anything...').fill('execute echo "hello"');
+  await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Send task');
   await page.getByTestId('chat-primary-button').click();
 
   await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });

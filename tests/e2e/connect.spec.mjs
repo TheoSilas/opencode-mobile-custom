@@ -234,6 +234,10 @@ for (const [name, options, message] of [
     await storeFixture(page, options); const state = await mockControlPlane(page, options);
     await openPair(page); await page.getByTestId('connect-purchase').click();
     await expect(page.getByTestId('connect-error')).toContainText(message);
+    if (options.finishFailures) {
+      await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+      await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
+    }
     await openControl(page);
     await expect(page.getByTestId('connect-control-plane')).not.toBeEditable();
     await closeControl(page);
@@ -422,7 +426,7 @@ test('subscription dismissal returns to the chooser and Manual stays available',
     await expect(sheet).toBeVisible();
     if (dismiss === 'close') await sheet.getByText('Close', { exact: true }).click();
     else if (dismiss === 'escape') await page.keyboard.press('Escape');
-    else await sheet.getByLabel('Close Connect').click({ position: { x: 10, y: 10 } });
+    else await sheet.getByLabel('Close OpenCode Connect').click({ position: { x: 10, y: 10 } });
     await expect(page.getByTestId('connection-method-chooser')).toBeVisible();
     await expect(page.getByTestId('connect-panel')).toHaveCount(0);
     await expect(sheet).toHaveCount(0);
@@ -433,6 +437,30 @@ test('subscription dismissal returns to the chooser and Manual stays available',
   await page.getByTestId('connection-method-manual').click();
   await expect(page.getByTestId('connection-profile-name-input')).toBeVisible();
   expect(await events(page)).not.toContain('purchase');
+});
+
+test('an existing subscriber selecting Connect opens the pairing screen without a purchase overlay', async ({ page }) => {
+  await storeFixture(page, { recovered: true }); const state = await mockControlPlane(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 }));
+    globalThis.__subscriptionOverlaySeen = false;
+    new MutationObserver(() => {
+      if (document.querySelector('[data-testid="connect-subscription-sheet"]')) globalThis.__subscriptionOverlaySeen = true;
+    }).observe(document, { childList: true, subtree: true });
+  });
+  await page.goto('/settings');
+  await page.getByRole('button', { name: /^Connection/ }).click();
+  await page.getByTestId('connection-add-button').click();
+  await page.getByTestId('connection-method-connect').click();
+  await expect(page.getByTestId('connect-panel')).toBeVisible();
+  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await expect(page.getByTestId('connect-progress')).toHaveCount(0);
+  await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/pair$/);
+  expect(await page.evaluate(() => globalThis.__subscriptionOverlaySeen)).toBe(false);
+  expect(await events(page)).not.toContain('purchase');
+  expect(await events(page)).not.toContain('restore');
+  expect(state.pairClaims).toBe(0);
 });
 
 test('a subscriber can reopen pairing after connecting without a subscription overlay', async ({ page }) => {
