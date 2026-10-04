@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer';
 
 // Native APIs/SecureStore are substituted only in the development E2E build.
 const CONTROL_PLANE = 'https://api.getopencode.app';
+const STAGING = 'https://apistaging.getopencode.app';
 const SERVER = 'http://127.0.0.1:44096';
 const CONNECT_SERVER = 'https://connect-machine.test';
 const PRODUCT = 'fixture.connect';
@@ -31,14 +32,6 @@ async function openPair(page, completed = true, id = 'pair-1') {
   await expect(page.getByTestId('connect-machine-name')).toHaveText('Test Mac');
   await expect(page.getByTestId('connect-user-token')).toHaveCount(0);
   await expect(page.getByTestId('connect-token-required')).toHaveCount(0);
-}
-async function openControl(page) {
-  if (await page.getByTestId('connect-error-settings').isVisible()) await page.getByTestId('connect-error-settings').click();
-  else await page.getByTestId('connect-settings').click();
-  await expect(page.getByTestId('connect-control-plane')).toBeVisible();
-}
-async function closeControl(page) {
-  await page.getByTestId('connect-control-sheet').getByText('Cancel', { exact: true }).click();
 }
 async function submitLink(page, link) {
   const errorSheet = page.getByTestId('connect-error-sheet');
@@ -90,6 +83,7 @@ async function mockControlPlane(page, options = {}) {
       expect(request.headers().authorization).toBeUndefined();
       expect(request.postDataJSON()).toEqual({ store: 'google', purchaseToken: 'native-test-proof' });
       await page.evaluate(() => globalThis.__connectStoreTest.events.push('claim'));
+      if (options.testPurchase) { await send({ error: 'Google test purchases are disabled in this environment' }, 403); return; }
       if (options.subscriptionStatus && state.subscriptionClaims === 1) { await send({ error: 'store unavailable' }, options.subscriptionStatus); return; }
       await send({ user_id: 'store-owner', user_token: 'test-user-token', session_expires_at: new Date(Date.now() + 86400000).toISOString(), subscription_expires_at: new Date(state.paidThrough).toISOString(), entitlements: ['connect'] }); return;
     }
@@ -124,68 +118,36 @@ test.beforeEach(async ({ request }) => {
 });
 test.afterEach(async ({ page }) => { await page.unrouteAll({ behavior: 'ignoreErrors' }); });
 
-test('Connect defaults to production, saves a custom environment, and keeps pairing trust across relaunch', async ({ page }) => {
+test('Connect trusts only fixed environments and has no manual control-plane configuration', async ({ page }) => {
   await storeFixture(page);
   const production = await mockControlPlane(page);
-  const custom = 'https://staging.connect.test/connect';
-  const staging = await mockControlPlane(page, { controlPlane: custom });
   await openPair(page);
-  await openControl(page);
-  const input = page.getByTestId('connect-control-plane');
-  await expect(input).toHaveValue(CONTROL_PLANE);
-  await input.fill('http://staging.connect.test');
-  await page.getByTestId('connect-save-control-plane').click();
-  await expect(page.getByTestId('connect-error')).toContainText('HTTPS');
-  await input.fill(`${custom}///`);
-  await page.getByTestId('connect-save-control-plane').click();
-  await expect(page.getByTestId('connect-purchase')).toBeEnabled();
-  await expect(page.getByTestId('connect-machine-name')).toHaveCount(0);
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('opencode-mobile.connect-control-plane'))).toBe(custom);
-  await submitLink(page, pairingLink().toString());
+  await expect(page.getByTestId('connect-settings')).toHaveCount(0);
+  await expect(page.getByTestId('connect-control-plane')).toHaveCount(0);
+  const untrusted = pairingLink('untrusted');
+  untrusted.searchParams.set('cp', 'https://attacker.test');
+  await page.goto(`/pair?${untrusted.searchParams}`);
   await expect(page.getByTestId('connect-error')).toContainText('trusted control plane');
+  expect(production.subscriptionClaims).toBe(0);
   expect(production.pairClaims).toBe(0);
-  await page.reload();
-  await expect(page.getByTestId('connect-purchase')).toBeEnabled();
-  await openControl(page);
-  await expect(input).toHaveValue(custom);
-  await closeControl(page);
-  const link = pairingLink(); link.searchParams.set('cp', custom);
-  await submitLink(page, link.toString());
-  await expect(page.getByTestId('connect-machine-name')).toHaveText('Test Mac');
-  await page.getByTestId('connect-purchase').click();
-  await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
-  expect(staging.subscriptionClaims).toBe(1); expect(staging.pairClaims).toBe(1);
-  expect(production.subscriptionClaims).toBe(0); expect(production.pairClaims).toBe(0);
+  expect(await events(page)).not.toContain('purchase');
   await assertNoStoredSecrets(page);
 });
 
-test('switching environments clears subscription state and restores only the selected session', async ({ page }) => {
-  await storeFixture(page, { recovered: true });
-  const production = await mockControlPlane(page, { owned: true });
-  const custom = 'https://staging.connect.test';
-  const staging = await mockControlPlane(page, { controlPlane: custom, productId: 'fixture.staging' });
-  await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
-  await page.goto('/pair');
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
-  await expect(page.getByTestId('connect-purchase')).toHaveCount(0);
-  await page.evaluate(() => {
-    const fixture = globalThis.__connectStoreTest;
-    fixture.products.push({ ...fixture.products[0], id: 'fixture.staging' });
-  });
-  await openControl(page);
-  await page.getByTestId('connect-control-plane').fill(custom);
-  await page.getByTestId('connect-save-control-plane').click();
-  await expect(page.getByTestId('connect-purchase')).toBeEnabled();
-  await expect(page.getByTestId('connect-subscription-active')).toHaveCount(0);
-  expect(staging.requests).toEqual([{ method: 'GET', path: '/v1/subscriptions/catalog' }]);
-  await openControl(page);
-  await page.getByTestId('connect-control-plane').fill(CONTROL_PLANE);
-  await page.getByTestId('connect-save-control-plane').click();
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
-  await manage(page);
-  await page.getByTestId('connect-refresh-machines').click();
-  await expect(page.getByTestId('connect-machine-machine-1')).toBeVisible();
-  expect(production.subscriptionClaims).toBe(1); expect(staging.subscriptionClaims).toBe(0);
+test('a real buyer with a remembered staging preference automatically uses production', async ({ page }) => {
+  await storeFixture(page);
+  const production = await mockControlPlane(page);
+  const staging = await mockControlPlane(page, { controlPlane: STAGING });
+  await page.addInitScript((url) => localStorage.setItem('opencode-mobile.connect-control-plane', url), STAGING);
+  await openPair(page);
+  await page.getByTestId('connect-purchase').click();
+  await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
+  expect(production.subscriptionClaims).toBe(1);
+  expect(production.pairClaims).toBe(1);
+  expect(staging.subscriptionClaims).toBe(0);
+  expect(staging.pairClaims).toBe(0);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('opencode-mobile.connect-control-plane'))).toBe(CONTROL_PLANE);
+  await assertNoStoredSecrets(page);
 });
 
 test('purchase finalizes then automatically pairs, saves securely, and connects with Basic auth', async ({ page }) => {
@@ -238,9 +200,8 @@ for (const [name, options, message] of [
       await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
       await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
     }
-    await openControl(page);
-    await expect(page.getByTestId('connect-control-plane')).not.toBeEditable();
-    await closeControl(page);
+    await expect(page.getByTestId('connect-control-plane')).toHaveCount(0);
+    if (!options.finishFailures) await expect(page.getByTestId('connect-purchase')).toBeDisabled();
     expect(state.pairClaims).toBe(0);
     if (!options.finishFailures) expect(await events(page)).not.toContain('finish');
     await page.getByTestId('connect-retry').click();
@@ -250,12 +211,38 @@ for (const [name, options, message] of [
   });
 }
 
+for (const recovery of ['purchase', 'restore', 'restart']) {
+  test(`a Google test buyer automatically uses staging through ${recovery}`, async ({ page }) => {
+    await storeFixture(page, { recovered: recovery === 'restart' });
+    const production = await mockControlPlane(page, { testPurchase: true });
+    const staging = await mockControlPlane(page, { controlPlane: STAGING });
+    await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
+    const link = pairingLink('staging-pair');
+    link.searchParams.set('cp', STAGING);
+    await page.goto(`/pair?${link.searchParams}`);
+    if (recovery !== 'restart') {
+      await expect(page.getByTestId('connect-purchase')).toBeEnabled({ timeout: 30_000 });
+      await page.getByTestId(recovery === 'purchase' ? 'connect-purchase' : 'connect-restore').click();
+    }
+    await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
+    expect(production.subscriptionClaims).toBe(1);
+    expect(production.pairClaims).toBe(0);
+    expect(staging.subscriptionClaims).toBe(1);
+    expect(staging.pairClaims).toBe(1);
+    expect((await events(page)).filter((event) => event === 'purchase')).toHaveLength(recovery === 'purchase' ? 1 : 0);
+    expect((await events(page)).filter((event) => event === 'restore')).toHaveLength(recovery === 'restore' ? 1 : 0);
+    expect((await events(page)).filter((event) => event === 'finish')).toHaveLength(1);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('opencode-mobile.connect-control-plane'))).toBe(STAGING);
+    await assertNoStoredSecrets(page);
+  });
+}
+
 for (const outcome of ['pending', 'canceled']) {
   test(`${outcome} purchases grant and finalize nothing`, async ({ page }) => {
     await storeFixture(page, { outcome }); const state = await mockControlPlane(page);
     await openPair(page); await page.getByTestId('connect-purchase').click();
     await expect(page.getByTestId('connect-notice')).toContainText(outcome === 'pending' ? 'pending store approval' : 'Purchase canceled');
-    if (outcome === 'pending') { await openControl(page); await expect(page.getByTestId('connect-control-plane')).not.toBeEditable(); await closeControl(page); }
+    await expect(page.getByTestId('connect-settings')).toHaveCount(0);
     expect(state.subscriptionClaims).toBe(0); expect(state.pairClaims).toBe(0);
     expect(await events(page)).not.toContain('finish'); expect(await events(page)).not.toContain('restore');
     await assertNoStoredSecrets(page);
@@ -544,6 +531,6 @@ test('store setup errors keep subscription recovery separate from pairing settin
   await expect(sheet.getByTestId('connect-restore')).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'Trusted control plane', exact: true })).toHaveCount(0);
   await expect(sheet.getByRole('button', { name: 'Open pairing link', exact: true })).toHaveCount(0);
-  await openControl(page);
-  await expect(page.getByTestId('connect-control-plane')).toBeEditable();
+  await expect(page.getByTestId('connect-control-plane')).toHaveCount(0);
+  await expect(page.getByTestId('connect-settings')).toHaveCount(0);
 });

@@ -406,8 +406,9 @@ This is important to parity because the chat layout is intentionally dense and h
 `connection-method-chooser.tsx` renders the shared Connect/Manual choices.
 `connection-setup-form.tsx` composes the chooser and existing manual profile form
 for onboarding and returning from pairing. `connect-pairing.tsx` composes the
-full-screen scanner plus shared subscription, error, pairing-link and trusted
-control-plane overlays. `connect-scanner.tsx` owns camera presentation/lifecycle;
+full-screen scanner plus shared subscription, error and pairing-link overlays.
+Environment routing belongs to the provider and purchase service; no URL editor
+is rendered. `connect-scanner.tsx` owns camera presentation/lifecycle;
 `connect-subscription.tsx` renders native offers and explicit purchase/Restore.
 `connect-panel.tsx` renders the separate machine/profile management view. `app/pair.tsx` ingests links and navigates only.
 Domain state/actions come from `useConnection().connectSetup`; see [Connect](connect.md).

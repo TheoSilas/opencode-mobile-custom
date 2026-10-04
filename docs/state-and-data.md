@@ -213,7 +213,7 @@ not re-derive connection keys anywhere else.
 Persisted values:
 
 - `opencode-mobile.settings` (connection URL and username; the password lives in secure storage)
-- `opencode-mobile.connect-control-plane` (user-selected HTTPS Connect environment; defaults to the build URL or production, hydrated before pairing/Connect startup)
+- `opencode-mobile.connect-control-plane` (last automatically resolved Connect environment; defaults to production, accepts only production/staging, hydrated before pairing/Connect startup)
 - `opencode-mobile.connection-profiles` (saved connections with name and optional per-profile model selection; passwords live in secure storage)
 - `opencode-mobile.chat-preferences` (chat preferences, including the global UI `language`; not connection-scoped)
 - `opencode-mobile.active-project`
@@ -280,6 +280,13 @@ Credentials:
   automatically claims after initialization settles and entitlement is verified.
   Subscription recovery and automatic pairing use the existing operation lock;
   failed claims require explicit Retry or a replacement QR.
+- Failed subscription operations return to an idle phase while retaining their
+  provider checkpoint. Purchase environment routing automatically switches scope
+  after the operation releases its lock, retaining the same native transaction
+  and a matching secure QR. Only production and staging are trusted. A verified
+  session awaiting secure save or store finalization blocks switching environments.
+  The provider exposes `canPurchase` so the UI cannot offer another subscription
+  while that checkpoint still needs recovery or store approval is pending.
 - Connect uses a default phone name and backend-issued device credentials.
   Native purchase/Restore verifies ownership, securely saves the issued session,
   then finalizes the store transaction. Pending QR continuation is secure;

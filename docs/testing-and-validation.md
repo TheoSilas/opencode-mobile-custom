@@ -452,7 +452,7 @@ Connection creation now enters through a shared Connect/Manual chooser in
 Settings and onboarding. The web flows cover manual form retry and duplicate
 submission guards, subscription dismissal back to the chooser, subscriber
 auto-pairing without a subscription-sheet flash, invalid/untrusted QR replacement,
-control-plane overlays and environment isolation, and separate restored-machine
+automatic test/production purchase routing and environment isolation, and separate restored-machine
 management. Existing purchase verification, secure-save/finalization ordering,
 exact QR continuation, expiry and credential-rotation flows remain covered.
 

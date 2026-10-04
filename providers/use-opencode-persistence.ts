@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 
 import type { OpencodeConnectionSettings } from '@/lib/opencode/client';
-import { normalizeControlPlaneUrl } from '@/lib/connect';
+import { normalizeTrustedControlPlaneUrl } from '@/lib/connect';
 import { getConnectionPassword, saveConnectionPassword, withoutConnectionPassword } from '@/lib/connection-password';
 import {
   ACTIVE_PROJECT_STORAGE_KEY,
@@ -112,7 +112,7 @@ export function useOpencodePersistence({
 
         await load(FAVORITE_SESSIONS_STORAGE_KEY, parseFavoriteSessions, setFavoriteSessions);
 
-        await load(CONNECT_CONTROL_PLANE_STORAGE_KEY, normalizeControlPlaneUrl, setControlPlaneUrl);
+        await load(CONNECT_CONTROL_PLANE_STORAGE_KEY, normalizeTrustedControlPlaneUrl, setControlPlaneUrl);
 
         // Resolve first-run completion last so `isHydrated` already implies the
         // onboarding decision is known. The marker, including the migration

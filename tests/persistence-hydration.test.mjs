@@ -117,7 +117,7 @@ const hook = await loadTs('providers/use-opencode-persistence.ts', {
     getItem: async (key) => { if (key === keys.SETTINGS_STORAGE_KEY) throw new Error('temporarily unreadable'); return stored.get(key) ?? null; },
     setItem: async (key, value) => { stored.set(key, value); }, removeItem: async (key) => { stored.delete(key); },
   } },
-  '@/lib/connect': { normalizeControlPlaneUrl: (raw) => raw },
+  '@/lib/connect': { normalizeTrustedControlPlaneUrl: (raw) => raw },
   '@/lib/connection-password': {
     getConnectionPassword: async () => { throw new Error('secure storage unavailable'); },
     saveConnectionPassword: async () => assert.fail('unread credentials must remain untouched'),

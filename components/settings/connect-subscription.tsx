@@ -25,7 +25,7 @@ export function ConnectSubscription({ setup }: { setup: ConnectSetup }) {
         {offer.phases.map((phase, index) => <Text style={{ color: palette.muted }} key={index}>{phase.price} / {phase.period ? period(phase.period.value, phase.period.unit) : ''}{phase.cycles > 0 ? ` × ${phase.cycles}` : ''}</Text>)}
       </View>)}
     </RadioButton.Group> : null}
-    <Button testID="connect-purchase" mode="contained" disabled={pending || !setup.storeReady || !selected} onPress={() => { if (selected) void setup.purchase(selected.key); }}>{t('settings:connect.subscribe')}</Button>
+    <Button testID="connect-purchase" mode="contained" disabled={!setup.canPurchase || !selected} onPress={() => { if (selected) void setup.purchase(selected.key); }}>{t('settings:connect.subscribe')}</Button>
     <Button testID="connect-restore" disabled={pending || !setup.storeReady} onPress={() => { void setup.restore(); }}>{t('settings:connect.restore')}</Button>
   </View>;
 }

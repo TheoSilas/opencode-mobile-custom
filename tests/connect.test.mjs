@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { loadTs, hookRuntime } from './helpers/runtime.mjs';
 
 const uri = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 async function moduleUri(file, replacements) {
@@ -24,11 +25,14 @@ const connect = await import(await moduleUri('../lib/connect.ts', [
   [/from 'expo\/fetch'/g, `from "${uri('export const fetch = (...args) => globalThis.fetch(...args);')}"`],
   [/from 'expo-constants'/g, `from "${constants}"`], [/from 'react-native'/g, `from "${native}"`], [/from 'expo-secure-store'/g, `from "${secure}"`],
 ]));
+assert.equal(new connect.ConnectApiError(403, { error: 'Google test purchases are disabled in this environment' }).testPurchase, true);
+assert.equal(new connect.ConnectApiError(403, { error: 'no active subscription' }).testPurchase, false);
+assert.equal(new connect.ConnectApiError(502, { error: 'Google test purchases are disabled in this environment' }).testPurchase, false);
 const url = new URL('opencodemobile://pair');
 for (const [key, value] of Object.entries({ v: '1', cp: 'https://api.getopencode.app', id: 'pair-1', t: 'temporary-token', n: 'Mac & Studio' })) url.searchParams.set(key, value);
 const pairing = connect.parseConnectPairing(url.toString());
 assert.equal(connect.isConnectEnabled(), true, 'Native pairing must not depend on a development flag.');
-assert.deepEqual(connect.getConnectControlPlanes(), ['https://api.getopencode.app'], 'Extra configuration cannot trust another control plane.');
+assert.deepEqual(connect.getConnectControlPlanes(), ['https://api.getopencode.app', 'https://apistaging.getopencode.app'], 'Only the two fixed environments are trusted.');
 assert.equal(pairing.machineName, 'Mac & Studio');
 assert.equal(pairing.pairingToken, 'temporary-token');
 assert.deepEqual(connect.parseConnectPairing(Object.fromEntries(url.searchParams)), pairing);
@@ -55,17 +59,19 @@ assert.deepEqual(await connect.getPendingConnectPairing(pairing.controlPlaneUrl,
 await connect.savePendingConnectPairing(pairing.controlPlaneUrl, 'apple');
 assert.equal(await connect.getPendingConnectPairing(pairing.controlPlaneUrl, 'apple'), undefined);
 
-const customControlPlane = connect.normalizeControlPlaneUrl('  https://STAGING.example.test/connect///  ');
-assert.equal(customControlPlane, 'https://staging.example.test/connect');
+assert.equal(connect.normalizeControlPlaneUrl('  https://STAGING.example.test/connect///  '), 'https://staging.example.test/connect');
+const customControlPlane = connect.normalizeTrustedControlPlaneUrl('  https://APISTAGING.getopencode.app///  ');
+assert.equal(customControlPlane, 'https://apistaging.getopencode.app');
+assert.throws(() => connect.normalizeTrustedControlPlaneUrl('https://staging.example.test'), /trusted/);
 for (const invalid of ['http://localhost:8787', 'ftp://staging.example.test', 'https://user:secret@staging.example.test', 'https://staging.example.test?token=x', 'https://staging.example.test#fragment', 'not-a-url']) {
   assert.throws(() => connect.normalizeControlPlaneUrl(invalid));
 }
 const customLink = new URL(url);
 customLink.searchParams.set('cp', customControlPlane);
-assert.throws(() => connect.parseConnectPairing(customLink.toString()), /trusted control plane/);
 const customPairing = connect.parseConnectPairing(customLink.toString(), customControlPlane);
+assert.deepEqual(connect.parseConnectPairing(customLink.toString()), customPairing);
 assert.equal(customPairing.controlPlaneUrl, customControlPlane);
-assert.throws(() => connect.parseConnectPairing(url.toString(), customControlPlane), /trusted control plane/);
+assert.throws(() => connect.parseConnectPairing(url.toString(), customControlPlane), /subscription environment/);
 await connect.saveConnectSession(customControlPlane, 'apple', { ...session, user_token: 'staging-token' });
 assert.equal((await connect.getConnectSession(customControlPlane, 'apple')).user_token, 'staging-token');
 assert.equal((await connect.getConnectSession(pairing.controlPlaneUrl, 'apple')).user_token, 'user-token');
@@ -157,12 +163,12 @@ function appConfig(variant, controlPlaneUrl) {
   return context.exports.default;
 }
 const production = appConfig('production'), development = appConfig('development');
-assert.equal(production.extra.connectControlPlaneUrl, 'https://api.getopencode.app');
-assert.equal(development.extra.connectControlPlaneUrl, 'https://api.getopencode.app');
+assert.equal(production.extra.connectControlPlaneUrl, undefined);
+assert.equal(development.extra.connectControlPlaneUrl, undefined);
 globalThis.__connectConfig = appConfig('production', `${customControlPlane}/`);
-assert.deepEqual(connect.getConnectControlPlanes(), [customControlPlane]);
+assert.deepEqual(connect.getConnectControlPlanes(), [connect.CONNECT_PRODUCTION_URL, connect.CONNECT_STAGING_URL]);
 globalThis.__connectConfig = appConfig('production', 'http://localhost:8787');
-assert.deepEqual(connect.getConnectControlPlanes(), []);
+assert.deepEqual(connect.getConnectControlPlanes(), [connect.CONNECT_PRODUCTION_URL, connect.CONNECT_STAGING_URL]);
 assert.equal(production.extra.connectPilot.enabled, undefined);
 assert.equal(production.extra.connectPilot.controlPlanes, undefined);
 assert.equal(production.extra.connectPilot.testUserToken, undefined);
@@ -282,3 +288,124 @@ for (const platform of ['apple', 'google']) {
   } finally { globalThis.fetch = originalFetch; globalThis.__secureWriteFails = false; delete globalThis.__subscriptionEvents; }
 }
 console.log('Subscription catalog, native proof, DEFERRED replacement, secure grant/finalization and recovery checks passed');
+
+// Run the real provider hook and purchase service on both stores. A failed
+// verification must permit automatic routing without replaying a purchase;
+// once verified, secure-save/finalization checkpoints must stay in their scope.
+for (const platform of ['apple', 'google']) {
+  for (const scenario of ['routing', 'claim', 'restore', 'secure', 'finish']) {
+    const failure = scenario === 'restore' ? 'claim' : scenario;
+    globalThis.__connectPlatform = platform === 'apple' ? 'ios' : 'android';
+    globalThis.__connectSecrets.clear();
+    const runtime = hookRuntime();
+    const staging = 'https://apistaging.getopencode.app';
+    const purchase = { id: 'recovery-transaction', productId: `fixture.${platform}`, store: platform, purchaseState: 'purchased', purchaseToken: 'exact-native-proof', transactionDate: Date.now() };
+    if (scenario === 'routing' && platform === 'apple') purchase.environmentIOS = 'Sandbox';
+    const requests = [], events = [];
+    let fail = true, onPurchase;
+    const nativeApi = {
+      initConnection: async () => true, endConnection: async () => true,
+      fetchProducts: async () => platform === 'apple' ? [appleProduct] : [googleProduct],
+      // Recovery must retain the transaction even if the next store query has
+      // not published it yet. No interactive Restore is needed to change scope.
+      getAvailablePurchases: async () => [], getPendingTransactionsIOS: async () => [],
+      requestPurchase: async () => { events.push('purchase'); },
+      restorePurchases: async () => { events.push('restore'); },
+      getTransactionJwsIOS: async () => '', isEligibleForIntroOfferIOS: async () => false,
+      finishTransaction: async ({ purchase: finished }) => {
+        events.push('finish'); assert.equal(finished, purchase);
+        if (fail && failure === 'finish') throw new Error('Store unavailable');
+      },
+      purchaseUpdatedListener: (listener) => { onPurchase = listener; return { remove() {} }; },
+      purchaseErrorListener: () => ({ remove() {} }),
+    };
+    const hook = await loadTs('providers/use-connect-state.ts', {
+      react: runtime.react,
+      'react-native': { Platform: { OS: globalThis.__connectPlatform }, AppState: { addEventListener: () => ({ remove() {} }) } },
+      '@/lib/connect': connect,
+      '@/lib/connect-store': { ...storeApi, loadConnectStore: async () => nativeApi },
+      '@/lib/connection-profiles': { loadConnectionProfiles: async () => [] },
+      '@/providers/connection-refresh': {},
+      '@/providers/services/connect-subscription-service': subscriptionService,
+    });
+    globalThis.fetch = async (address) => {
+      requests.push(address);
+      const testPurchase = scenario === 'routing' && platform === 'google' && address === `${connect.CONNECT_PRODUCTION_URL}/v1/subscriptions/claim`;
+      const status = testPurchase ? 403 : address.endsWith('/claim') && fail && failure === 'claim' ? 400 : 200;
+      const response = testPurchase ? { error: 'Google test purchases are disabled in this environment' } : address.endsWith('/catalog') ? fixtureCatalog : address.endsWith('/claim') ? session : { machines: [] };
+      return new Response(JSON.stringify(response), { status });
+    };
+    try {
+      runtime.mount(() => {
+        const [controlPlaneUrl, setControlPlaneUrl] = runtime.react.useState(pairing.controlPlaneUrl);
+        return hook.useConnectState({ controlPlaneUrl, setControlPlaneUrl, isHydrated: true,
+          switchConnection: async () => ({ status: 'connected' }), disconnect: async () => {},
+          beforeProfileRefresh: async () => {}, onProfileRefreshed: () => {},
+        });
+      }, {});
+      await runtime.settle();
+      assert.equal(runtime.value.canPurchase, true);
+      if (scenario === 'routing') {
+        await runtime.value.pairLink({ v: '1', cp: staging, id: 'discarded', t: 'temporary-proof', n: 'Test Mac' });
+        await runtime.settle();
+        await runtime.value.cancelPairing();
+        await runtime.settle();
+        assert.equal(await connect.getPendingConnectPairing(staging, platform), undefined, 'Closing must clear the pending QR in its own environment before buyer routing');
+      }
+      await runtime.value.purchase(runtime.value.offers[0].key);
+      await runtime.settle();
+      assert.equal(runtime.value.canChangeControlPlane, false, 'An open store purchase cannot change environment');
+      globalThis.__secureWriteFails = failure === 'secure';
+      onPurchase(purchase);
+      await runtime.settle();
+      if (scenario === 'routing') {
+        assert.equal(runtime.value.controlPlaneUrl, staging);
+        assert.equal(runtime.value.entitled, true);
+        assert.equal(runtime.value.error, undefined);
+        assert.equal(await connect.getConnectSession(pairing.controlPlaneUrl, platform), undefined);
+        assert.equal((await connect.getConnectSession(staging, platform)).user_token, session.user_token);
+        assert.deepEqual(requests.filter((address) => address.endsWith('/claim')), platform === 'google'
+          ? [`${pairing.controlPlaneUrl}/v1/subscriptions/claim`, `${staging}/v1/subscriptions/claim`]
+          : [`${staging}/v1/subscriptions/claim`]);
+        assert.deepEqual(events, ['purchase', 'finish']);
+        continue;
+      }
+      assert.equal(runtime.value.phase, 'idle', 'A failed operation must not leave a stale progress phase');
+      assert.equal(runtime.value.canPurchase, false);
+      assert.equal(runtime.value.canRetry, true);
+      const error = runtime.value.error;
+      assert.ok(error);
+      await runtime.value.purchase(runtime.value.offers[0].key);
+      await runtime.settle();
+      assert.equal(runtime.value.error, error, 'Another Subscribe action must preserve the actual failure');
+      assert.deepEqual(events.filter((event) => event === 'purchase'), ['purchase']);
+      assert.equal(runtime.value.canChangeControlPlane, failure === 'claim');
+      fail = false; globalThis.__secureWriteFails = false;
+      if (scenario === 'claim') {
+        assert.equal(requests.some((address) => address.startsWith(staging)), false, 'An ordinary verification failure must never route to staging');
+        await runtime.value.retry();
+        await runtime.settle();
+        assert.equal(runtime.value.controlPlaneUrl, pairing.controlPlaneUrl);
+        assert.equal(runtime.value.entitled, true);
+        assert.equal(requests.filter((address) => address.endsWith('/claim')).length, 2);
+      } else if (scenario === 'restore') {
+        await runtime.value.restore();
+        await runtime.settle();
+        assert.equal(runtime.value.entitled, true, 'Restore must reuse the retained transaction even when the store query is empty');
+        assert.equal(requests.filter((address) => address.endsWith('/claim')).length, 2);
+      } else {
+        assert.equal(runtime.value.selectControlPlane(staging), false, 'A verified checkpoint must remain in its original environment');
+        await runtime.value.retry();
+        await runtime.settle();
+        assert.equal(runtime.value.entitled, true);
+        assert.equal(requests.filter((address) => address.endsWith('/claim')).length, 1, 'Saving/finalizing retry must reuse the verified session');
+      }
+      assert.equal(runtime.value.error, undefined);
+      assert.equal(runtime.value.canChangeControlPlane, true);
+      assert.deepEqual(events.filter((event) => event === 'purchase' || event === 'restore'), scenario === 'restore' ? ['purchase', 'restore'] : ['purchase']);
+    } finally {
+      runtime.unmount(); globalThis.fetch = originalFetch; globalThis.__secureWriteFails = false;
+    }
+  }
+}
+console.log('Apple/Google provider environment correction, checkpoint isolation, and duplicate-purchase recovery checks passed');

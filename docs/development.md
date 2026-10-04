@@ -30,9 +30,9 @@ OpenCode Mobile is built with Expo and React Native.
    Native Connect is available in every build. Purchase/Restore requires a native
    development or store build, not Expo Go. Use
    `EXPO_APP_VARIANT=development npm run start:dev-client` for the separate dev app.
-   `EXPO_CONNECT_CONTROL_PLANE_URL` sets the default HTTPS environment; it defaults
-   to `https://api.getopencode.app`. Users can override it in the Connect panel;
-   the saved URL survives relaunch. Products come from that backend's catalog,
+   Connect routes real purchases to `https://api.getopencode.app` and test purchases
+   to `https://apistaging.getopencode.app` automatically. No manual URL configuration
+   is needed. The resolved environment survives relaunch. Products come from its backend catalog,
    never app configuration. See [Connect prerequisites and validation](connect.md).
 
 ### Common Commands

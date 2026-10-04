@@ -18,6 +18,8 @@ export type ConnectProduct = { store: 'apple'; productId: string } | { store: 'g
 export type ConnectCatalog = { plans: { id: string; entitlements: string[]; products: ConnectProduct[] }[] };
 export type ConnectSession = { user_id: string; user_token: string; session_expires_at: string; subscription_expires_at: string; entitlements: string[] };
 export type ConnectProof = { store: 'apple'; signedTransaction: string } | { store: 'google'; purchaseToken: string };
+export const CONNECT_PRODUCTION_URL = 'https://api.getopencode.app';
+export const CONNECT_STAGING_URL = 'https://apistaging.getopencode.app';
 
 export function isConnectEnabled() {
   const extra = Constants.expoConfig?.extra;
@@ -31,17 +33,21 @@ export function normalizeControlPlaneUrl(value: string) {
 }
 
 export function getConnectControlPlanes(): string[] {
-  const configured = Constants.expoConfig?.extra?.connectControlPlaneUrl ?? 'https://api.getopencode.app';
-  try { return [normalizeControlPlaneUrl(configured)]; }
-  catch { return []; }
+  return [CONNECT_PRODUCTION_URL, CONNECT_STAGING_URL];
+}
+
+export function normalizeTrustedControlPlaneUrl(value: string) {
+  const url = normalizeControlPlaneUrl(value);
+  if (!getConnectControlPlanes().includes(url)) throw new Error('This pairing does not match a trusted control plane. Open a fresh QR from the connector.');
+  return url;
 }
 
 function requireControlPlane(value: string) {
   if (!isConnectEnabled()) throw new Error('Connect is available on iOS and Android.');
-  return normalizeControlPlaneUrl(value);
+  return normalizeTrustedControlPlaneUrl(value);
 }
 
-export function parseConnectPairing(value: string | Record<string, string | string[] | undefined>, controlPlaneUrl = getConnectControlPlanes()[0] ?? ''): ConnectPairing {
+export function parseConnectPairing(value: string | Record<string, string | string[] | undefined>, controlPlaneUrl?: string): ConnectPairing {
   try {
     const url = new URL(typeof value === 'string' ? value : 'opencodemobile://pair');
     if (typeof value !== 'string') {
@@ -54,7 +60,7 @@ export function parseConnectPairing(value: string | Record<string, string | stri
     const pairingId = url.searchParams.get('id')!;
     if (!/^[a-zA-Z0-9_-]{1,128}$/.test(pairingId)) throw new Error();
     const pairingControlPlane = requireControlPlane(url.searchParams.get('cp')!);
-    if (pairingControlPlane !== normalizeControlPlaneUrl(controlPlaneUrl)) throw new Error('This pairing does not match the trusted control plane. Select its URL in Connect settings first.');
+    if (controlPlaneUrl && pairingControlPlane !== normalizeTrustedControlPlaneUrl(controlPlaneUrl)) throw new Error('This pairing does not match the subscription environment. Open a fresh QR from the matching connector.');
     return {
       controlPlaneUrl: pairingControlPlane,
       pairingId,
@@ -62,7 +68,7 @@ export function parseConnectPairing(value: string | Record<string, string | stri
       machineName: url.searchParams.get('n')!,
     };
   } catch (error) {
-    if (error instanceof Error && /trusted|iOS and Android/.test(error.message)) throw error;
+    if (error instanceof Error && /trusted|subscription environment|iOS and Android/.test(error.message)) throw error;
     throw new Error('Invalid or unsupported pairing link. Open a fresh link from the connector.');
   }
 }
@@ -158,6 +164,7 @@ export class ConnectApiError extends Error {
   public machineId?: string;
   public invalidPairingToken: boolean;
   public pairingExpired: boolean;
+  public testPurchase: boolean;
   constructor(public status: number, value?: unknown) {
     super({
       400: 'Invalid subscription proof or request. Restore to recover your purchase.',
@@ -170,6 +177,7 @@ export class ConnectApiError extends Error {
       503: 'Connect configuration or access reconciliation is unavailable. Try again later.',
     }[status] ?? 'The control plane could not complete the request. Try again.');
     const record = value as { machine_id?: unknown; error?: unknown } | undefined;
+    this.testPurchase = status === 403 && record?.error === 'Google test purchases are disabled in this environment';
     if ((status === 409 || status === 503) && typeof record?.machine_id === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(record.machine_id)) this.machineId = record.machine_id;
     this.pairingExpired = status === 409 && record?.error === 'pairing expired';
     this.invalidPairingToken = status === 401 && record?.error === 'invalid pairing token';

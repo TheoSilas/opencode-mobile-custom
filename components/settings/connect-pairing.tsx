@@ -2,7 +2,7 @@ import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppState, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Appbar, Button, FAB, HelperText, Portal, Text } from 'react-native-paper';
+import { ActivityIndicator, Appbar, Button, HelperText, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConnectionSetupForm } from '@/components/settings/connection-setup-form';
@@ -36,8 +36,7 @@ export function ConnectPairing({ setup, onConnected, onClose, onManage }: { setu
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const [active, setActive] = useState(AppState.currentState === 'active');
-  const [sheet, setSheet] = useState<'control' | 'link'>();
-  const [draft, setDraft] = useState(setup.controlPlaneUrl);
+  const [sheet, setSheet] = useState<'link'>();
   const [link, setLink] = useState('');
   const [scanPending, setScanPending] = useState(false);
   // A previous successful pairing must not redirect a newly opened scanner.
@@ -74,7 +73,6 @@ export function ConnectPairing({ setup, onConnected, onClose, onManage }: { setu
       {setup.entitled ? <Button testID="connect-manage" disabled={pending} onPress={onManage}>{t('settings:connect.machines')}</Button> : null}
       <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Button mode="contained-tonal" testID="connect-link-options" disabled={pending || scanPending} onPress={() => setSheet('link')}>{t('settings:connect.openLink')}</Button>
-        {!subscription ? <FAB testID="connect-settings" icon="cog-outline" accessibilityLabel={t('settings:connect.controlPlane')} onPress={() => { setDraft(setup.controlPlaneUrl); setSheet('control'); }} /> : null}
       </View>
     </View>
     <OverlaySheet visible={subscription && !sheet} title={t('settings:connect.title')} onClose={close} fitContent testID="connect-subscription-sheet">
@@ -84,12 +82,6 @@ export function ConnectPairing({ setup, onConnected, onClose, onManage }: { setu
       {setup.notice ? <HelperText testID="connect-notice" type="info">{setup.notice}</HelperText> : null}
       {setup.canRetry ? <Button testID="connect-retry" disabled={setup.busy} onPress={() => void setup.retry()}>{t('common:actions.retry')}</Button> : null}
     </OverlaySheet>
-    <OverlaySheet visible={focused && sheet === 'control'} title={t('settings:connect.controlPlane')} onClose={() => setSheet(undefined)} fitContent testID="connect-control-sheet">
-      <TextInput testID="connect-control-plane" label={t('settings:connect.controlPlane')} value={draft} onChangeText={setDraft} autoCapitalize="none" autoCorrect={false} keyboardType="url" disabled={!setup.canChangeControlPlane} />
-      {setup.error ? <HelperText testID="connect-error" type="error">{setup.error}</HelperText> : null}
-      <Button testID="connect-save-control-plane" mode="contained" disabled={!setup.canChangeControlPlane || !draft.trim() || draft === setup.controlPlaneUrl} onPress={() => { const saved = setup.selectControlPlane(draft); if (saved) { setDraft(saved); setSheet(undefined); } }}>{t('common:actions.save')}</Button>
-      <Button onPress={() => setSheet(undefined)}>{t('common:actions.cancel')}</Button>
-    </OverlaySheet>
     <OverlaySheet visible={focused && sheet === 'link'} title={t('settings:connect.openLink')} onClose={() => setSheet(undefined)} fitContent testID="connect-link-sheet">
       <TextInput testID="connect-pairing-link" label={t('settings:connect.pairingLink')} value={link} onChangeText={setLink} autoCapitalize="none" autoCorrect={false} disabled={pending} />
       <Button testID="connect-open-link" disabled={pending || !link.trim()} onPress={() => { setSheet(undefined); void scan(link); setLink(''); }}>{t('settings:connect.openLink')}</Button>
@@ -98,13 +90,9 @@ export function ConnectPairing({ setup, onConnected, onClose, onManage }: { setu
       {setup.error ? <HelperText testID="connect-error" type="error">{setup.error}</HelperText> : null}
       {setup.notice ? <HelperText testID="connect-notice" type="info">{setup.notice}</HelperText> : null}
       {setup.canRetry ? <Button testID="connect-retry" disabled={setup.busy} onPress={() => void setup.retry()}>{t('common:actions.retry')}</Button> : null}
-      <Button testID="connect-error-settings" onPress={() => { setDraft(setup.controlPlaneUrl); setSheet('control'); }}>{t('settings:connect.controlPlane')}</Button>
       {setup.savedProfile ? <Button testID="connect-retry-connection" disabled={setup.busy} onPress={() => void setup.connectProfile(setup.savedProfile!)}>{t('common:actions.reconnect')}</Button> : null}
       <Button disabled={pending} onPress={() => { setup.dismissError(); setSheet('link'); }}>{t('settings:connect.openLink')}</Button>
     </OverlaySheet>
-    {subscription && !sheet ? <Portal>
-      <FAB testID="connect-settings" icon="cog-outline" accessibilityLabel={t('settings:connect.controlPlane')} style={{ position: 'absolute', right: 20, top: insets.top + 160 }} onPress={() => { setDraft(setup.controlPlaneUrl); setSheet('control'); }} />
-    </Portal> : null}
   </KeyboardAvoidingView>;
 }
 const styles = StyleSheet.create({

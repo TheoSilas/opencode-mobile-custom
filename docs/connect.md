@@ -7,17 +7,29 @@ issues the Connect session. There is no signup, login or token-entry step.
 
 ## Environment and native prerequisites
 
-The default trusted control plane is `https://api.getopencode.app`.
-`EXPO_CONNECT_CONTROL_PLANE_URL` sets a different default HTTPS environment at build
-or Metro start time. The full-screen pairing surface exposes a settings FAB that opens the shared
-Trusted control plane overlay to edit and save the URL. This non-secret preference survives relaunch and takes precedence
-over the build default. Only that exact normalized URL is accepted in pairing links;
-QR links cannot change the selected environment. URLs must use HTTPS and contain
-no credentials, query parameters, or fragments. Switching reloads the catalog and
-environment/store-scoped session and pending QR, and clears displayed offers,
-machines and pairing state. Switching is blocked during operations, unfinished
-purchases and pending credential saves. Existing profiles and secure sessions
-remain available in their original environment. Never put product IDs or private verification credentials in Expo
+Connect automatically chooses between two fixed trusted environments:
+`https://api.getopencode.app` for real purchases and
+`https://apistaging.getopencode.app` for test purchases. There is no manual URL
+editor or build-time URL override. The last resolved environment is persisted as
+non-secret metadata; unknown legacy/custom URLs are discarded during hydration.
+
+Google purchase metadata does not identify a test buyer locally. The app first
+submits a new or rediscovered transaction to production. Only its exact verified
+`403` response `Google test purchases are disabled in this environment` routes the
+same transaction to staging. Ordinary entitlement, network, configuration and
+verification failures never trigger that fallback. Even with a remembered staging
+preference, a new real Google purchase resolves through production. StoreKit's
+native `environmentIOS=Sandbox` selects staging; other transactions start at
+production. Both stores still require successful backend verification.
+
+The provider switches after releasing its operation lock and reloads the catalog
+and environment/store-scoped session and pending QR. It retains the native proof
+in memory for continuation, keeping secure-save/finalization retries in the same
+verified environment. Redirect signals grant no access and never finalize a
+transaction. QR links may reference only the two fixed URLs and cannot route store
+proofs or grant an entitlement. A QR from the other subscription environment is
+rejected; open a fresh QR from a connector running in the matching environment.
+Never put product IDs or private verification credentials in Expo
 configuration. The environment's `GET /v1/subscriptions/catalog` supplies plans,
 Apple products and Google product/base-plan/offer IDs. Missing configuration or
 native product metadata shows an unavailable error.
@@ -71,10 +83,8 @@ exact pending QR for purchase/Restore.
 The camera unmounts during operations, overlays, lost focus and backgrounding.
 Invalid/untrusted links show recoverable errors; dismissing resumes scanning.
 Permission denial/unavailable cameras retain device Settings, Retry and a
-pairing-link fallback. The settings FAB opens the trusted-control-plane sheet;
-it retains the provider's environment-change restrictions. The subscription sheet, including store setup and purchase errors, contains
-only purchase/Restore content and recovery controls. Its settings FAB remains
-outside the sheet; pairing-link fallback belongs to the pairing surface. Machine management lives in a separate `pair?mode=manage`
+pairing-link fallback. The subscription sheet, including store setup and purchase errors, contains
+only purchase/Restore content and recovery controls. Pairing-link fallback belongs to the pairing surface. Machine management lives in a separate `pair?mode=manage`
 view, reached through saved profiles' Manage Connect or Your machines after
 Restore. Production web offers Manual and explains native Connect availability;
 only the existing web E2E harness enables mocked Connect.
@@ -106,6 +116,12 @@ Both stores follow this order:
 5. Automatically continue a pending QR, or recover owned machines.
 
 A failed backend claim or secure write never finalizes the transaction.
+Verification errors identify the selected control plane. Subscribe stays disabled
+while a transaction needs recovery; Retry and Restore reuse the existing purchase.
+Production and test environments can advertise the same product ID, so an offer
+alone does not identify the purchase environment. Google test purchases route to
+staging automatically, including Purchase, Restore and silent restart recovery.
+The desktop connector's QR must use that same environment.
 Finalization retries reuse the saved session without buying again. After app
 termination, the unfinished native transaction can be rediscovered, exchanged
 again through the idempotent claim and finalized. Store proofs are not stored
@@ -179,9 +195,15 @@ offer selection, native JWS forwarding, Family Sharing exclusion, DEFERRED
 replacement, URL safety, app identity/camera/build variants and WebSocket headers.
 `test:connection-profiles` checks stable profile identity, credential rotation,
 hostname preservation, rollback, secret exclusion and expiry.
-Control-plane checks cover URL normalization/rejection, explicit pairing trust,
-environment-isolated sessions and pending QR records. The Connect E2E flow also
-checks editing, catalog reload, state reset, purchase blocking and relaunch.
+Control-plane checks cover the fixed allowlist, URL normalization/rejection,
+explicit pairing trust, and environment-isolated sessions and pending QR records.
+Actual provider-hook checks on both stores cover automatic purchase routing,
+duplicate Subscribe/error preservation, retained-proof Restore, and checkpoint
+isolation during secure-save/finalization failures. Connect E2E covers real buyers
+returning to production from a remembered staging preference, test buyers routing
+to staging through Purchase/Restore/restart, exact staging QR continuation, and the
+absence of manual URL configuration. Updated E2E assertions and real Android
+license-test recovery still require explicit human validation.
 
 `tests/e2e/connect.spec.mjs` intercepts the trusted API, supplies deterministic
 native-store metadata/events and forwards HTTPS connector REST to the existing
@@ -192,6 +214,12 @@ Production web has neither this store driver nor credential persistence.
 Run `test:ci:static`, `test:fake-server:self`, `test:e2e:web`, the Android
 development build and an iOS development build. E2E changes require explicit
 human validation under AGENTS.md, even when automated checks pass.
+
+Automatic-routing validation on 2026-10-04: static checks, both fake-server
+self-tests and all 82 Chromium flows passed. Actual provider-hook checks cover
+both stores. The Android development build reached Gradle configuration but
+stopped because no Android SDK is configured on this machine. Live Google
+license-test Purchase/Restore and explicit human E2E validation remain pending.
 
 Validation recorded on 2026-10-02:
 
