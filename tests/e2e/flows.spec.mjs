@@ -52,6 +52,8 @@ async function closeSettingsOverlay(page) {
 
 async function goToTab(page, name) {
   await closeSettingsOverlay(page);
+  const changes = page.getByTestId('changes-overlay');
+  if (await changes.isVisible().catch(() => false)) await changes.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('tab', { name }).click();
 }
 
@@ -315,8 +317,8 @@ test('happy path keeps the main chat flow stable', async ({ page, request }) => 
 
   await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Flow stayed stable against the fake OpenCode server/).first()).toBeVisible();
-  await page.getByText('1 File Changed', { exact: true }).click();
-  await expect(page.getByText('1 file changed, +6 / -1', { exact: true })).toBeVisible();
+  await page.getByTestId('chat-changes-chip').click();
+  await expect(page.getByTestId('chat-changes-chip')).toHaveAccessibleName('Review changes. 1 file changed, +6 / -1');
   await page.getByText('app/(tabs)/index.tsx', { exact: true }).click();
   await expect(page.getByText(/export default function ChatLandingScreen/)).toBeVisible();
   await goToTab(page, 'Workspace');
@@ -389,19 +391,99 @@ test('chat renders GFM tables, ordered lists, and tappable links', async ({ page
   await expect(inlineCode).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.08)');
 });
 
+test('changes chip preserves the composer and hides for an empty scope', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await openReadyChat(page);
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const chip = page.getByTestId('chat-changes-chip');
+  await expect(chip).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Session', exact: true })).toHaveCount(0);
+  await sendPrompt(page, 'Review changes without losing my draft');
+  await expect(chip).toHaveAccessibleName('Review changes. 1 file changed, +6 / -1');
+  await expect(chip.getByText('+6', { exact: true })).toBeVisible();
+  await expect(chip.getByText('−1', { exact: true })).toBeVisible();
+  const input = page.getByPlaceholder('Ask anything...');
+  await input.fill('Keep this draft while reviewing');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(chip).toBeVisible();
+  const chipBounds = await chip.boundingBox();
+  const inputBounds = await input.boundingBox();
+  expect(chipBounds.y + chipBounds.height).toBeLessThanOrEqual(inputBounds.y);
+  expect(chipBounds.x).toBeGreaterThanOrEqual(0);
+  expect(chipBounds.x + chipBounds.width).toBeLessThanOrEqual(390);
+  const progressBounds = await page.getByTestId('chat-progress-button').boundingBox();
+  expect(Math.abs(progressBounds.y + progressBounds.height / 2 - (chipBounds.y + chipBounds.height / 2))).toBeLessThanOrEqual(1);
+  expect(progressBounds.x).toBeGreaterThanOrEqual(chipBounds.x + chipBounds.width);
+  await page.getByTestId('chat-progress-button').click();
+  await expect(page.getByTestId('progress-overlay')).toBeVisible();
+  await page.getByTestId('progress-overlay').getByRole('button', { name: 'Close', exact: true }).click();
+  await chip.click();
+  const overlay = page.getByTestId('changes-overlay');
+  await expect(overlay).toBeVisible();
+  await expect(overlay.getByText('1 file changed', { exact: true })).toBeVisible();
+  const sheet = overlay.getByLabel('1 file changed', { exact: true });
+  const sheetBounds = await sheet.boundingBox();
+  expect(sheetBounds.width).toBe(390);
+  expect(sheetBounds.y).toBeGreaterThan(300);
+  const fileRow = overlay.getByRole('button', { name: /app\/\(tabs\)\/index.tsx/ });
+  expect((await fileRow.boundingBox()).height).toBeLessThanOrEqual(56);
+  await expect(fileRow).toHaveAttribute('aria-expanded', 'false');
+  await expect(overlay.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible();
+  await overlay.getByText('app/(tabs)/index.tsx', { exact: true }).click();
+  await expect(overlay.getByText('export default function ChatLandingScreen() {', { exact: false })).toBeVisible();
+  await expect(fileRow).toHaveAttribute('aria-expanded', 'true');
+  expect(await sheet.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
+  await overlay.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(input).toHaveValue('Keep this draft while reviewing');
+  await chip.click();
+  await chooseDiffSource(page, 'Uncommitted');
+  await expect(overlay.getByText('No uncommitted changes.', { exact: true })).toBeVisible();
+  await overlay.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(chip).toHaveCount(0);
+  await expect(page.getByTestId('chat-progress-button')).toBeVisible();
+  await expect(input).toHaveValue('Keep this draft while reviewing');
+  expect(errors).toEqual([]);
+});
+
+for (const scenario of ['permission', 'question']) {
+  test(`incoming ${scenario} dismisses changes and its source picker`, async ({ page, request }) => {
+    await resetScenario(request, scenario);
+    await openReadyChat(page);
+    const promptRequest = page.waitForRequest((request) => request.method() === 'POST' && request.url().includes('/prompt_async'));
+    await sendPrompt(page, 'Create changes after resolving a blocker');
+    const promptUrl = (await promptRequest).url();
+    if (scenario === 'permission') {
+      await page.getByText('Allow once', { exact: true }).click();
+    } else {
+      await page.getByText('Minimal', { exact: true }).click();
+      await page.getByText('Submit answer', { exact: true }).click();
+    }
+    await expect(page.getByTestId('chat-changes-chip')).toBeVisible({ timeout: 20_000 });
+    await page.getByTestId('chat-changes-chip').click();
+    await page.getByRole('button', { name: /Change files changed source/ }).click();
+    await expect(page.getByTestId('diff-source-overlay')).toBeVisible();
+    const response = await request.post(promptUrl, { data: { parts: [{ type: 'text', text: 'Request another blocker' }] } });
+    expect(response.ok()).toBeTruthy();
+    await expect(page.getByTestId('changes-overlay')).toHaveCount(0);
+    await expect(page.getByTestId('diff-source-overlay')).toHaveCount(0);
+    await expect(page.getByText(scenario === 'permission' ? 'Allow once' : 'Which implementation should be used?', { exact: true })).toBeVisible();
+  });
+}
+
 test('files changed follows the latest user turn', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   await openReadyChat(page);
 
   await sendPrompt(page, 'Create the first file diff');
   await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });
-  await page.getByText('1 File Changed', { exact: true }).click();
+  await page.getByTestId('chat-changes-chip').click();
   await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible();
 
-  await page.getByText('Session', { exact: true }).click();
+  await page.getByTestId('changes-overlay').getByRole('button', { name: 'Close', exact: true }).click();
   await sendPrompt(page, 'Create the second file diff');
   await expect(page.getByText(/Finished: Create the second file diff/).first()).toBeVisible({ timeout: 20_000 });
-  await page.getByText('1 File Changed', { exact: true }).click();
+  await page.getByTestId('chat-changes-chip').click();
   await expect(page.getByText('src/feature.ts', { exact: true })).toBeVisible();
   await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).not.toBeVisible();
 });
@@ -412,8 +494,8 @@ test('files changed switches between turn, uncommitted, and branch diffs', async
 
   await sendPrompt(page, 'Create a turn diff for scope switching');
   await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });
-  await page.getByText('1 File Changed', { exact: true }).click();
-  await expect(page.getByText('Latest turn diff', { exact: true })).toBeVisible();
+  await page.getByTestId('chat-changes-chip').click();
+  await expect(page.getByRole('button', { name: /Change files changed source.*Latest turn diff/ })).toBeVisible();
   await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible();
 
   // No working-tree edits were saved in this scenario.
@@ -422,7 +504,7 @@ test('files changed switches between turn, uncommitted, and branch diffs', async
 
   // Committed-on-branch fixture from the fake server.
   await chooseDiffSource(page, 'Branch');
-  await expect(page.getByText('Changes vs default branch', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Change files changed source.*Changes vs default branch/ })).toBeVisible();
   await expect(page.getByText('README.md', { exact: true })).toBeVisible();
 
   await chooseDiffSource(page, 'Turn');
@@ -698,7 +780,7 @@ test('polling fallback still finishes the flow when SSE is unavailable', async (
   await sendPrompt(page, 'Finish through polling fallback');
 
   await expect(page.getByText(/Finished: Finish through polling fallback/).first()).toBeVisible({ timeout: 40_000 });
-  await page.getByText('1 File Changed', { exact: true }).click();
+  await page.getByTestId('chat-changes-chip').click();
   await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible({ timeout: 40_000 });
 });
 
@@ -975,8 +1057,8 @@ test('OpenCode 2 files changed reads location-scoped VCS diffs', async ({ page, 
     await sendPrompt(page, 'Check the OpenCode 2 file changes');
     await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('tab', { name: /Files? Changed/ }).click();
-    await expect(page.getByText('Latest turn diff', { exact: true })).toBeVisible();
+    await page.getByTestId('chat-changes-chip').click();
+    await expect(page.getByRole('button', { name: /Change files changed source.*Latest turn diff/ })).toBeVisible();
 
     // V2 answers unscoped VCS calls for the server's own directory, so the
     // request must carry location[directory] for the workspace diff to show.
@@ -990,7 +1072,7 @@ test('OpenCode 2 files changed reads location-scoped VCS diffs', async ({ page, 
 
     // Committed-on-branch fixture: only reachable through a scoped call.
     await chooseDiffSource(page, 'Branch');
-    await expect(page.getByText('Changes vs default branch', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Change files changed source.*Changes vs default branch/ })).toBeVisible();
     await expect(page.getByText('README.md', { exact: true })).toBeVisible();
   } finally {
     server.kill('SIGTERM');
@@ -1444,7 +1526,7 @@ test('completed progress stays compact and patch review selects its turn after a
     await sendPrompt(page, 'Review second turn');
     await expect(page.getByText(/Finished: Review second turn/).first()).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Updated 1 patch. Review changes' }).first().click();
-    await expect(page.getByText('Selected turn diff', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Change files changed source.*Selected turn diff/ })).toBeVisible();
     await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible();
     await expect(page.getByText('src/feature.ts', { exact: true })).toHaveCount(0);
   } finally { server.kill('SIGTERM'); }

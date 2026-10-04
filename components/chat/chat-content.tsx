@@ -1,15 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Easing, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { ActivityIndicator, Button, Card, FAB, IconButton, Text, TouchableRipple } from 'react-native-paper';
+import { ActivityIndicator, Button, Card, IconButton, Text, TouchableRipple } from 'react-native-paper';
 
 import { Colors } from '@/constants/theme';
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { DiffCard, PendingInteractionsCard, QuestionFlow, SessionDiffCard, TranscriptMessage } from '@/components/chat/chat-cards';
 import type { TranscriptEntry } from '@/lib/opencode/format';
-import type { FileDiff, Session, SessionStatus, Todo } from '@/lib/opencode/types';
+import type { FileDiff, Session, Todo } from '@/lib/opencode/types';
 import type { DiffScope, DiffTurn } from '@/providers/opencode-provider-types';
 import type { PendingPermissionRequest, PendingQuestionAnswer, PendingQuestionRequest } from '@/lib/opencode/client';
 
@@ -77,7 +77,11 @@ const DIFF_SCOPE_OPTIONS: { value: DiffScope; labelKey: string }[] = [
 
 type ChatContentProps = {
   activeSession?: Session;
-  activeTab: 'session' | 'changes';
+  progressAction?: ReactNode;
+  progressVisible: boolean;
+  onCloseProgress: () => void;
+  changesVisible: boolean;
+  onCloseChanges: () => void;
   awaitingUserInput: boolean;
   connection: { status: 'idle' | 'connecting' | 'connected' | 'error'; message: string };
   copiedMessageId?: string;
@@ -118,12 +122,15 @@ type ChatContentProps = {
   pendingInteractions: number;
   running: boolean;
   speakingMessageId?: string;
-  status?: SessionStatus;
 };
 
 export function ChatContent({
   activeSession,
-  activeTab,
+  progressAction,
+  progressVisible,
+  onCloseProgress,
+  changesVisible,
+  onCloseChanges,
   awaitingUserInput,
   connection,
   copiedMessageId,
@@ -164,18 +171,13 @@ export function ChatContent({
   pendingInteractions,
   running,
   speakingMessageId,
-  status,
 }: ChatContentProps) {
   const { t } = useTranslation();
-  const [progressVisible, setProgressVisible] = useState(false);
   const [diffSourcesVisible, setDiffSourcesVisible] = useState(false);
   const [dismissedQuestionId, setDismissedQuestionId] = useState<string>();
   const transcriptRef = useRef<FlashListRef<TranscriptEntry>>(null);
   const shouldPositionInitialTranscriptRef = useRef(false);
   const previousTranscriptRef = useRef({ sessionId: currentSessionId, length: displayTranscript.length });
-  const completedTodoCount = currentTodos.filter((todo) => todo.status === 'completed').length;
-  const progressSlice = currentTodos.length ? Math.floor(completedTodoCount / currentTodos.length * 8) : 0;
-  const progressIcon = completedTodoCount === currentTodos.length ? 'check-circle' : progressSlice > 0 ? `circle-slice-${progressSlice}` : 'circle-outline';
   const currentQuestion = currentPendingQuestions[0];
   const isTurnScope = currentDiffScope === 'turn';
   const isLatestTurn = diffTurns.length === 0 || selectedDiffMessageId === diffTurns[diffTurns.length - 1]?.id;
@@ -193,9 +195,6 @@ export function ChatContent({
       : t('chat:diff.noChanges');
   const scopeLabel = t(DIFF_SCOPE_OPTIONS.find((option) => option.value === currentDiffScope)?.labelKey ?? 'chat:diff.turn');
   const selectedTurnLabel = diffTurns.find((turn) => turn.id === selectedDiffMessageId)?.label || t('chat:diff.latestTurn');
-  const showingLabel = isTurnScope && diffTurns.length > 1
-    ? `${t('chat:diff.showing', { scope: scopeLabel })}${t('chat:diff.showingTurnSuffix', { turn: selectedTurnLabel })}`
-    : t('chat:diff.showing', { scope: scopeLabel });
   const showDiffDetails = isTurnScope && currentDiffs.length === 0;
 
   useLayoutEffect(() => {
@@ -206,181 +205,159 @@ export function ChatContent({
     previousTranscriptRef.current = { sessionId: currentSessionId, length: displayTranscript.length };
   }, [currentSessionId, displayTranscript.length]);
 
+  useEffect(() => {
+    if (!changesVisible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- never reopen a stale source picker with the review overlay.
+      setDiffSourcesVisible(false);
+    }
+  }, [changesVisible, currentSessionId]);
+
   const extraData = useMemo(() => ({ copiedMessageId, speakingMessageId, onReviewChanges }), [copiedMessageId, speakingMessageId, onReviewChanges]);
 
   return (
     <View style={styles.chatArea}>
-      {activeTab === 'session' ? (
-        <FlashList
-          key={currentSessionId || 'no-session'}
-          ref={transcriptRef}
-          data={displayTranscript}
-          style={styles.scroll}
-          contentContainerStyle={[
-            styles.content,
-            slim && slimStyles.content,
-            pendingInteractions > 0 ? { paddingBottom: 110 } : null,
-          ]}
-          extraData={extraData}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          keyExtractor={(entry) => `${entry.id}-${entry.createdAt}`}
-          maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION}
-          onContentSizeChange={() => {
-            if (!shouldPositionInitialTranscriptRef.current || displayTranscript.length === 0) {
-              return;
-            }
-            shouldPositionInitialTranscriptRef.current = false;
-            transcriptRef.current?.scrollToEnd({ animated: false });
-          }}
-          refreshControl={<RefreshControl refreshing={isRefreshingMessages} onRefresh={onRefresh} tintColor={palette.tint} />}
-          renderItem={({ item: entry }) => (
-            <View style={[
-              styles.transcriptItem,
-              slim && slimStyles.transcriptItem,
-              flatTranscript && (slim ? slimStyles.transcriptItemFlat : styles.transcriptItemFlat),
-            ]}>
-              <TranscriptMessage
-                canSpeak={entry.role === 'assistant' && Boolean(entry.text.trim())}
-                copied={copiedMessageId === entry.id}
-                entry={entry}
-                flat={flatTranscript}
-                fontSize={transcriptFontSize}
-                slim={slim}
-                onReviewChanges={onReviewChanges}
-                onCopy={() => onCopyMessage(entry)}
-                onFork={entry.role === 'user' ? () => onForkMessage(entry.id) : undefined}
-                onRevert={entry.role === 'user' ? () => onRevertMessage(entry.id) : undefined}
-                onToggleSpeak={() => onToggleSpeak(entry)}
-                speaking={speakingMessageId === entry.id}
-              />
-            </View>
-          )}
-          ListHeaderComponent={connection.status === 'error' ? (
-            <Card mode="contained" style={[styles.noticeCard, styles.transcriptItem, { backgroundColor: palette.surface }]}>
-              <Card.Content>
-                <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:content.connectionIssue')}</Text>
-                <Text variant="bodyMedium" style={{ color: palette.muted }}>{connection.message}</Text>
-              </Card.Content>
-            </Card>
-          ) : null}
-          ListEmptyComponent={isRefreshingMessages && currentSessionId ? (
-            <TranscriptSkeleton palette={palette} />
-          ) : (
-            <Card mode="contained" style={[styles.emptyCard, { backgroundColor: palette.surface }]}>
-              <Card.Content style={styles.emptyContent}>
-                <Text variant="headlineSmall" style={[styles.emptyTitle, { color: palette.text }]}>{t('chat:starter.title')}</Text>
-                <Text variant="bodyMedium" style={{ color: palette.muted }}>
-                  {t('chat:starter.description')}
-                </Text>
-                <View style={styles.promptStack}>
-                  {STARTER_PROMPT_KEYS.map((key) => (
-                    <TouchableRipple
-                      accessibilityRole="button"
-                      accessibilityLabel={t(key)}
-                      key={key}
-                      style={[styles.promptCard, { borderColor: palette.border, backgroundColor: palette.background }]}
-                      onPress={() => onSelectStarterPrompt(key === 'chat:starter.prompts.implement' ? `${t(key)}\n${t('chat:starter.bugSymptoms')}` : t(key))}>
-                      <View style={styles.promptCardInner}>
-                        <MaterialCommunityIcons name="lightning-bolt" size={18} color={palette.tint} />
-                        <Text variant="bodyMedium" style={{ color: palette.text }}>{t(key)}</Text>
-                      </View>
-                    </TouchableRipple>
-                  ))}
-                </View>
-              </Card.Content>
-            </Card>
-          )}
-          ListFooterComponent={(
-            <View style={styles.transcriptFooter}>
-              {activeSession?.revert ? (
-                <Card mode="contained" style={[styles.noticeCard, { backgroundColor: palette.surface }]}>
-                  <Card.Content>
-                    <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:content.sessionReverted')}</Text>
-                    <Button mode="outlined" onPress={onUnrevert}>{t('chat:content.restoreReverted')}</Button>
-                  </Card.Content>
-                </Card>
-              ) : null}
-
-              {running && !awaitingUserInput ? (
-                <View style={styles.loadingRow}>
-                  <ActivityIndicator color={palette.tint} />
-                  <Text style={{ color: palette.muted }}>
-                    {currentActivityLabel ? t('chat:content.runningActivity', { activity: currentActivityLabel.toLowerCase() }) : t('chat:content.runningGeneric')}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-        />
-      ) : (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          keyboardDismissMode="on-drag"
-          refreshControl={<RefreshControl refreshing={isRefreshingDiffs} onRefresh={onRefreshDiffs} tintColor={palette.tint} />}>
-          {connection.status === 'error' ? (
-            <Card mode="contained" style={[styles.noticeCard, { backgroundColor: palette.surface }]}>
-              <Card.Content>
-                <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:content.connectionIssue')}</Text>
-                <Text variant="bodyMedium" style={{ color: palette.muted }}>{connection.message}</Text>
-              </Card.Content>
-            </Card>
-          ) : null}
-
-          <View style={styles.sectionStack}>
-          <Card mode="contained" style={[styles.sectionCard, { backgroundColor: palette.surface }]}>
-            <Card.Content style={styles.sectionHeaderCard}>
-              <View>
-                <Text variant="titleMedium" style={{ color: palette.text }}>{scopeTitle}</Text>
-                <Text variant="bodyMedium" style={{ color: palette.muted }}>
-                  {currentDiffs.length > 0
-                    ? t('chat:diff.filesChangedCompact', {
-                        files: diffCount,
-                        count: diffCount,
-                        additions: currentDiffs.reduce((total, diff) => total + diff.additions, 0),
-                        deletions: currentDiffs.reduce((total, diff) => total + diff.deletions, 0),
-                      })
-                    : t('chat:diff.filesChangedSimple', { files: diffCount, count: diffCount })}
-                </Text>
-              </View>
-              <Text variant="labelMedium" style={{ color: palette.tint }}>{isRefreshingDiffs ? t('chat:diff.syncing') : status?.type || 'idle'}</Text>
+      <FlashList
+        key={currentSessionId || 'no-session'}
+        ref={transcriptRef}
+        data={displayTranscript}
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          slim && slimStyles.content,
+          pendingInteractions > 0 ? { paddingBottom: 110 } : null,
+        ]}
+        extraData={extraData}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        keyExtractor={(entry) => `${entry.id}-${entry.createdAt}`}
+        maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION}
+        onContentSizeChange={() => {
+          if (!shouldPositionInitialTranscriptRef.current || displayTranscript.length === 0) {
+            return;
+          }
+          shouldPositionInitialTranscriptRef.current = false;
+          transcriptRef.current?.scrollToEnd({ animated: false });
+        }}
+        refreshControl={<RefreshControl refreshing={isRefreshingMessages} onRefresh={onRefresh} tintColor={palette.tint} />}
+        renderItem={({ item: entry }) => (
+          <View style={[
+            styles.transcriptItem,
+            slim && slimStyles.transcriptItem,
+            flatTranscript && (slim ? slimStyles.transcriptItemFlat : styles.transcriptItemFlat),
+          ]}>
+            <TranscriptMessage
+              canSpeak={entry.role === 'assistant' && Boolean(entry.text.trim())}
+              copied={copiedMessageId === entry.id}
+              entry={entry}
+              flat={flatTranscript}
+              fontSize={transcriptFontSize}
+              slim={slim}
+              onReviewChanges={onReviewChanges}
+              onCopy={() => onCopyMessage(entry)}
+              onFork={entry.role === 'user' ? () => onForkMessage(entry.id) : undefined}
+              onRevert={entry.role === 'user' ? () => onRevertMessage(entry.id) : undefined}
+              onToggleSpeak={() => onToggleSpeak(entry)}
+              speaking={speakingMessageId === entry.id}
+            />
+          </View>
+        )}
+        ListHeaderComponent={connection.status === 'error' ? (
+          <Card mode="contained" style={[styles.noticeCard, styles.transcriptItem, { backgroundColor: palette.surface }]}>
+            <Card.Content>
+              <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:content.connectionIssue')}</Text>
+              <Text variant="bodyMedium" style={{ color: palette.muted }}>{connection.message}</Text>
             </Card.Content>
           </Card>
+        ) : null}
+        ListEmptyComponent={isRefreshingMessages && currentSessionId ? (
+          <TranscriptSkeleton palette={palette} />
+        ) : (
+          <Card mode="contained" style={[styles.emptyCard, { backgroundColor: palette.surface }]}>
+            <Card.Content style={styles.emptyContent}>
+              <Text variant="headlineSmall" style={[styles.emptyTitle, { color: palette.text }]}>{t('chat:starter.title')}</Text>
+              <Text variant="bodyMedium" style={{ color: palette.muted }}>
+                {t('chat:starter.description')}
+              </Text>
+              <View style={styles.promptStack}>
+                {STARTER_PROMPT_KEYS.map((key) => (
+                  <TouchableRipple
+                    accessibilityRole="button"
+                    accessibilityLabel={t(key)}
+                    key={key}
+                    style={[styles.promptCard, { borderColor: palette.border, backgroundColor: palette.background }]}
+                    onPress={() => onSelectStarterPrompt(key === 'chat:starter.prompts.implement' ? `${t(key)}\n${t('chat:starter.bugSymptoms')}` : t(key))}>
+                    <View style={styles.promptCardInner}>
+                      <MaterialCommunityIcons name="lightning-bolt" size={18} color={palette.tint} />
+                      <Text variant="bodyMedium" style={{ color: palette.text }}>{t(key)}</Text>
+                    </View>
+                  </TouchableRipple>
+                ))}
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+        ListFooterComponent={(
+          <View style={styles.transcriptFooter}>
+            {activeSession?.revert ? (
+              <Card mode="contained" style={[styles.noticeCard, { backgroundColor: palette.surface }]}>
+                <Card.Content>
+                  <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:content.sessionReverted')}</Text>
+                  <Button mode="outlined" onPress={onUnrevert}>{t('chat:content.restoreReverted')}</Button>
+                </Card.Content>
+              </Card>
+            ) : null}
 
-          <Button mode="outlined" icon="swap-horizontal" onPress={() => setDiffSourcesVisible(true)} accessibilityLabel={t('chat:diff.changeSourceLabel', { source: scopeLabel })}>
-            {showingLabel}
-          </Button>
-
-          {currentDiffs.length === 0 && !(showDiffDetails && diffDetails.length > 0) ? (
-            <Card mode="contained" style={[styles.sectionCard, { backgroundColor: palette.surface }]}>
-              <Card.Content>
-                <Text variant="bodyMedium" style={{ color: palette.muted }}>{scopeEmptyMessage}</Text>
-              </Card.Content>
-            </Card>
-          ) : null}
-
-          {currentDiffs.length > 0 || (showDiffDetails && diffDetails.length > 0) ? (
-            <Card mode="contained" style={[styles.sectionCard, { backgroundColor: palette.surface }]}>
-              <Card.Content style={styles.diffListCardContent}>
-                {currentDiffs.map((diff) => {
-                  const accordionId = `diff:${currentDiffScope}:${diff.file}`;
-                  return <SessionDiffCard key={accordionId} diff={diff} expanded={expandedDiffId === accordionId} onPress={() => onExpandDiff(expandedDiffId === accordionId ? undefined : accordionId)} />;
-                })}
-                {showDiffDetails
-                  ? diffDetails.map((detail) => {
-                      const accordionId = `detail:${detail.id}`;
-                      return <DiffCard key={detail.id} detail={detail} expanded={expandedDiffId === accordionId} onPress={() => onExpandDiff(expandedDiffId === accordionId ? undefined : accordionId)} />;
-                    })
-                  : null}
-              </Card.Content>
-            </Card>
-          ) : null}
+            {running && !awaitingUserInput ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color={palette.tint} />
+                <Text style={{ color: palette.muted }}>
+                  {currentActivityLabel ? t('chat:content.runningActivity', { activity: currentActivityLabel.toLowerCase() }) : t('chat:content.runningGeneric')}
+                </Text>
+              </View>
+            ) : null}
           </View>
+        )}
+      />
+      <OverlaySheet
+        visible={changesVisible}
+        testID="changes-overlay"
+        title={t('chat:diff.filesChangedSimple', { files: diffCount, count: diffCount })}
+        onClose={onCloseChanges}
+        compact
+        scrollable={false}
+        headerAction={<IconButton
+          icon="dots-vertical"
+          accessibilityLabel={`${t('chat:diff.changeSourceLabel', { source: scopeLabel })}. ${scopeTitle}${isTurnScope ? ` · ${selectedTurnLabel}` : ''}`}
+          onPress={() => setDiffSourcesVisible(true)}
+          iconColor={palette.text}
+        />}>
+        <ScrollView
+          style={[styles.scroll, { backgroundColor: palette.background }]}
+          contentContainerStyle={styles.changesList}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={isRefreshingDiffs} onRefresh={onRefreshDiffs} tintColor={palette.tint} />}>
+          {connection.status === 'error' ? (
+            <View style={styles.changesNotice}>
+              <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:content.connectionIssue')}</Text>
+              <Text variant="bodyMedium" style={{ color: palette.muted }}>{connection.message}</Text>
+            </View>
+          ) : null}
+          {currentDiffs.length === 0 && !(showDiffDetails && diffDetails.length > 0) ? (
+            <Text variant="bodyMedium" style={[styles.changesNotice, { color: palette.muted }]}>{scopeEmptyMessage}</Text>
+          ) : null}
+          {currentDiffs.map((diff) => {
+            const accordionId = `diff:${currentDiffScope}:${diff.file}`;
+            return <SessionDiffCard key={accordionId} diff={diff} expanded={expandedDiffId === accordionId} onPress={() => onExpandDiff(expandedDiffId === accordionId ? undefined : accordionId)} />;
+          })}
+          {showDiffDetails ? diffDetails.map((detail) => {
+            const accordionId = `detail:${detail.id}`;
+            return <DiffCard key={detail.id} detail={detail} expanded={expandedDiffId === accordionId} onPress={() => onExpandDiff(expandedDiffId === accordionId ? undefined : accordionId)} />;
+          }) : null}
         </ScrollView>
-      )}
+      </OverlaySheet>
 
-      <OverlaySheet visible={activeTab !== 'session' && diffSourcesVisible} testID="diff-source-overlay" title={t('chat:diff.sourceTitle')} fitContent onClose={() => setDiffSourcesVisible(false)}>
+      <OverlaySheet visible={changesVisible && diffSourcesVisible} testID="diff-source-overlay" title={t('chat:diff.sourceTitle')} fitContent onClose={() => setDiffSourcesVisible(false)}>
         {DIFF_SCOPE_OPTIONS.map((option) => <Pressable key={option.value} accessibilityRole="button" onPress={() => { onSelectDiffScope(option.value); if (option.value !== 'turn' || diffTurns.length <= 1) setDiffSourcesVisible(false); }} style={[styles.sessionPickerItemRow, { borderWidth: 1, borderRadius: 16, borderColor: currentDiffScope === option.value ? palette.tint : palette.border }]}>
           <MaterialCommunityIcons name={currentDiffScope === option.value ? 'check-circle' : 'circle-outline'} size={20} color={currentDiffScope === option.value ? palette.tint : palette.muted} />
           <Text style={{ color: palette.text }}>{t(option.labelKey)}</Text>
@@ -405,12 +382,12 @@ export function ChatContent({
         />
       ) : null}
 
-      {activeTab === 'session' && currentPendingPermissions.length > 0 && !currentQuestion ? (
+      {currentPendingPermissions.length > 0 && !currentQuestion ? (
         <ScrollView keyboardShouldPersistTaps="handled" style={[styles.todoOverlay, { maxHeight: '75%' }]}>
           <PendingInteractionsCard permissions={currentPendingPermissions} onPermissionReply={onReplyToPermission} />
         </ScrollView>
       ) : null}
-      {activeTab === 'session' && currentQuestion && dismissedQuestionId === currentQuestion.id ? (
+      {currentQuestion && dismissedQuestionId === currentQuestion.id ? (
         <Card mode="elevated" style={[styles.todoOverlay, { backgroundColor: palette.surface, borderColor: palette.border }]}>
           <Card.Content style={styles.todoHeader}>
             <View style={styles.todoSummary}>
@@ -421,18 +398,8 @@ export function ChatContent({
           </Card.Content>
         </Card>
       ) : null}
-      {activeTab === 'session' && !currentQuestion && currentPendingPermissions.length === 0 && currentTodos.length > 0 ? (
-        <FAB
-          testID="chat-progress-button"
-          size="small"
-          icon={progressIcon}
-          accessibilityLabel={t('chat:content.openProgressLabel', { completed: completedTodoCount, total: currentTodos.length })}
-          onPress={() => setProgressVisible(true)}
-          style={[styles.progressFab, { backgroundColor: palette.surfaceAlt }]}
-          color={palette.tint}
-        />
-      ) : null}
-      <OverlaySheet visible={activeTab === 'session' && !currentQuestion && currentPendingPermissions.length === 0 && progressVisible} testID="progress-overlay" title={t('chat:content.progress')} fitContent onClose={() => setProgressVisible(false)}>
+      {diffCount === 0 ? progressAction : null}
+      <OverlaySheet visible={!changesVisible && !currentQuestion && currentPendingPermissions.length === 0 && progressVisible} testID="progress-overlay" title={t('chat:content.progress')} fitContent onClose={onCloseProgress}>
         {currentTodos.map((todo, index) => <View key={`${todo.content}-${index}`} style={styles.todoItemRow}>
           <IconButton icon={todo.status === 'completed' ? 'check-circle' : todo.status === 'in_progress' ? 'progress-clock' : 'circle-outline'} size={20} disabled style={styles.todoStatusIcon} />
           <View style={styles.todoTextWrap}><Text variant="bodyMedium" style={{ color: palette.text }}>{todo.content || t('chat:content.untitledTask')}</Text>{todo.priority ? <Text variant="bodySmall" style={{ color: palette.muted }}>{todo.priority}</Text> : null}</View>

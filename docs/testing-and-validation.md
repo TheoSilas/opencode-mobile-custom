@@ -469,3 +469,11 @@ focus/background suspension, iOS/Android safe areas, larger text, screen-reader
 focus, keyboard/back behavior and real native Subscribe/Restore. Updated E2E
 files require explicit human validation under AGENTS.md. Build/static/mocked
 flow results do not replace these acceptance checks.
+
+## Changes chip validation
+
+Chat no longer has Session / Files Changed tabs. Diff flows enter through the centered chip above the composer or a message's Review changes action. Coverage checks FAB/chip vertical alignment at mobile width, progress-overlay opening, standalone FAB visibility when the chip is hidden, file/line counts, zero-change hiding, overlay close/reopen with an unsent draft, scope switching, earlier-turn review, and blocking-request dismissal. The provider and fake-server contract are unchanged. Chip text and accessible names reuse the existing translated diff summary and Review changes labels.
+
+Run the static, fake-server self-test, and full web E2E gates. E2E edits require explicit human validation under AGENTS.md. Native checks remain necessary for light/dark themes, larger text, safe areas, keyboard layout, screen-reader names, and Android Back dismissal.
+
+The compact diff-sheet flow also verifies its full viewport width, initial bottom-sheet position, compact file-row height, expanded accessibility state, and lack of horizontal overflow. Diff-source selection remains reachable from the header's three-dot button; the selected scope/turn is included in its accessible name. The shared overlay's other presentations remain unchanged. Native acceptance must check wrapped code and long paths at larger text sizes.

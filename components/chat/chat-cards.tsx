@@ -1,8 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Keyboard, KeyboardAvoidingView, Linking, Modal, ScrollView, StyleSheet, View } from 'react-native';
-import { Appbar, Button, Card, Chip, Divider, IconButton, List, Surface, Switch, Text } from 'react-native-paper';
+import { Keyboard, KeyboardAvoidingView, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Appbar, Button, Card, Chip, IconButton, Surface, Switch, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TextInput } from '@/components/ui/text-input';
@@ -278,94 +278,72 @@ export function SessionDiffCard({ diff, expanded, onPress }: { diff: FileDiff; e
   const diffBlocks = useMemo(() => (expanded ? buildCollapsedDiffBlocks(diffLines) : []), [diffLines, expanded]);
 
   return (
-    <List.Accordion
-      expanded={expanded}
-      onPress={onPress}
-      title={diff.file || t('chat:cards.unknownFile')}
-      description={`+${diff.additions} / -${diff.deletions}`}
-      titleStyle={{ color: palette.text }}
-      descriptionStyle={{ color: palette.muted }}
-      style={[styles.diffAccordion, { borderColor: palette.border }]}
-      theme={{ colors: { background: palette.surface } }}>
+    <View style={[styles.diffAccordion, { borderColor: palette.border }]}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded} onPress={onPress} style={[styles.diffFileRow, { backgroundColor: palette.surface }]}>
+        <MaterialCommunityIcons name={expanded ? 'chevron-down' : 'chevron-right'} size={18} color={palette.muted} />
+        <Text variant="labelLarge" numberOfLines={1} ellipsizeMode="middle" style={[styles.diffFileName, { color: palette.text }]}>{diff.file || t('chat:cards.unknownFile')}</Text>
+        <Text variant="labelMedium" style={{ color: palette.success }}>+{diff.additions}</Text>
+        <Text variant="labelMedium" style={{ color: palette.danger }}>−{diff.deletions}</Text>
+      </Pressable>
       <View style={styles.diffAccordionBody}>
-        <Divider style={styles.divider} />
         {expanded ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator>
-            <View style={styles.diffViewer}>
-              {diffBlocks.length === 0 ? <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:cards.noLineChanges')}</Text> : diffBlocks.map((block, blockIndex) => {
-                if (block.type === 'collapsed') {
-                  return (
-                    <View key={`${diff.file}-collapsed-${blockIndex}`} style={[styles.diffCollapsedRow, { backgroundColor: palette.background, borderColor: palette.border }]}> 
-                      <Text variant="bodySmall" style={[styles.code, { color: palette.muted }]}> 
-                        {t('chat:cards.hiddenLines', { count: block.hiddenCount })}
-                        {block.startLine && block.endLine ? ` (${block.startLine}-${block.endLine})` : ''}
-                      </Text>
-                    </View>
-                  );
-                }
+          <View style={styles.diffViewer}>
+            {diffBlocks.length === 0 ? <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:cards.noLineChanges')}</Text> : diffBlocks.map((block, blockIndex) => {
+              if (block.type === 'collapsed') {
+                return (
+                  <View key={`${diff.file}-collapsed-${blockIndex}`} style={[styles.diffCollapsedRow, { backgroundColor: palette.background, borderColor: palette.border }]}>
+                    <Text variant="bodySmall" style={[styles.code, { color: palette.muted }]}>
+                      {t('chat:cards.hiddenLines', { count: block.hiddenCount })}
+                      {block.startLine && block.endLine ? ` (${block.startLine}-${block.endLine})` : ''}
+                    </Text>
+                  </View>
+                );
+              }
 
-                return block.lines.map((line, index) => {
-                  const tone = getDiffPalette(line.kind, palette);
-                  return (
-                    <View
-                      key={`${diff.file}-${blockIndex}-${index}-${line.leftNumber ?? 'x'}-${line.rightNumber ?? 'x'}`}
-                      style={[
-                        styles.diffLineRow,
-                        {
-                          backgroundColor: tone.backgroundColor,
-                          borderLeftColor: tone.accentColor,
-                        },
-                      ]}>
-                      <Text variant="labelSmall" style={[styles.diffLineNumber, { color: palette.muted }]}> 
-                        {line.leftNumber ?? ''}
-                      </Text>
-                      <Text variant="labelSmall" style={[styles.diffLineNumber, { color: palette.muted }]}> 
-                        {line.rightNumber ?? ''}
-                      </Text>
-                      <Text style={[styles.diffMarker, { color: tone.accentColor || palette.muted }]}> 
-                        {line.kind === 'added' ? '+' : line.kind === 'removed' ? '-' : ' '}
-                      </Text>
-                      <Text variant="bodySmall" style={[styles.code, styles.diffLineText, { color: palette.text }]}> 
-                        {line.text || ' '}
-                      </Text>
-                    </View>
-                  );
-                });
-              })}
-            </View>
-          </ScrollView>
-        ) : (
-          <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:cards.expandDiffPreview')}</Text>
-        )}
+              return block.lines.map((line, index) => {
+                const tone = getDiffPalette(line.kind, palette);
+                return (
+                  <View
+                    key={`${diff.file}-${blockIndex}-${index}-${line.leftNumber ?? 'x'}-${line.rightNumber ?? 'x'}`}
+                    style={[
+                      styles.diffLineRow,
+                      {
+                        backgroundColor: tone.backgroundColor,
+                        borderLeftColor: tone.accentColor,
+                      },
+                    ]}>
+                    <Text variant="labelSmall" style={[styles.diffLineNumber, { color: palette.muted }]}>
+                      {line.rightNumber ?? line.leftNumber ?? ''}
+                    </Text>
+                    <Text style={[styles.diffMarker, { color: tone.accentColor || palette.muted }]}>
+                      {line.kind === 'added' ? '+' : line.kind === 'removed' ? '-' : ' '}
+                    </Text>
+                    <Text selectable variant="bodySmall" style={[styles.code, styles.diffLineText, { color: palette.text }]}>
+                      {line.text || ' '}
+                    </Text>
+                  </View>
+                );
+              });
+            })}
+          </View>
+        ) : null}
       </View>
-    </List.Accordion>
+    </View>
   );
 }
 
 export function DiffCard({ detail, expanded, onPress }: { detail: Extract<TranscriptDetail, { kind: 'patch' }>; expanded: boolean; onPress: () => void }) {
-  const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
 
   return (
-    <List.Accordion
-      expanded={expanded}
-      onPress={onPress}
-      title={detail.label}
-      description={t('chat:cards.filesChanged')}
-      titleStyle={{ color: palette.text }}
-      descriptionStyle={{ color: palette.muted }}
-      style={[styles.diffAccordion, { borderColor: palette.border }]}
-      theme={{ colors: { background: palette.surface } }}>
-      <View style={styles.diffAccordionBody}>
-        <Divider style={styles.divider} />
-        {expanded ? (
-          <Text variant="bodySmall" style={[styles.code, { color: palette.muted }]}>{detail.body}</Text>
-        ) : (
-          <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:cards.expandPatchPreview')}</Text>
-        )}
-      </View>
-    </List.Accordion>
+    <View style={[styles.diffAccordion, { borderColor: palette.border }]}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded} onPress={onPress} style={[styles.diffFileRow, { backgroundColor: palette.surface }]}>
+        <MaterialCommunityIcons name={expanded ? 'chevron-down' : 'chevron-right'} size={18} color={palette.muted} />
+        <Text variant="labelLarge" numberOfLines={1} ellipsizeMode="middle" style={[styles.diffFileName, { color: palette.text }]}>{detail.label}</Text>
+      </Pressable>
+      {expanded ? <Text selectable variant="bodySmall" style={[styles.code, styles.diffFallback, { color: palette.muted }]}>{detail.body}</Text> : null}
+    </View>
   );
 }
 
@@ -548,22 +526,24 @@ const styles = StyleSheet.create({
   sectionCard: { borderRadius: 20 },
   pendingInteractionsContent: { gap: 12 },
   waitingNoticeHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  diffAccordion: { borderWidth: 1, borderRadius: 18 },
-  diffAccordionBody: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
-  divider: { marginTop: 4 },
-  diffViewer: { minWidth: '100%', gap: 2, paddingVertical: 4 },
-  diffCollapsedRow: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  diffAccordion: { borderBottomWidth: 1 },
+  diffFileRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
+  diffFileName: { flex: 1, minWidth: 0, fontWeight: '700' },
+  diffFallback: { padding: 12 },
+  diffAccordionBody: { paddingBottom: 0 },
+  diffViewer: { width: '100%', paddingVertical: 4 },
+  diffCollapsedRow: { borderRadius: 8, marginHorizontal: 8, marginVertical: 4, paddingHorizontal: 10, paddingVertical: 8 },
   diffLineRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 6,
     borderLeftWidth: 3,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  diffLineNumber: { width: 36, textAlign: 'right' },
-  diffMarker: { width: 14, textAlign: 'center', fontFamily: 'monospace' },
-  diffLineText: { flex: 1, minWidth: 220 },
+  diffLineNumber: { width: 30, textAlign: 'right' },
+  diffMarker: { width: 12, textAlign: 'center', fontFamily: 'monospace' },
+  diffLineText: { flex: 1, minWidth: 0 },
   code: { fontFamily: 'monospace', fontSize: 12, lineHeight: 18 },
   messageRow: { alignItems: 'flex-start' },
   messageRowUser: { alignItems: 'flex-end' },

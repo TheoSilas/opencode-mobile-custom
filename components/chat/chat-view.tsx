@@ -2,15 +2,14 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Keyboard, KeyboardAvoidingView, Platform, View } from 'react-native';
-import { Button, Card, Snackbar, Text } from 'react-native-paper';
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { Button, Card, FAB, Snackbar, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatComposer } from '@/components/chat/chat-composer';
 import { ChatContent } from '@/components/chat/chat-content';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { ChatLibrary } from '@/components/chat/chat-library';
-import { TopTab } from '@/components/chat/chat-controls';
 import { styles } from '@/components/chat/chat-view-styles';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -56,7 +55,8 @@ export function ChatView() {
 
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState<{ uri: string; mime?: string; filename?: string }[]>([]);
-  const [activeTab, setActiveTab] = useState<'session' | 'changes'>('session');
+  const [changesVisible, setChangesVisible] = useState(false);
+  const [progressVisible, setProgressVisible] = useState(false);
   const [sessionMenuVisible, setSessionMenuVisible] = useState(false);
   const [isUpdatingAutoApprove, setIsUpdatingAutoApprove] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
@@ -92,12 +92,28 @@ export function ChatView() {
   const diffCount = currentDiffs.length || (currentDiffScope === 'turn'
     ? new Set(diffDetails.flatMap((detail) => detail.body.split('\n').filter(Boolean))).size
     : 0);
+  const diffAdditions = currentDiffs.reduce((sum, diff) => sum + diff.additions, 0);
+  const diffDeletions = currentDiffs.reduce((sum, diff) => sum + diff.deletions, 0);
   const selectedAgentLabel = useMemo(
     () => availableAgents.find((agent) => agent.id === chatPreferences.mode)?.label || chatPreferences.mode,
     [availableAgents, chatPreferences.mode],
   );
   const pendingInteractions = currentPendingPermissions.length + currentPendingQuestions.length;
   const awaitingUserInput = pendingInteractions > 0;
+  const completedTodoCount = currentTodos.filter((todo) => todo.status === 'completed').length;
+  const progressSlice = currentTodos.length ? Math.floor(completedTodoCount / currentTodos.length * 8) : 0;
+  const progressIcon = completedTodoCount === currentTodos.length ? 'check-circle' : progressSlice > 0 ? `circle-slice-${progressSlice}` : 'circle-outline';
+  const progressAction = !awaitingUserInput && currentTodos.length > 0 ? (
+    <FAB
+      testID="chat-progress-button"
+      size="small"
+      icon={progressIcon}
+      accessibilityLabel={t('chat:content.openProgressLabel', { completed: completedTodoCount, total: currentTodos.length })}
+      onPress={() => setProgressVisible(true)}
+      style={[styles.progressFab, diffCount > 0 && styles.progressFabInline, { backgroundColor: palette.surfaceAlt }]}
+      color={palette.tint}
+    />
+  ) : null;
   const displayTranscript = useMemo(() => currentTranscript.filter(isTranscriptDisplayMessage), [currentTranscript]);
   const currentActivityLabel = useMemo(() => {
     for (let index = currentTranscript.length - 1; index >= 0; index -= 1) {
@@ -124,7 +140,8 @@ export function ChatView() {
       setDiffScope('turn');
       selectDiffMessage(turnId);
     }
-    setActiveTab('changes');
+    Keyboard.dismiss();
+    setChangesVisible(true);
   }, [currentMessages, selectDiffMessage, setDiffScope]);
 
   const contextTokens = useMemo(() => getLatestContextTokens(currentMessages) ?? 0, [currentMessages]);
@@ -232,15 +249,15 @@ export function ChatView() {
   }, [commands, connection.status, currentSessionId, ensureActiveSession, executeCommand, sendPrompt, t]);
 
   useEffect(() => {
-    // ponytail: session/tab switch is the escape hatch when the transcript
-    // is too short for drag-to-dismiss; one effect beats a guard per caller.
     Keyboard.dismiss();
-  }, [currentSessionId, activeTab]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- session changes dismiss local review UI.
+    setChangesVisible(false);
+  }, [currentSessionId]);
 
   useEffect(() => {
     if (pendingInteractions > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- auto-focus the session tab when the server needs input; no render-time equivalent.
-      setActiveTab('session');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- dismiss review when the server needs input; no render-time equivalent.
+      setChangesVisible(false);
     }
   }, [pendingInteractions]);
 
@@ -449,7 +466,7 @@ export function ChatView() {
     try {
       const session = await createSession();
       await openSession(session.id);
-      setActiveTab('session');
+      setChangesVisible(false);
     } catch (error) {
       setSendFeedback(error instanceof Error ? error.message : t('chat:view.couldNotCreateSession'));
     } finally {
@@ -509,14 +526,14 @@ export function ChatView() {
           usage={currentUsage}
         />
 
-        <View style={[styles.tabsRow, { backgroundColor: palette.surface, borderBottomColor: palette.border }]}>
-          <TopTab active={activeTab === 'session'} label={t('chat:view.tabSession')} onPress={() => setActiveTab('session')} slim={slim} />
-          <TopTab active={activeTab === 'changes'} label={t('chat:view.tabFilesChanged', { files: diffCount, count: diffCount })} onPress={() => setActiveTab('changes')} slim={slim} />
-        </View>
-
         <ChatContent
           activeSession={activeSession}
-          activeTab={activeTab}
+          progressAction={progressAction}
+          progressVisible={progressVisible}
+          onCloseProgress={() => setProgressVisible(false)}
+          changesVisible={changesVisible && !awaitingUserInput}
+          onCloseChanges={() => setChangesVisible(false)}
+          currentSessionId={currentSessionId}
           awaitingUserInput={awaitingUserInput}
           connection={connection}
           copiedMessageId={copiedMessageId}
@@ -571,7 +588,6 @@ export function ChatView() {
           pendingInteractions={pendingInteractions}
           running={running}
           speakingMessageId={speakingMessageId}
-          status={status}
         />
 
         {sendErrorMessage ? (
@@ -592,8 +608,31 @@ export function ChatView() {
           </Card>
         ) : null}
 
+        {diffCount > 0 ? (
+          <View style={styles.changesChipRow}>
+            {progressAction ? <View style={styles.progressSpacer} /> : null}
+            <View style={styles.changesChipCenter}>
+              <Pressable
+                testID="chat-changes-chip"
+                accessibilityRole="button"
+                accessibilityLabel={`${t('chat:cards.reviewChanges')}. ${currentDiffs.length > 0
+                  ? t('chat:diff.filesChangedCompact', { files: diffCount, count: diffCount, additions: diffAdditions, deletions: diffDeletions })
+                  : t('chat:diff.filesChangedSimple', { files: diffCount, count: diffCount })}`}
+                onPress={() => { Keyboard.dismiss(); setChangesVisible(true); }}
+                style={({ pressed }) => [styles.changesChip, { backgroundColor: palette.surfaceAlt, opacity: pressed ? 0.75 : 1 }]}>
+                <Text variant="labelLarge" style={{ color: palette.text }}>{t('chat:diff.filesChangedSimple', { files: diffCount, count: diffCount })}</Text>
+                {currentDiffs.length > 0 ? <>
+                  <Text variant="labelLarge" style={{ color: palette.success }}>+{diffAdditions}</Text>
+                  <Text variant="labelLarge" style={{ color: palette.danger }}>−{diffDeletions}</Text>
+                </> : null}
+              </Pressable>
+            </View>
+            {progressAction}
+          </View>
+        ) : null}
+
         <ChatComposer
-          key={`${currentSessionId}:${activeTab}:${currentPendingPermissions.map((item) => item.id).join()}:${currentPendingQuestions.map((item) => item.id).join()}`}
+          key={`${currentSessionId}:${currentPendingPermissions.map((item) => item.id).join()}:${currentPendingQuestions.map((item) => item.id).join()}`}
           attachments={attachments}
           autoApproveAvailable={serverCapabilities.configWrite}
           availableAgents={availableAgents}

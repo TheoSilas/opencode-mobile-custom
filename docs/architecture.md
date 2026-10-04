@@ -268,7 +268,7 @@ independent of onboarding completion. See [Cloud Link pilot](connect.md).
 - `components/chat/chat-view.tsx`
   Main chat screen controller.
 - `components/chat/chat-content.tsx`
-  Transcript, pending interactions, task overlay, and diff tab rendering.
+  Transcript, pending interactions, task overlay, and changes overlay rendering.
 - `components/chat/chat-composer.tsx`
   Prompt input, attachments, and controls.
 - `components/chat/chat-header.tsx`
@@ -482,7 +482,7 @@ Responsibilities:
 
 - render session transcript
 - render pending permission and question interactions inline
-- render diff tab with turn/uncommitted/branch scopes and a turn picker
+- render the changes overlay with turn/uncommitted/branch scopes and a turn picker
 - send prompts and attachments
 - suggest and execute server-provided slash commands
 - fork from or revert to a user message, and undo a session revert

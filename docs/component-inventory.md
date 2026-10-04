@@ -20,7 +20,8 @@ The goal is to make it possible to rebuild the UI tree without having to redisco
 
 - `draft`
 - `attachments`
-- `activeTab`
+- `changesVisible`
+- `progressVisible`
 - `chatLibraryVisible`
 - `isUpdatingAutoApprove`
 - `isCreatingSession`
@@ -65,7 +66,11 @@ The goal is to make it possible to rebuild the UI tree without having to redisco
 ```ts
 type ChatContentProps = {
   activeSession?: Session
-  activeTab: 'session' | 'changes'
+  progressAction?: ReactNode
+  progressVisible: boolean
+  onCloseProgress: () => void
+  changesVisible: boolean
+  onCloseChanges: () => void
   awaitingUserInput: boolean
   connection: { status: 'idle' | 'connecting' | 'connected' | 'error'; message: string }
   copiedMessageId?: string
@@ -109,10 +114,10 @@ type ChatContentProps = {
 
 ### Behavior notes
 
-- `session` tab shows transcript and pending cards
+- Chat keeps its transcript and pending cards mounted while changes are reviewed.
 - transcript messages use FlashList virtualization; it starts at the bottom, follows additions only from the bottom, and preserves the visible position otherwise
-- `changes` tab shows the active diff scope with a scope control, an optional turn picker, and diff accordions
-- `changes` tab scopes: `Turn` (per-turn snapshot diff, with a picker when multiple turns have diffs), `Uncommitted`, and `Branch` (VCS working tree / default-branch diffs)
+- A centered changes chip above the composer shows file count and green additions/red deletions for the selected scope. It hides at zero files and omits line totals for filename-only patches. Tapping opens the shared Files changed overlay with refresh, source selection, and diff accordions. Changes use a compact bottom sheet (55% of the viewport where safe areas permit), a centered file-count title, close icon, and a three-dot source button instead of separate summary/source cards.
+- Changes overlay scopes: `Turn` (per-turn snapshot diff, with a picker when multiple turns have diffs), `Uncommitted`, and `Branch` (VCS working tree / default-branch diffs)
 - displays starter prompts when there are no display transcript messages
 
 ## `components/chat/chat-composer.tsx`
@@ -251,7 +256,7 @@ Responsibility:
 
 Responsibility:
 
-- render a structured diff (`FileDiff`/`VcsFileDiff`) using a generated line-level preview; used for every Files Changed scope
+- render a structured diff (`FileDiff`/`VcsFileDiff`) using compact full-width rows with a left expansion chevron, filename, and green/red line totals; expanded previews wrap code within the sheet, using one old/new line-number gutter and existing collapsed-context blocks
 
 ### `DiffCard`
 
@@ -308,7 +313,7 @@ Responsibility:
 
 ### Responsibility
 
-- small reusable controls for chat toolbar and tab strip
+- small reusable controls for the chat toolbar and Workspace tab strip
 - accept a `slim` prop that shrinks control height, icon size, and label size for the slim-interface preference
 
 ## `components/chat/chat-diff.ts`
@@ -368,7 +373,7 @@ This is important to parity because the chat layout is intentionally dense and h
 - keeps its active-project title, path, and dropdown trigger in the header; the dropdown opens the shared workspace picker overlay
 - the shared picker can add a server directory as a workspace
 - keeps separate project sync and workspace refresh actions
-- separates files and worktrees with the same top tabs as Chat, without an enclosing panel border; chat lifecycle actions live in the Chat library
+- separates files and worktrees with top tabs, without an enclosing panel border; chat lifecycle actions live in the Chat library
 - opens file viewing and editing in a focused full-screen surface
 
 ## `app/(tabs)/settings.tsx`
@@ -779,7 +784,7 @@ But parity is easiest if these responsibilities remain separated:
 
 ## UX simplification contracts
 
-- `ChatContent` renders task progress as a right-side floating FAB with a filling icon. The detailed progress overlay remains available. Patch summary chips open Changes and select their parent user turn when that message is present in the current session; otherwise the existing changes scope is retained. `TranscriptMessage` memoization includes the review callback to keep the session mapping current.
+- `ChatView` creates the shared task-progress FAB and owns progress-overlay visibility. It renders the FAB beside the changes chip when visible; `ChatContent` renders it floating at the bottom-right otherwise and retains the detailed progress overlay. The detailed progress overlay remains available. Patch summary chips open the Files changed overlay and select their parent user turn when that message is present in the current session; otherwise the existing changes scope is retained. `TranscriptMessage` memoization includes the review callback to keep the session mapping current.
 - The chat library's connection-wide group is Running & recent, with an explicit Running indicator. Deduplicated chats do not create an empty Chats section. Search-empty copy is distinct from a truly empty library.
 - `components/workspace/files-panel.tsx` renders provider-owned changed-file statuses immediately. Added/modified files use the existing reader; deleted rows explain unavailable content. Button and keyboard search share one guarded handler. Query, submitted query, loading, and failure presentation are local and reset with the connection/workspace key; results remain provider-owned.
 - Setup has one guarded Connect & continue action through `switchConnection`. Input survives failures; connection controls and Skip are disabled while submitting. The shared Cloud Link/Manual chooser precedes the manual form.
@@ -797,4 +802,8 @@ The composer microphone starts direct speech-to-text dictation into the draft, p
 
 Composer spacing uses 8px side margins and 6px top/bottom gaps (6px sides and 4px gaps in slim mode), with 8px/4px card top/bottom padding. It does not add another bottom safe-area inset because the visible tab bar owns that inset. Keyboard avoidance and tab visibility remain unchanged.
 
-Task progress floats at the chat area's bottom-right as a 48px Paper FAB. Its standard circle-slice icon fills in eight stages from the provider-owned completion ratio, becoming a checkmark when all tasks complete. Its translated accessible name contains completed/total counts. Tapping retains the existing detailed overlay. It hides while a permission/question blocks the chat. The FAB is positioned absolutely on the right and reserves no transcript row or extra padding. Only blocking-card clearance remains.
+Task progress is a 48px Paper FAB. When the changes chip is visible, the FAB sits on its right in the same row, vertically centered; symmetric space on the left keeps the chip centered. Without a changes chip, progress floats at the chat area's bottom-right. Its standard circle-slice icon fills in eight stages from the provider-owned completion ratio, becoming a checkmark when all tasks complete. Its translated accessible name contains completed/total counts. Tapping retains the existing detailed overlay. It hides while a permission/question blocks the chat. Only the chip-visible row reserves layout space; the standalone FAB is positioned absolutely on the right and reserves no transcript row or extra padding. Only blocking-card clearance remains.
+
+Changes review dismisses the keyboard without remounting the transcript or composer. Session changes and blocking permission/question requests close review and its source picker. Switching to an empty scope keeps an already open review available; closing it hides the chip until changes exist.
+
+The shared OverlaySheet compact option is opt-in for changes only; other overlays retain their existing height, header, and padding. Compact file rows expose expanded state to accessibility and retain filename-only patch fallback.
