@@ -21,11 +21,16 @@ async function openManual(page) {
 
 async function seedExistingInstall(page) {
   await page.addInitScript(() => {
+    // Seed before hydration, but only once per tab so clearing app storage and
+    // reloading really exercises a fresh install.
+    const seededKey = 'e2e.existing-install-seeded';
+    if (globalThis.sessionStorage.getItem(seededKey)) return;
     globalThis.localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 }));
     globalThis.localStorage.setItem(
       'opencode-mobile.settings',
       JSON.stringify({ serverUrl: 'http://127.0.0.1:44096', username: '', directory: '' }),
     );
+    globalThis.sessionStorage.setItem(seededKey, '1');
   });
 }
 
@@ -129,15 +134,8 @@ test('an existing configured installation skips onboarding', async ({ page }) =>
 });
 
 test('clearing app data shows onboarding again', async ({ page }) => {
+  await seedExistingInstall(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await page.evaluate(() => {
-    globalThis.localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 }));
-    globalThis.localStorage.setItem(
-      'opencode-mobile.settings',
-      JSON.stringify({ serverUrl: 'http://127.0.0.1:44096', username: '', directory: '' }),
-    );
-  });
-  await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForChat(page);
 
   await page.evaluate(() => globalThis.localStorage.clear());

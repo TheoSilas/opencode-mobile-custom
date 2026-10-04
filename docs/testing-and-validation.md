@@ -313,6 +313,11 @@ seed used by `flows.spec.mjs`, so the assistant is exercised:
 - clearing `localStorage` shows onboarding again
 - Settings reopens the Setup assistant with the connection prefilled and returns the app to a working chat without wiping configuration
 
+Existing-install fixtures seed storage before application scripts run, avoiding
+a race with hydration and the initial onboarding-marker write. A tab-scoped
+`sessionStorage` flag keeps that seed from running again after `localStorage`
+is cleared, so the clearing-data flow verifies a real fresh-install reload.
+
 Provider permission prompts (notifications, microphone) cannot be exercised on
 web because the platform APIs are unavailable there; the suite covers the
 optional/skippable UI instead. Native permission behavior still needs device
