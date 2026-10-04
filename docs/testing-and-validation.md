@@ -12,6 +12,16 @@ That choice matches the app's risk profile:
 
 ## CI Gates
 
+Web tab navigation must stay within the mounted app. The custom tab button
+prevents the anchor's default browser navigation before calling the router's
+tab handler. E2E coverage checks that switching tabs sends no document request
+and preserves an unsent chat draft; a full reload can otherwise race input or
+workspace selection on slower CI runners.
+The Connect renewal fixture waits for the initial last-session bootstrap write
+before seeding next-launch data, and waits for the rotated scope to persist
+before asserting preservation. Navigation completion alone does not signal
+that provider persistence has finished.
+
 `.github/workflows/build.yml` owns validation and release. It runs on pushes to `main` and `v*` tags:
 
 - a single `validate` job covers static validation and flow regression testing, and is the required gate for both release jobs

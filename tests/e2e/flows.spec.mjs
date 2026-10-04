@@ -272,6 +272,8 @@ async function ensureAiSection(page) {
 }
 
 async function sendPrompt(page, prompt) {
+  // Focus first so Paper's focus render settles before the controlled fill.
+  await page.getByPlaceholder('Ask anything...').click();
   await page.getByPlaceholder('Ask anything...').fill(prompt);
   await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Send task');
   await page.getByTestId('chat-primary-button').click();
@@ -310,9 +312,35 @@ test('happy path keeps the main chat flow stable', async ({ page, request }) => 
   await expect(page.getByText(/export default function ChatLandingScreen/)).toBeVisible();
   await goToTab(page, 'Workspace');
   await expect(page.getByRole('tab', { name: 'Workspace' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByText('Stabilize the chat flow', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Open chats/ })).toHaveCount(0);
   await page.getByText('Files', { exact: true }).click();
   await expect(page.getByText('Modified', { exact: true })).toHaveCount(2);
+});
+
+test('tab navigation preserves the mounted app and an unsent chat draft', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await openReadyChat(page);
+  const documentRequests = [];
+  page.on('request', (request) => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+      documentRequests.push(request.url());
+    }
+  });
+  const draft = 'Keep this draft while switching tabs';
+  await page.getByPlaceholder('Ask anything...').click();
+  await page.getByPlaceholder('Ask anything...').fill(draft);
+  await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Send task');
+
+  await goToTab(page, 'Settings');
+  await ensureConnectionSection(page);
+  await goToTab(page, 'Workspace');
+  await expect(page.getByRole('button', { name: 'Change workspace' })).toBeVisible();
+  await goToTab(page, 'Chat');
+  await expect(page.getByPlaceholder('Ask anything...')).toHaveValue(draft);
+  expect(documentRequests).toEqual([]);
+
+  await page.getByTestId('chat-primary-button').click();
+  await expect(page.getByText(`Finished: ${draft}`, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
 });
 
 test('chat renders GFM tables, ordered lists, and tappable links', async ({ page, request }) => {

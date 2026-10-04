@@ -12,8 +12,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 export default function TabLayout() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const routerPathname = usePathname();
-  const pathname = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.pathname : routerPathname;
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const palette = Colors[colorScheme ?? 'light'];
   const selected = (route: string) => route === '/' ? pathname === '/' || pathname.startsWith('/session/') : pathname.startsWith(route);

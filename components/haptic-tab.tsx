@@ -16,12 +16,17 @@ type TabBarButtonProps = Parameters<
 >[0];
 
 export function HapticTab({ onPressIn, route, ...props }: TabBarButtonProps & { route: string }) {
-  const routerPathname = usePathname();
-  const pathname = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.pathname : routerPathname;
+  const pathname = usePathname();
   const selected = route === '/' ? pathname === '/' || pathname.startsWith('/session/') : pathname.startsWith(route);
   return (
     <Pressable
       {...(props as ComponentProps<typeof Pressable>)}
+      onPress={(event) => {
+        // Pressable renders the tab's href as an anchor on web. Keep the
+        // navigation handler in charge instead of also reloading the document.
+        if (Platform.OS === 'web') event.preventDefault();
+        props.onPress?.(event);
+      }}
       {...(Platform.OS === 'web' ? { accessibilityState: { ...props.accessibilityState, selected }, 'aria-selected': selected } : {})}
       ref={(node) => {
         if (Platform.OS === 'web' && node) {

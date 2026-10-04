@@ -40,17 +40,18 @@ export function ConnectPairing({ setup, onConnected, onClose, onManage }: { setu
   const [draft, setDraft] = useState(setup.controlPlaneUrl);
   const [link, setLink] = useState('');
   const [scanPending, setScanPending] = useState(false);
-  const connected = useRef(false);
+  // A previous successful pairing must not redirect a newly opened scanner.
+  const connected = useRef(setup.phase === 'paired');
   useEffect(() => {
     const listener = AppState.addEventListener('change', (state) => setActive(state === 'active'));
     return () => listener.remove();
   }, []);
   useEffect(() => {
+    if (setup.phase !== 'paired') connected.current = false;
     if (focused && setup.phase === 'paired' && !setup.error && !connected.current) { connected.current = true; onConnected(); }
   }, [focused, onConnected, setup.error, setup.phase]);
   const pending = setup.busy || ['purchasing', 'pending'].includes(setup.phase);
-  const subscriptionPhase = ['purchasing', 'pending', 'restoring', 'verifying', 'savingSession', 'finalizing'].includes(setup.phase);
-  const subscription = focused && setup.initialization !== 'loading' && (!setup.entitled || subscriptionPhase);
+  const subscription = focused && setup.initialization !== 'loading' && !setup.entitled;
   const canScan = setup.initialization === 'ready' && setup.entitled && !pending && !sheet && !setup.error && !scanPending;
   function close() {
     if (pending || scanPending) return;

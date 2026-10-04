@@ -60,7 +60,11 @@ subscription overlay wait for recovery to settle. A verified subscriber scans
 and automatically pairs, securely saves, and connects through the provider's
 `pairLink` action. Non-subscribers immediately see the shared subscription
 sheet with benefits, native localized offers, Subscribe and Restore purchases.
-Dismissing it clears the pending QR and returns to the chooser. No purchase is
+Dismissing it clears the pending QR, dismisses the camera surface, and returns
+to the chooser. Every new Connect attempt checks entitlement again and shows
+the sheet for a non-subscriber; dismissal is never remembered. Active subscribers
+go directly to the camera surface without the buy/Restore sheet, including when
+opening pairing again after a successful connection. No purchase is
 started automatically. Deep links use the same continuation and retain the
 exact pending QR for purchase/Restore.
 

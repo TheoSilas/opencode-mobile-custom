@@ -356,6 +356,9 @@ test('renewal rotates credentials while preserving profile, machine, hostname an
   await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
   const previous = await page.evaluate(() => JSON.parse(localStorage.getItem('opencode-mobile.connection-profiles'))[0]);
   const previousScope = Buffer.from(`${previous.serverUrl}\n${previous.username}`).toString('base64url');
+  // Let the first connection finish its bootstrap write before seeding the
+  // next-launch fixture, or that write can overwrite the remembered session.
+  await expect.poll(() => page.evaluate((scope) => Object.keys(JSON.parse(localStorage.getItem('opencode-mobile.last-session-by-project') || '{}')[scope] || {}).length, previousScope)).toBeGreaterThan(0);
   await page.evaluate(({ previousScope }) => {
     localStorage.setItem('opencode-mobile.favorite-sessions', JSON.stringify([{ sessionId: 'remembered', projectPath: '/fixture', connectionScope: previousScope, favoritedAt: Date.now() }]));
     localStorage.setItem('opencode-mobile.last-session-by-project', JSON.stringify({ [previousScope]: { '/fixture': 'remembered' } }));
@@ -374,6 +377,11 @@ test('renewal rotates credentials while preserving profile, machine, hostname an
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opencode-mobile.favorite-sessions'))[0].connectionScope)).toBe(previousScope);
   await page.getByTestId('connect-retry').click();
   await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
+  await expect.poll(() => page.evaluate(() => {
+    const profile = JSON.parse(localStorage.getItem('opencode-mobile.connection-profiles'))[0];
+    const scope = btoa(`${profile.serverUrl}\n${profile.username}`).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+    return JSON.parse(localStorage.getItem('opencode-mobile.last-session-by-project') || '{}')[scope]?.['/fixture'];
+  })).toBe('remembered');
   const updated = await page.evaluate(() => ({ profile: JSON.parse(localStorage.getItem('opencode-mobile.connection-profiles'))[0], favorites: JSON.parse(localStorage.getItem('opencode-mobile.favorite-sessions')), last: JSON.parse(localStorage.getItem('opencode-mobile.last-session-by-project')) }));
   expect(updated.profile.id).toBe(previous.id); expect(updated.profile.name).toBe(previous.name);
   expect(updated.profile.connect.machineId).toBe(previous.connect.machineId); expect(updated.profile.serverUrl).toBe(previous.serverUrl);
@@ -409,11 +417,40 @@ test('subscription dismissal returns to the chooser and Manual stays available',
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair');
   await expect(page.getByTestId('connect-purchase')).toBeEnabled();
+  for (const dismiss of ['close', 'escape', 'backdrop']) {
+    const sheet = page.getByTestId('connect-subscription-sheet');
+    await expect(sheet).toBeVisible();
+    if (dismiss === 'close') await sheet.getByText('Close', { exact: true }).click();
+    else if (dismiss === 'escape') await page.keyboard.press('Escape');
+    else await sheet.getByLabel('Close Connect').click({ position: { x: 10, y: 10 } });
+    await expect(page.getByTestId('connection-method-chooser')).toBeVisible();
+    await expect(page.getByTestId('connect-panel')).toHaveCount(0);
+    await expect(sheet).toHaveCount(0);
+    await page.getByTestId('connection-method-connect').click();
+    await expect(page.getByTestId('connect-purchase')).toBeEnabled();
+  }
   await page.getByTestId('connect-subscription-sheet').getByText('Close', { exact: true }).click();
-  await expect(page.getByTestId('connection-method-chooser')).toBeVisible();
   await page.getByTestId('connection-method-manual').click();
   await expect(page.getByTestId('connection-profile-name-input')).toBeVisible();
   expect(await events(page)).not.toContain('purchase');
+});
+
+test('a subscriber can reopen pairing after connecting without a subscription overlay', async ({ page }) => {
+  await storeFixture(page); const state = await mockControlPlane(page);
+  await openPair(page);
+  await page.getByTestId('connect-purchase').click();
+  await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: /^Connection/ }).click();
+  await page.getByTestId('connection-add-button').click();
+  await page.getByTestId('connection-method-connect').click();
+  await expect(page.getByTestId('connect-panel')).toBeVisible();
+  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
+  await expect(page.getByTestId('connect-link-options')).toBeEnabled();
+  await expect(page).toHaveURL(/\/pair$/);
+  expect(state.pairClaims).toBe(1);
+  expect((await events(page)).filter((event) => event === 'purchase')).toHaveLength(1);
 });
 
 test('invalid and untrusted QR links can be replaced with a valid subscriber link', async ({ page }) => {
