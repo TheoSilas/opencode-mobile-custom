@@ -72,7 +72,11 @@ export function hookRuntime() {
     mount(fn, initial) { hook = fn; props = initial; return flush(); },
     update(patch) { props = { ...props, ...patch }; return flush(); },
     flush,
-    async settle() { for (let i = 0; i < 60; i++) { await Promise.resolve(); flush(); } return value; },
+    // Async flows can chain several awaits (e.g. a failed production claim
+    // followed by a staging re-init and re-claim). 60 microtask turns were not
+    // enough for automatic Connect environment routing; keep headroom so the
+    // hook reaches its settled state before assertions run.
+    async settle() { for (let i = 0; i < 120; i++) { await Promise.resolve(); flush(); } return value; },
     get value() { return value; },
     fire(ms) { for (const [id, timer] of [...timers]) if (timer.ms === ms && timers.has(id)) { if (!timer.interval) timers.delete(id); timer.fn(); } return flush(); },
     countTimers(ms) { return [...timers.values()].filter((timer) => timer.ms === ms).length; },
