@@ -232,6 +232,8 @@ try {
   assert(archived.time.archived === 1234567890, 'Session archive failed');
   assert(!(await request('/session')).some((entry) => entry.id === sessionId), 'Archived session leaked into active list');
   assert((await request('/experimental/session?archived=true')).some((entry) => entry.id === sessionId && entry.project.id === 'project-demo'), 'Experimental archived list failed');
+  assert((await request('/experimental/session?archived=true')).some((entry) => entry.id === forked.id && !entry.time.archived), 'archived=true must include active sessions');
+  assert(!(await request('/experimental/session?archived=false')).some((entry) => entry.id === sessionId), 'archived=false must exclude archived sessions');
   await request('/__control/reset', json('POST', { scenario: 'permission' }));
   const permissionSession = await request('/session', json('POST', { title: 'Permission session' }));
   const abortController = new AbortController();

@@ -807,3 +807,8 @@ Task progress is a 48px Paper FAB. When the changes chip is visible, the FAB sit
 Changes review dismisses the keyboard without remounting the transcript or composer. Session changes and blocking permission/question requests close review and its source picker. Switching to an empty scope keeps an already open review available; closing it hides the chip until changes exist.
 
 The shared OverlaySheet compact option is opt-in for changes only; other overlays retain their existing height, header, and padding. Compact file rows expose expanded state to accessibility and retain filename-only patch fallback.
+
+
+## Session library recovery (#64)
+
+Archived Chat Library cards are accessible buttons that restore and open through the provider. The swipe Restore action remains available and passes the row directory. Library actions are serialized with an immediate operation guard; duplicate taps are ignored and the latest distinct opening is queued; results from dismissed overlays cannot replace current feedback or close a reopened overlay.

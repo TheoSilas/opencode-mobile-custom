@@ -608,3 +608,8 @@ If the system is rebuilt, the safest parity-preserving architecture would keep t
 - event-driven handling for session-scoped permission blocking flows
 
 Those are implementation-defining patterns, not incidental details.
+
+
+## Session library recovery (#64)
+
+Session idle events only refresh domain state; archiving remains an explicit user action. Archive restoration and optional reopening are provider-owned and preserve the target workspace and connection scope.

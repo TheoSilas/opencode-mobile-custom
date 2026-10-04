@@ -183,3 +183,125 @@ profileRuntime.update({ switchConnection: async () => {} });
 assert.equal(profileRuntime.value, stableProfiles, 'profile domain values remain stable when only callback bridges change');
 profileRuntime.unmount();
 console.log('provider-owned profile ordering, rollback, and callback stability checks passed');
+
+// Actual session callbacks: restore in the row's workspace, preserve scope,
+// and refresh an explicit target missing from an otherwise populated cache.
+const sessionNames = ['restoreSession', 'ensureActiveSession', 'openDeepLinkSession'];
+const sessionDeclarations = body.statements.filter((n) => ts.isVariableStatement(n) && sessionNames.includes(n.declarationList.declarations[0].name.getText(ast))).map((n) => n.getText(ast)).join('\n');
+let restoreGate, restoreFailure, restoredDirectory, reopened, createdSessions = 0, fetchedSessions = 0;
+const target = { id: 'target' };
+const sessionContext = {
+  exports: {}, useCallback: (fn) => fn, client: { directory: '/repo' },
+  activeProjectPath: '/repo', activeProjectPathRef: { current: '/repo' }, settingsRef: { current: {} },
+  connection: { status: 'connected' }, connectionRef: { current: { status: 'connected' } },
+  serverContractRef: { current: 'v1' }, serverGenerationRef: { current: 1 },
+  buildClient: (settings) => settings,
+  svcRestoreSession: async (candidate) => { restoredDirectory = candidate.directory; await restoreGate?.promise; if (restoreFailure) throw new Error('restore failed'); },
+  refreshSessions: async () => {}, refreshArchivedSessions: async () => {}, refreshActiveSessions: async () => {},
+  openSessionInProject: async (projectPath, id) => { reopened = { projectPath, id }; },
+  currentSessionId: undefined, sessions: [{ id: 'cached' }], messagesBySession: {},
+  pendingDeepLinkTargetRef: { current: { sessionId: 'target', projectPath: '/repo' } },
+  bootstrapPromiseRef: { current: null }, bootstrapTokenRef: {},
+  fetchSessions: async () => { fetchedSessions++; return [target]; },
+  lastSessionByConnection: {}, connectionScope: 'scope', createSession: async () => { createdSessions++; },
+  setIsBootstrappingChat: () => {}, refreshMessages: async () => {}, refreshSessionDiff: async () => {},
+  refreshSessionTodos: async () => {}, refreshPendingInteractions: async () => {}, refreshChatCapabilities: async () => {},
+  refreshServerFeatures: async () => {}, refreshDiagnostics: async () => {}, isCurrentClient: () => true,
+  setCurrentSessionId: (id) => { sessionContext.currentSessionIdRef.current = id; }, setLastSessionByConnection: () => {},
+  deepLinkOperationRef: {}, currentSessionIdRef: {}, serverProjectsRef: { current: [{ worktree: '/repo' }] },
+  connect: async () => {}, selectProject: () => {}, ensureActiveSessionRef: {}, setTimeout, Date,
+};
+runInNewContext(ts.transpileModule(`${sessionDeclarations}\nexports.actions = { ${sessionNames.join(', ')} };`, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, sessionContext);
+const sessionActions = sessionContext.exports.actions;
+await sessionActions.restoreSession('target', { projectPath: '/elsewhere', open: true });
+assert.equal(restoredDirectory, '/elsewhere'); assert.equal(reopened.id, 'target'); assert.equal(reopened.projectPath, '/elsewhere');
+reopened = undefined; restoreFailure = true;
+await assert.rejects(sessionActions.restoreSession('target', { projectPath: '/elsewhere', open: true }), /restore failed/);
+assert.equal(reopened, undefined); restoreFailure = false;
+restoreGate = deferred();
+const switchingRestore = sessionActions.restoreSession('target', { open: true });
+sessionContext.serverGenerationRef.current++; restoreGate.resolve();
+await assert.rejects(switchingRestore, /connection changed/); assert.equal(reopened, undefined); restoreGate = undefined;
+assert.equal(await sessionActions.ensureActiveSession(), 'target'); assert.equal(fetchedSessions, 1);
+assert.equal(createdSessions, 0);
+sessionContext.pendingDeepLinkTargetRef.current = { sessionId: 'missing', projectPath: '/repo' };
+sessionContext.bootstrapPromiseRef.current = null;
+assert.equal(await sessionActions.ensureActiveSession(), undefined); assert.equal(createdSessions, 0);
+
+// A genuine supersession is cancellation of an earlier request, not a new URL.
+const firstOpenGate = deferred();
+let opens = 0;
+sessionContext.ensureActiveSessionRef.current = async () => {
+  if (++opens === 1) { await firstOpenGate.promise; return 'first'; }
+  sessionContext.currentSessionIdRef.current = 'second'; return 'second';
+};
+const firstOpen = sessionActions.openDeepLinkSession({ sessionId: 'first', projectPath: '/repo' });
+assert.equal((await sessionActions.openDeepLinkSession({ sessionId: 'second', projectPath: '/repo' })).ok, true);
+firstOpenGate.resolve(); assert.match((await firstOpen).error, /superseded/);
+const switchedOpenGate = deferred();
+sessionContext.ensureActiveSessionRef.current = async () => { await switchedOpenGate.promise; return 'target'; };
+const switchedOpen = sessionActions.openDeepLinkSession({ sessionId: 'target', projectPath: '/repo' });
+sessionContext.serverGenerationRef.current++; switchedOpenGate.resolve();
+assert.equal((await switchedOpen).ok, false, 'server switch cannot complete an old session open');
+assert.equal(sessionContext.pendingDeepLinkTargetRef.current, undefined);
+const canceledOpenGate = deferred();
+sessionContext.ensureActiveSessionRef.current = async () => { await canceledOpenGate.promise; return 'target'; };
+const openController = new AbortController();
+const canceledOpen = sessionActions.openDeepLinkSession({ sessionId: 'target', projectPath: '/repo' }, openController.signal);
+openController.abort(); canceledOpenGate.resolve();
+assert.equal((await canceledOpen).ok, false);
+assert.equal(sessionContext.pendingDeepLinkTargetRef.current, undefined);
+
+// Exercise the actual library runner without loading the native rendering tree.
+const librarySource = await readFile(new URL('../components/chat/chat-library.tsx', import.meta.url), 'utf8');
+const libraryAst = ts.createSourceFile('library.tsx', librarySource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const libraryBody = libraryAst.statements.find((n) => ts.isFunctionDeclaration(n) && n.name?.text === 'ChatLibrary').body;
+const runner = libraryBody.statements.find((n) => ts.isFunctionDeclaration(n) && n.name?.text === 'run').getText(libraryAst);
+let libraryError, completed = 0, executions = 0;
+const libraryContext = { exports: {}, operationRef: {}, queuedOpenRef: {}, setBusyId: () => {}, setError: (error) => { libraryError = error; }, t: (key) => key };
+runInNewContext(ts.transpileModule(`${runner}\nexports.run = run;`, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, libraryContext);
+const libraryGate = deferred();
+const libraryRun = libraryContext.exports.run;
+const firstLibraryRun = libraryRun('first', async () => { executions++; await libraryGate.promise; throw new Error('superseded'); });
+await libraryRun('first', async () => { executions++; }); assert.equal(executions, 1, 'double taps cannot start another action');
+libraryContext.operationRef.current = undefined; // dismiss the old overlay
+await libraryRun('second', async () => {}, () => { completed++; });
+libraryGate.resolve(); await firstLibraryRun;
+assert.equal(completed, 1); assert.equal(libraryError, undefined, 'an old error cannot overwrite a newer successful opening');
+console.log('session restore, explicit-target opening, cancellation, and library race regressions passed');
+
+const queuedGate = deferred();
+const queuedFirst = libraryRun('old', async () => { await queuedGate.promise; throw new Error('obsolete error'); }, () => { completed += 100; });
+await libraryRun('middle', async () => { completed += 100; }, () => {});
+await libraryRun('latest', async () => {}, () => { completed++; });
+queuedGate.resolve(); await queuedFirst; await Promise.resolve();
+assert.equal(completed, 2, 'only the latest queued target completes and closes');
+assert.equal(libraryError, undefined);
+
+// The CI favorite failure opened the right session with an empty transcript.
+// Pruning must wait until bootstrap selects the session whose reads just landed.
+const pruneEffect = body.statements.find((n) => ts.isExpressionStatement(n)
+  && ts.isCallExpression(n.expression) && n.expression.expression.getText(ast) === 'useEffect'
+  && n.getText(ast).includes('const keepIds = new Set<string>()')).getText(ast);
+let cachedMessages = { old: ['old transcript'], target: ['new transcript'] };
+let cachedDiffs = { old: ['old diff'], target: ['new diff'] };
+let cachedTodos = { old: ['old todo'], target: ['new todo'] };
+let prune;
+const pruneContext = {
+  useEffect: (effect) => { prune = effect; }, currentSessionId: undefined, conversationSessionId: undefined,
+  sessionStatuses: {}, isBootstrappingChat: true, pendingDeepLinkTargetRef: { current: { sessionId: 'target' } },
+  setMessagesBySession: (update) => { cachedMessages = update(cachedMessages); },
+  setDiffsBySession: (update) => { cachedDiffs = update(cachedDiffs); },
+  setTodosBySession: (update) => { cachedTodos = update(cachedTodos); },
+};
+runInNewContext(ts.transpileModule(pruneEffect, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, pruneContext);
+prune();
+assert.deepEqual(cachedMessages.target, ['new transcript'], 'bootstrap reads cannot be evicted before selecting their target');
+assert.deepEqual(cachedDiffs.target, ['new diff']); assert.deepEqual(cachedTodos.target, ['new todo']);
+pruneContext.isBootstrappingChat = false;
+pruneContext.pendingDeepLinkTargetRef.current = undefined;
+pruneContext.currentSessionId = 'target';
+cachedMessages.extra = []; cachedDiffs.extra = []; cachedTodos.extra = [];
+prune();
+assert.deepEqual(Object.keys(cachedMessages), ['target'], 'pruning resumes after selection and removes inactive histories');
+assert.deepEqual(Object.keys(cachedDiffs), ['target']); assert.deepEqual(Object.keys(cachedTodos), ['target']);

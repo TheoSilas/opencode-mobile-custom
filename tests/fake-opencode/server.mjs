@@ -544,8 +544,9 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/experimental/session') {
       const archived = requestUrl.searchParams.get('archived') === 'true';
+      const directory = requestUrl.searchParams.get('directory');
       sendJson(res, 200, state.sessions
-        .filter((session) => archived ? Boolean(session.time.archived) : !session.time.archived)
+        .filter((session) => (!directory || session.directory === directory) && (archived || !session.time.archived))
         .map((session) => {
           const project = state.projects.find((entry) => entry.worktree === session.directory) || state.project;
           return { ...session, project: { id: project.id, worktree: project.worktree } };

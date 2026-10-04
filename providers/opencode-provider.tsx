@@ -936,11 +936,11 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   );
 
   const refreshArchivedSessions = useCallback(async () => {
-    const next = await svcListArchivedSessions(client);
-    if (isCurrentClient(client)) {
+    const next = await svcListArchivedSessions(catalogClient);
+    if (isCurrentCatalogClient(catalogClient)) {
       setArchivedSessions([...next].sort((left, right) => right.time.updated - left.time.updated));
     }
-  }, [client, isCurrentClient]);
+  }, [catalogClient, isCurrentCatalogClient]);
 
   const archiveSession = useCallback(async (sessionId: string) => {
     await svcArchiveSession(client, sessionId);
@@ -990,13 +990,6 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       (favorite) => !(favorite.connectionScope === connectionScopeRef.current && favorite.sessionId === sessionId),
     ));
   }, []);
-
-
-  const restoreSession = useCallback(async (sessionId: string) => {
-    await svcRestoreSession(client, sessionId);
-    if (!isCurrentClient(client)) return;
-    await Promise.all([refreshSessions(true), refreshArchivedSessions()]);
-  }, [client, isCurrentClient, refreshArchivedSessions, refreshSessions]);
 
   const renameSession = useCallback(async (sessionId: string, title: string) => {
     const trimmed = title.trim();
@@ -1181,7 +1174,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       setIsBootstrappingChat(true);
 
       try {
-        const nextSessions = sessions.length > 0 ? sessions : await fetchSessions(true);
+        const nextSessions = sessions.length > 0 && (!pendingTarget || sessions.some((session) => session.id === pendingTarget.sessionId))
+          ? sessions : await fetchSessions(true);
         if (pendingDeepLinkTargetRef.current !== pendingTarget) {
           return undefined;
         }
@@ -1553,16 +1547,18 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       const projectPath = target.projectPath?.trim();
       const operation = {};
       deepLinkOperationRef.current = operation;
-      const ownsOperation = () => deepLinkOperationRef.current === operation;
+      let operationServerGeneration: number | undefined;
+      const ownsOperation = () => deepLinkOperationRef.current === operation &&
+        (operationServerGeneration === undefined || operationServerGeneration === serverGenerationRef.current);
       const cancelOperation = () => {
-        if (ownsOperation()) {
+        if (deepLinkOperationRef.current === operation) {
           pendingDeepLinkTargetRef.current = undefined;
           deepLinkOperationRef.current = undefined;
         }
       };
       const finish = (result: { ok: boolean; error?: string }) => {
         signal?.removeEventListener('abort', cancelOperation);
-        if (ownsOperation()) {
+        if (deepLinkOperationRef.current === operation) {
           pendingDeepLinkTargetRef.current = undefined;
           deepLinkOperationRef.current = undefined;
         }
@@ -1594,6 +1590,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
         }
       }
 
+      operationServerGeneration = serverGenerationRef.current;
       const targetProjectPath = projectPath || activeProjectPathRef.current;
       if (!targetProjectPath) {
         return finish({ ok: false, error: 'This session link does not name a project, and no project is open.' });
@@ -1692,6 +1689,17 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       throw new Error(result.error || 'Could not open the session.');
     }
   }, [openDeepLinkSession, switchConnection, waitForConnectionScope]);
+
+  const restoreSession = useCallback(async (sessionId: string, options?: { projectPath?: string; open?: boolean }) => {
+    const projectPath = options?.projectPath || activeProjectPathRef.current;
+    const generation = serverGenerationRef.current;
+    const targetClient = buildClient({ ...settingsRef.current, directory: projectPath || '' }, serverContractRef.current);
+    await svcRestoreSession(targetClient, sessionId);
+    if (generation !== serverGenerationRef.current) throw new Error('The connection changed while restoring the session.');
+    await Promise.all([refreshSessions(true), refreshArchivedSessions(), refreshActiveSessions()]);
+    if (generation !== serverGenerationRef.current) throw new Error('The connection changed while restoring the session.');
+    if (options?.open && projectPath) await openSessionInProject(projectPath, sessionId);
+  }, [openSessionInProject, refreshActiveSessions, refreshArchivedSessions, refreshSessions]);
 
   useEffect(() => {
     // Boot connect runs once, only for installs that had already completed
@@ -2440,7 +2448,12 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   }, [activeProjectPath, connectionScope, currentSessionId, lastSessionByConnection, sessions]);
 
   useEffect(() => {
+    // Bootstrap reads arrive before the target is selected. Pruning in that
+    // window can discard its transcript while slower capability reads finish.
+    if (isBootstrappingChat) return;
     const keepIds = new Set<string>();
+    const openingSessionId = pendingDeepLinkTargetRef.current?.sessionId;
+    if (openingSessionId) keepIds.add(openingSessionId);
     if (currentSessionId) keepIds.add(currentSessionId);
     if (conversationSessionId) keepIds.add(conversationSessionId);
     for (const [id, status] of Object.entries(sessionStatuses)) {
@@ -2474,7 +2487,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       }
       return next;
     });
-  }, [currentSessionId, conversationSessionId, sessionStatuses]);
+  }, [currentSessionId, conversationSessionId, isBootstrappingChat, sessionStatuses]);
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === currentSessionId),

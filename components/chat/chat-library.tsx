@@ -1,7 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, StyleSheet, Switch, Text as NativeText, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
@@ -44,6 +44,11 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
   const [renameValue, setRenameValue] = useState('');
   const [busyId, setBusyId] = useState<string>();
   const [error, setError] = useState<string>();
+  const operationRef = useRef<{ id: string } | undefined>(undefined);
+  const queuedOpenRef = useRef<{ id: string; action: () => Promise<unknown>; onSuccess: () => void } | undefined>(undefined);
+  useEffect(() => {
+    return () => { operationRef.current = undefined; queuedOpenRef.current = undefined; };
+  }, [visible]);
   const needle = query.trim().toLowerCase();
   const matches = (title: string, detail = '') => `${title} ${detail}`.toLowerCase().includes(needle);
   const activeSessionIds = new Set(activeSessions.map((session) => session.sessionId));
@@ -62,14 +67,32 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
     if (Platform.OS === 'web') { if (globalThis.confirm(`${title}\n\n${message}`)) run(); return; }
     Alert.alert(title, message, [{ text: t('common:actions.cancel'), style: 'cancel' }, { text: action, style: 'destructive', onPress: run }]);
   }
-  async function run(id: string, action: () => Promise<unknown>) {
+  async function run(id: string, action: () => Promise<unknown>, onSuccess?: () => void) {
+    if (operationRef.current) {
+      // Ignore duplicate taps; a different opening waits and the latest wins.
+      if (onSuccess && operationRef.current.id !== id) queuedOpenRef.current = { id, action, onSuccess };
+      return;
+    }
+    const operation = { id };
+    operationRef.current = operation;
     setBusyId(id); setError(undefined);
-    try { await action(); } catch (reason) { setError(reason instanceof Error ? reason.message : t('chat:library.couldNotUpdate')); }
-    finally { setBusyId(undefined); }
+    try {
+      await action();
+      if (operationRef.current === operation && !queuedOpenRef.current) onSuccess?.();
+    } catch (reason) {
+      if (operationRef.current === operation && !queuedOpenRef.current) setError(reason instanceof Error ? reason.message : t('chat:library.couldNotUpdate'));
+    } finally {
+      if (operationRef.current === operation) {
+        operationRef.current = undefined; setBusyId(undefined);
+        const queued = queuedOpenRef.current;
+        queuedOpenRef.current = undefined;
+        if (queued) void run(queued.id, queued.action, queued.onSuccess);
+      }
+    }
   }
-  const close = () => { setWorkspaceVisible(false); setRenamingId(undefined); onClose(); };
-  const open = (id: string) => void run(id, async () => { await openSession(id); close(); });
-  const openActive = (id: string, projectPath: string) => void run(id, async () => { await openSessionInProject(projectPath, id); close(); });
+  const close = () => { operationRef.current = undefined; queuedOpenRef.current = undefined; setBusyId(undefined); setError(undefined); setWorkspaceVisible(false); setRenamingId(undefined); onClose(); };
+  const open = (id: string) => void run(id, () => openSession(id), close);
+  const openActive = (id: string, projectPath: string) => void run(id, () => openSessionInProject(projectPath, id), close);
 
   // Live current-workspace sessions win over the cross-workspace snapshot so a
   // rename or share change is reflected immediately in the Active group.
@@ -142,7 +165,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
     if (row.kind === 'favorite') {
       const favorite = row.value;
       return <SwipeRow key={`${favorite.connectionScope}:${favorite.sessionId}`} title={favorite.title || t('chat:library.untitledChat')} actions={[{ label: t('chat:library.unfavorite'), icon: 'star-off-outline', onPress: () => clearFavoriteSession(favorite.sessionId) }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('chat:library.open', { title: favorite.title || t('chat:library.untitledChat') })} accessibilityHint={t('chat:library.swipeRemoveFavorite')} onPress={() => void run(favorite.sessionId, async () => { await openSessionInProject(favorite.projectPath, favorite.sessionId, favorite.connectionScope); close(); })} style={[styles.sessionItem, { borderColor: palette.border }]}>
+          <Pressable testID={`chat-library-favorite-${favorite.sessionId}`} accessibilityRole="button" accessibilityLabel={t('chat:library.open', { title: favorite.title || t('chat:library.untitledChat') })} accessibilityHint={t('chat:library.swipeRemoveFavorite')} onPress={() => void run(favorite.sessionId, () => openSessionInProject(favorite.projectPath, favorite.sessionId, favorite.connectionScope), close)} style={[styles.sessionItem, { borderColor: palette.border }]}>
             <MaterialCommunityIcons name="star" size={20} color={palette.tint} /><View style={styles.sessionText}><NativeText numberOfLines={1} style={[styles.sessionTitle, { color: palette.text }]}>{favorite.title || t('chat:library.untitledChat')}</NativeText><NativeText numberOfLines={1} style={{ color: palette.muted }}>{favorite.projectPath.split('/').filter(Boolean).pop() || favorite.projectPath}</NativeText></View>
           </Pressable>
         </SwipeRow>;
@@ -161,9 +184,9 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
     if (row.kind === 'archived') {
       const session = row.value;
       return <SwipeRow key={session.id} title={session.title || t('chat:library.untitledChat')} actions={[
-          { label: t('chat:library.restore'), icon: 'restore', onPress: () => void run(session.id, () => restoreSession(session.id)) },
+          { label: t('chat:library.restore'), icon: 'restore', onPress: () => void run(session.id, () => restoreSession(session.id, { projectPath: session.directory })) },
           { label: t('common:actions.delete'), icon: 'delete-outline', onPress: () => confirm(t('chat:library.deleteArchivedTitle'), t('chat:library.deleteConfirm', { title: session.title || t('chat:library.untitledChat') }), t('common:actions.delete'), () => void run(session.id, async () => { await deleteSession(session.id); await refreshArchivedSessions(); })) },
-        ]}><View style={[styles.sessionItem, { borderColor: palette.border }]}><MaterialCommunityIcons name="archive-outline" size={20} color={palette.muted} /><View style={styles.sessionText}><NativeText numberOfLines={1} style={[styles.sessionTitle, { color: palette.text }]}>{session.title || t('chat:library.untitledChat')}</NativeText><NativeText numberOfLines={1} style={{ color: palette.muted }}>{session.directory} · {formatRelativeTime(session.time.updated)}</NativeText></View></View></SwipeRow>;
+        ]}><Pressable accessibilityRole="button" accessibilityLabel={t('chat:library.open', { title: session.title || t('chat:library.untitledChat') })} accessibilityHint={t('chat:library.swipeChatActions')} disabled={Boolean(busyId)} onPress={() => void run(session.id, () => restoreSession(session.id, { projectPath: session.directory, open: true }), close)} style={[styles.sessionItem, { borderColor: palette.border }]}><MaterialCommunityIcons name="archive-outline" size={20} color={palette.muted} /><View style={styles.sessionText}><NativeText numberOfLines={1} style={[styles.sessionTitle, { color: palette.text }]}>{session.title || t('chat:library.untitledChat')}</NativeText><NativeText numberOfLines={1} style={{ color: palette.muted }}>{session.directory} · {formatRelativeTime(session.time.updated)}</NativeText></View></Pressable></SwipeRow>;
     }
     return null;
   }
@@ -180,7 +203,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
       <FlashList data={rows} style={{ flex: 1 }} keyExtractor={(row) => row.id} getItemType={(row) => row.kind}
         keyboardShouldPersistTaps="handled" renderItem={({ item }) => <View style={{ paddingBottom: 8 }}>{renderRow(item)}</View>} />
-      <Button icon="plus" disabled={!activeProject || Boolean(busyId)} onPress={() => void run('new', async () => { const session = await createSession(); await openSession(session.id); close(); })}>{t('chat:library.newChat')}</Button>
+      <Button icon="plus" disabled={!activeProject || Boolean(busyId)} onPress={() => void run('new', async () => { const session = await createSession(); await openSession(session.id); }, close)}>{t('chat:library.newChat')}</Button>
     </OverlaySheet>
 
     <WorkspacePicker visible={visible && workspaceVisible} testID="chat-workspace-picker" projects={projects} activePath={activeProject?.path} onClose={() => setWorkspaceVisible(false)} onSelect={(path) => { selectProject(path); close(); }} onAdd={async (path) => { await addWorkspace(path); close(); }} />

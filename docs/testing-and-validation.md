@@ -25,7 +25,7 @@ that provider persistence has finished.
 `.github/workflows/build.yml` owns validation and release. It runs on pushes to `main` and `v*` tags:
 
 - a single `validate` job covers static validation and flow regression testing, and is the required gate for both release jobs
-- validation uploads artifacts only on failure (`playwright-report`), with 3-day retention
+- validation uploads artifacts only on failure (`playwright-report`), with 3-day retention; Playwright retains failed-test traces and screenshots without requiring retries
 
 `.github/workflows/pr-validate.yml` runs the same validate steps on pull requests targeting `main`, so contributor branches get the static, fake-server, and Playwright gates before review. It does not build or publish releases, and it cancels superseded runs for the same PR.
 
@@ -477,3 +477,13 @@ Chat no longer has Session / Files Changed tabs. Diff flows enter through the ce
 Run the static, fake-server self-test, and full web E2E gates. E2E edits require explicit human validation under AGENTS.md. Native checks remain necessary for light/dark themes, larger text, safe areas, keyboard layout, screen-reader names, and Android Back dismissal.
 
 The compact diff-sheet flow also verifies its full viewport width, initial bottom-sheet position, compact file-row height, expanded accessibility state, and lack of horizontal overflow. Diff-source selection remains reachable from the header's three-dot button; the selected scope/turn is included in its accessible name. The shared overlay's other presentations remain unchanged. Native acceptance must check wrapped code and long paths at larger text sizes.
+
+
+## Session library recovery (#64)
+
+Session-read regressions cover mixed archived/active records and pagination through an active-only page. The fake V1 server reproduces the inclusive `archived=true` contract. Web flows cover idle-session reopening, double taps, archived-card restoration with retained history, and cross-workspace restoration with failure/retry. Run `test:ci:static`, `test:fake-server:self`, and `test:e2e:web`. TestFlight validation with OpenCode 1.18.34, card taps, swipe actions, and accessibility remains required. Changes in the fake-server and E2E directories require explicit human validation under AGENTS.md.
+
+
+## Cross-workspace favorite CI regression
+
+The favorite flow waits for server-side prompt completion and the selected workspace rather than a fixed delay. It targets the favorite row directly, since the same session may also appear in the Active group. Provider runtime coverage reproduces cache pruning while bootstrap reads have arrived but capability discovery is still pending. Pruning waits for bootstrap completion and protects the pending deep-link target, then resumes with the selected, running, and conversation sessions. Validate with Node 22 and `CI=true EXPO_PUBLIC_E2E_MODE=1`, including repeated focused favorite flows and the full three CI gates. E2E changes still require explicit human validation under AGENTS.md.

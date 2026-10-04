@@ -61,3 +61,24 @@ slow.resolve([]); await Promise.all([a, other]);
 await assert.rejects(flights.coalesceRead(old, 'failure', async () => { throw new Error('offline'); }), /offline/);
 assert.equal(await flights.coalesceRead(old, 'failure', async () => 'recovered'), 'recovered');
 console.log('session read, pagination, coalescing, and scope regression tests passed');
+
+// V1 archived=true includes all sessions, including pages with no archives.
+const activeSession = { id: 'active', time: { updated: 3 } };
+const archivedSession = { id: 'archive', time: { updated: 2, archived: 10 } };
+const restoredSession = { id: 'restored', time: { updated: 1, archived: 0 } };
+const cursors = [];
+const mixedClient = {
+  session: {
+    list: async () => ({ data: [archivedSession, restoredSession, activeSession] }),
+    status: async () => ({ data: {} }),
+  },
+  experimental: { session: { list: async ({ archived, cursor }) => {
+    assert.equal(archived, true); cursors.push(cursor);
+    return cursor === undefined
+      ? { data: [activeSession], response: { headers: new Headers({ 'x-next-cursor': '2' }) } }
+      : { data: [archivedSession, restoredSession], response: { headers: new Headers() } };
+  } } },
+};
+assert.deepEqual(Array.from(await services.listArchivedSessions(mixedClient), (s) => s.id), ['archive']);
+assert.deepEqual(cursors, [undefined, 2]);
+assert.deepEqual(Array.from((await services.listSessions(mixedClient)).sessions, (s) => s.id), ['active', 'restored']);

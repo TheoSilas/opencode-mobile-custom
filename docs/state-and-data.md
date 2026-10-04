@@ -554,3 +554,11 @@ The composer owns only temporary input-height state. Agent selection uses the ex
 Patch review resolves an assistant message's `parentID` only against user messages in the current session (`getUserTurnForMessage`). A match sets Turn scope and selects that user turn through the existing provider actions. Missing matches open the existing changes view without selecting a historical turn. The review callback is included in transcript memoization and list extra data.
 
 Workspace search results and request-scope guards remain provider-owned. `FilesPanel` owns submitted-query/loading/error presentation, and remounts on the password-free connection identity plus workspace path. It does not fetch, persist, or cache results. Setup still uses the existing connection-switch path exactly once per guarded submission.
+
+
+## Session library recovery (#64)
+
+The V1 experimental list with `archived=true` includes active sessions. The archive list uses the unscoped catalog client so sessions from other workspaces remain reachable. The session service filters archived records after traversing pages; active lists exclude records with a truthy `time.archived`. `restoreSession(id, { projectPath, open })` restores through the target workspace client, refreshes the lists, and optionally reopens the same session. Connection changes abort continuation. Explicit open targets absent from cached lists trigger a fresh list read rather than creation of a replacement session.
+
+
+Transcript, diff, and todo cache pruning is paused while session bootstrap is loading. A pending deep-link target is also retained until selection completes, so early transcript reads survive slower capability/configuration requests when reopening a favorite from another workspace.

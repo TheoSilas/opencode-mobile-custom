@@ -48,7 +48,7 @@ async function fetchSessions(client: OpencodeClient) {
 
   const nextSessions = [...requireData(sessionsResponse.data, 'session list request')]
     .sort((left, right) => right.time.updated - left.time.updated);
-  return { sessions: nextSessions, statuses: requireData(statusesResponse.data, 'session status request') };
+  return { sessions: nextSessions.filter((session) => !session.time.archived), statuses: requireData(statusesResponse.data, 'session status request') };
 }
 
 // Cross-workspace session snapshot for the Chat Library "Active" group. Uses an
@@ -71,7 +71,8 @@ export async function listArchivedSessions(client: OpencodeClient) {
     cursor = next ? Number(next) : undefined;
     pages += 1;
   } while (cursor !== undefined && pages < MAX_ARCHIVED_PAGES);
-  return sessions;
+  // archived=true includes active sessions on V1; filter after pagination.
+  return sessions.filter((session) => Boolean(session.time.archived));
 }
 
 const MESSAGE_PAGE_SIZE = 100;

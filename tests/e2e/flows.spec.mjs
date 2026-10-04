@@ -678,6 +678,59 @@ test('sessions archive and restore without deletion', async ({ page, request }) 
   await expect(page.getByText('No archived chats.', { exact: true })).toBeVisible();
 });
 
+test('idle chats stay active and archived cards restore and continue the same session', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await openReadyChat(page);
+  await sendPrompt(page, 'Continue this idle chat');
+  await expect(page.getByText(/Finished: Continue this idle chat/).first()).toBeVisible({ timeout: 20_000 });
+  const sessions = await (await request.get('http://127.0.0.1:44096/session')).json();
+  const session = sessions.find((entry) => entry.title === 'Continue this idle chat');
+  expect(session.time.archived).toBeFalsy();
+  await openChatLibrary(page);
+  await page.getByRole('button', { name: 'Archived', exact: true }).click();
+  await expect(page.getByText('No archived chats.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Active', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Continue this idle chat', exact: true }).dblclick();
+  await expect(page.getByTestId('chat-library')).not.toBeVisible();
+  await openChatLibrary(page);
+  await chatAction(page, 'Continue this idle chat', 'Archive');
+  await page.getByRole('button', { name: 'Archived', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Continue this idle chat', exact: true }).click();
+  await expect(page.getByTestId('chat-library')).not.toBeVisible();
+  await expect(page.getByText(/Finished: Continue this idle chat/).first()).toBeVisible();
+  await sendPrompt(page, 'Second turn in the restored chat');
+  await expect(page.getByText(/Finished: Second turn in the restored chat/).first()).toBeVisible({ timeout: 20_000 });
+  const history = await (await request.get(`http://127.0.0.1:44096/session/${session.id}/message`)).json();
+  expect(history.filter((entry) => entry.info.role === 'user')).toHaveLength(2);
+});
+
+test('archived cards restore sessions in their own workspace and keep errors retryable', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const directory = '/workspace/secondary-project';
+  const session = await (await request.post(`http://127.0.0.1:44096/session?directory=${encodeURIComponent(directory)}`, { data: { title: 'Archived elsewhere' } })).json();
+  await request.patch(`http://127.0.0.1:44096/session/${session.id}`, { data: { time: { archived: 100 } } });
+  await openReadyChat(page);
+  await openChatLibrary(page);
+  await page.getByRole('button', { name: 'Archived', exact: true }).click();
+  const row = page.getByRole('button', { name: 'Open Archived elsewhere', exact: true });
+  const updates = [];
+  await page.route(`**/session/${session.id}?*`, async (route) => {
+    if (route.request().method() !== 'PATCH') return route.continue();
+    updates.push(new URL(route.request().url()).searchParams.get('directory'));
+    if (updates.length === 1) return route.fulfill({ status: 500, json: { error: 'Restore failed' } });
+    await route.continue();
+  });
+  await row.click();
+  await expect(page.getByTestId('chat-library').getByText(/PATCH .*500 Internal Server Error/)).toBeVisible();
+  await row.click();
+  await expect(page.getByTestId('chat-library')).not.toBeVisible();
+  expect(updates).toEqual([directory, directory]);
+  await sendPrompt(page, 'Continue restored workspace session');
+  await expect(page.getByText(/Finished: Continue restored workspace session/).first()).toBeVisible({ timeout: 20_000 });
+  const history = await (await request.get(`http://127.0.0.1:44096/session/${session.id}/message`)).json();
+  expect(history.some((entry) => entry.info.role === 'user')).toBeTruthy();
+});
+
 test('worktrees and MCP servers can be created', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   await openReadyChat(page);
@@ -1115,7 +1168,10 @@ test('favorites switch projects and open cross-workspace sessions', async ({ pag
   await request.post(`${fakeServer}/session/${sessionId}/prompt_async`, {
     data: { parts: [{ type: 'text', text: 'Open me through a favorite' }] },
   });
-  await sleep(1500);
+  await expect.poll(async () => {
+    const response = await request.get(`${fakeServer}/session/${sessionId}/message`);
+    return (await response.json()).some((entry) => entry.parts.some((part) => part.type === 'text' && part.text.startsWith('Finished: Open me through a favorite')));
+  }, { timeout: 20_000 }).toBe(true);
   await openReadyChat(page);
 
   await page.goto(`/session/${sessionId}?project=${encodeURIComponent(projectPath)}`, {
@@ -1132,8 +1188,9 @@ test('favorites switch projects and open cross-workspace sessions', async ({ pag
   await page.getByRole('button', { name: 'Change workspace' }).click();
   await page.getByTestId('chat-workspace-picker').getByRole('button', { name: 'Select demo-project' }).click();
   await openChatLibrary(page);
-  await expect(page.getByText('secondary-project', { exact: true }).filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('chat-library').getByRole('button', { name: 'Open Favorite Cross Workspace Session' }).first().click();
+  await expect(page.getByTestId('chat-library').getByText('demo-project · Swipe left for actions', { exact: true })).toBeVisible();
+  await page.getByTestId(`chat-library-favorite-${sessionId}`).click();
+  await expect(page.getByTestId('chat-library')).not.toBeVisible();
 
   await expect(
     page.locator('text=/Finished: Open me through a favorite/ >> visible=true').first(),
