@@ -157,7 +157,7 @@ function readPending() {
   seedPending();
 
   // A resolves from its saved profile; B resolves from the active connection.
-  const connect = { controlPlaneUrl: 'https://api.getopencode.app', machineId: 'machine-a', machineName: 'A', deviceId: 'alice', expiresAt: '2030-01-01T00:00:00Z' };
+  const connect = { controlPlaneUrl: 'https://api.opencodecloud.link', machineId: 'machine-a', machineName: 'A', deviceId: 'alice', expiresAt: '2030-01-01T00:00:00Z' };
   globalThis.__notificationsTestResolver = ({ serverUrl }) => (
     serverUrl.includes('a.example') ? { password: 'secret-a', connect } : 'secret-b'
   );

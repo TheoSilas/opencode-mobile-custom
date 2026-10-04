@@ -353,6 +353,14 @@ prove native store acceptance. Native
 camera, secure relaunch/locked-device access, real tunnel upgrades, and
 revocation still require explicit physical-device validation.
 
+The service-domain cutover checks reject both legacy control planes before any
+request or store proof is sent, preserve isolated legacy secure records, and
+discard legacy environment preferences in favor of `api.opencodecloud.link`.
+Connect E2E exercises both old preferences through purchase and pairing on the
+new production endpoint, plus the existing production/staging recovery flows.
+These E2E edits require explicit human validation under `AGENTS.md`; mocked
+requests do not verify deployment or real store acceptance on the new domain.
+
 The following important behaviors are present in code but are not obviously covered by the current documented E2E suite:
 
 - conversation mode state machine

@@ -8,10 +8,23 @@ issues the Connect session. There is no signup, login or token-entry step.
 ## Environment and native prerequisites
 
 Connect automatically chooses between two fixed trusted environments:
-`https://api.getopencode.app` for real purchases and
-`https://apistaging.getopencode.app` for test purchases. There is no manual URL
+`https://api.opencodecloud.link` for real purchases and
+`https://apistaging.opencodecloud.link` for test purchases. There is no manual URL
 editor or build-time URL override. The last resolved environment is persisted as
 non-secret metadata; unknown legacy/custom URLs are discarded during hydration.
+
+The service domain is separate from the app website, `getopencode.app`. This is
+a clean cutover: the old `api.getopencode.app` and `apistaging.getopencode.app`
+control planes and pairing links are no longer trusted. A remembered old
+environment resets to the new production default. Old URL-scoped secure sessions
+and pending QR records are not copied into the new environments; existing saved
+profiles remain stored but cannot reconnect through an old control plane. Use
+Restore on the new service or pair with a fresh connector QR to recover access.
+Machine URLs continue to come directly from backend responses.
+
+Release the updated app only after both new endpoints are available with the
+existing subscription and pairing contracts. DNS, Worker publishing and store
+notification configuration are managed in the separate Connect service repo.
 
 Google purchase metadata does not identify a test buyer locally. The app first
 submits a new or rediscovered transaction to production. Only its exact verified

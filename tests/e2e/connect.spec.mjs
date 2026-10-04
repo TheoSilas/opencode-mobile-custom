@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { Buffer } from 'node:buffer';
 
 // Native APIs/SecureStore are substituted only in the development E2E build.
-const CONTROL_PLANE = 'https://api.getopencode.app';
-const STAGING = 'https://apistaging.getopencode.app';
+const CONTROL_PLANE = 'https://api.opencodecloud.link';
+const STAGING = 'https://apistaging.opencodecloud.link';
 const SERVER = 'http://127.0.0.1:44096';
 const CONNECT_SERVER = 'https://connect-machine.test';
 const PRODUCT = 'fixture.connect';
@@ -124,15 +124,44 @@ test('Connect trusts only fixed environments and has no manual control-plane con
   await openPair(page);
   await expect(page.getByTestId('connect-settings')).toHaveCount(0);
   await expect(page.getByTestId('connect-control-plane')).toHaveCount(0);
-  const untrusted = pairingLink('untrusted');
-  untrusted.searchParams.set('cp', 'https://attacker.test');
-  await page.goto(`/pair?${untrusted.searchParams}`);
-  await expect(page.getByTestId('connect-error')).toContainText('trusted control plane');
+  const legacyRequests = [];
+  await page.route(/https:\/\/(api|apistaging)\.getopencode\.app\//, async (route) => {
+    legacyRequests.push(route.request().url());
+    await route.abort();
+  });
+  for (const controlPlane of ['https://attacker.test', 'https://api.getopencode.app', 'https://apistaging.getopencode.app']) {
+    const untrusted = pairingLink('untrusted');
+    untrusted.searchParams.set('cp', controlPlane);
+    await page.goto(`/pair?${untrusted.searchParams}`);
+    await expect(page.getByTestId('connect-error')).toContainText('trusted control plane');
+  }
+  expect(legacyRequests).toEqual([]);
   expect(production.subscriptionClaims).toBe(0);
   expect(production.pairClaims).toBe(0);
   expect(await events(page)).not.toContain('purchase');
   await assertNoStoredSecrets(page);
 });
+
+for (const legacyControlPlane of ['https://api.getopencode.app', 'https://apistaging.getopencode.app']) {
+  test(`a remembered legacy preference ${legacyControlPlane} resets to the new production endpoint`, async ({ page }) => {
+    await storeFixture(page);
+    const production = await mockControlPlane(page);
+    await page.addInitScript((url) => localStorage.setItem('opencode-mobile.connect-control-plane', url), legacyControlPlane);
+    const legacyRequests = [];
+    await page.route(/https:\/\/(api|apistaging)\.getopencode\.app\//, async (route) => {
+      legacyRequests.push(route.request().url());
+      await route.abort();
+    });
+    await openPair(page);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('opencode-mobile.connect-control-plane'))).toBe(CONTROL_PLANE);
+    await page.getByTestId('connect-purchase').click();
+    await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
+    expect(production.subscriptionClaims).toBe(1);
+    expect(production.pairClaims).toBe(1);
+    expect(legacyRequests).toEqual([]);
+    await assertNoStoredSecrets(page);
+  });
+}
 
 test('a real buyer with a remembered staging preference automatically uses production', async ({ page }) => {
   await storeFixture(page);

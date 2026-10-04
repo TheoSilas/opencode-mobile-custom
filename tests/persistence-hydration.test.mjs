@@ -73,6 +73,14 @@ await loadPersistedValue(storage, 'missing', JSON.parse, () => assert.fail('miss
 const connect = await loadTs('lib/connect.ts', {
   'expo/fetch': {}, 'expo-constants': { default: {} }, 'react-native': { Platform: { OS: 'android' } }, 'expo-secure-store': {},
 });
+for (const legacyControlPlane of ['https://api.getopencode.app', 'https://apistaging.getopencode.app']) {
+  const storedControlPlane = new Map([['control-plane', legacyControlPlane]]);
+  const controlPlaneStorage = createStorage(storedControlPlane);
+  let controlPlane = connect.CONNECT_PRODUCTION_URL;
+  await loadPersistedValue(controlPlaneStorage, 'control-plane', connect.normalizeTrustedControlPlaneUrl, (value) => { controlPlane = value; });
+  assert.equal(controlPlane, 'https://api.opencodecloud.link', 'Discarded legacy preferences retain the new production default.');
+  assert.deepEqual(controlPlaneStorage.removed, ['control-plane']);
+}
 const preferences = await loadTs('providers/opencode-preferences.ts');
 const { parseConnectionSettings, parseChatPreferences } = await loadTs('providers/persisted-preferences.ts', {
   '@/lib/connect': connect, '@/providers/opencode-preferences': preferences,

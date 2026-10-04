@@ -18,8 +18,8 @@ export type ConnectProduct = { store: 'apple'; productId: string } | { store: 'g
 export type ConnectCatalog = { plans: { id: string; entitlements: string[]; products: ConnectProduct[] }[] };
 export type ConnectSession = { user_id: string; user_token: string; session_expires_at: string; subscription_expires_at: string; entitlements: string[] };
 export type ConnectProof = { store: 'apple'; signedTransaction: string } | { store: 'google'; purchaseToken: string };
-export const CONNECT_PRODUCTION_URL = 'https://api.getopencode.app';
-export const CONNECT_STAGING_URL = 'https://apistaging.getopencode.app';
+export const CONNECT_PRODUCTION_URL = 'https://api.opencodecloud.link';
+export const CONNECT_STAGING_URL = 'https://apistaging.opencodecloud.link';
 
 export function isConnectEnabled() {
   const extra = Constants.expoConfig?.extra;

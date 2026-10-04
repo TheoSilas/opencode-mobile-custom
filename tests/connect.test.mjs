@@ -12,7 +12,7 @@ async function moduleUri(file, replacements) {
   for (const [pattern, replacement] of replacements) code = code.replace(pattern, replacement);
   return uri(code);
 }
-globalThis.__connectConfig = { extra: { connectPilot: { enabled: false, controlPlanes: ['https://api.getopencode.app', 'http://127.0.0.1:8787'] } } };
+globalThis.__connectConfig = { extra: { connectPilot: { enabled: false, controlPlanes: ['https://api.opencodecloud.link', 'http://127.0.0.1:8787'] } } };
 globalThis.__connectPlatform = 'ios';
 globalThis.__connectSecrets = new Map();
 const constants = uri('export default { get expoConfig() { return globalThis.__connectConfig; } };');
@@ -29,10 +29,10 @@ assert.equal(new connect.ConnectApiError(403, { error: 'Google test purchases ar
 assert.equal(new connect.ConnectApiError(403, { error: 'no active subscription' }).testPurchase, false);
 assert.equal(new connect.ConnectApiError(502, { error: 'Google test purchases are disabled in this environment' }).testPurchase, false);
 const url = new URL('opencodemobile://pair');
-for (const [key, value] of Object.entries({ v: '1', cp: 'https://api.getopencode.app', id: 'pair-1', t: 'temporary-token', n: 'Mac & Studio' })) url.searchParams.set(key, value);
+for (const [key, value] of Object.entries({ v: '1', cp: 'https://api.opencodecloud.link', id: 'pair-1', t: 'temporary-token', n: 'Mac & Studio' })) url.searchParams.set(key, value);
 const pairing = connect.parseConnectPairing(url.toString());
 assert.equal(connect.isConnectEnabled(), true, 'Native pairing must not depend on a development flag.');
-assert.deepEqual(connect.getConnectControlPlanes(), ['https://api.getopencode.app', 'https://apistaging.getopencode.app'], 'Only the two fixed environments are trusted.');
+assert.deepEqual(connect.getConnectControlPlanes(), ['https://api.opencodecloud.link', 'https://apistaging.opencodecloud.link'], 'Only the two fixed environments are trusted.');
 assert.equal(pairing.machineName, 'Mac & Studio');
 assert.equal(pairing.pairingToken, 'temporary-token');
 assert.deepEqual(connect.parseConnectPairing(Object.fromEntries(url.searchParams)), pairing);
@@ -40,12 +40,34 @@ for (const field of ['v', 'cp', 'id', 't', 'n']) {
   const missing = new URL(url); missing.searchParams.delete(field);
   assert.throws(() => connect.parseConnectPairing(missing.toString()), /Invalid/);
 }
-for (const [field, value] of [['v', '2'], ['id', '../other'], ['cp', 'https://attacker.test'], ['cp', 'https://api.getopencode.app@attacker.test'], ['cp', 'http://api.getopencode.app'], ['cp', 'http://127.0.0.1:8787']]) {
+for (const [field, value] of [['v', '2'], ['id', '../other'], ['cp', 'https://attacker.test'], ['cp', 'https://api.opencodecloud.link@attacker.test'], ['cp', 'http://api.opencodecloud.link'], ['cp', 'http://127.0.0.1:8787']]) {
   const bad = new URL(url); bad.searchParams.set(field, value);
   assert.throws(() => connect.parseConnectPairing(bad.toString()));
 }
 assert.throws(() => connect.parseConnectPairing(`${url}&id=duplicate`));
 assert.throws(() => connect.parseConnectPairing(url.toString().replace('://pair?', '://other?')));
+const legacySecrets = new Map();
+for (const legacyControlPlane of ['https://api.getopencode.app', 'https://apistaging.getopencode.app']) {
+  const legacyLink = new URL(url); legacyLink.searchParams.set('cp', legacyControlPlane);
+  assert.throws(() => connect.normalizeTrustedControlPlaneUrl(legacyControlPlane), /trusted/);
+  assert.throws(() => connect.parseConnectPairing(legacyLink.toString()), /trusted/);
+  const legacyMetadata = { controlPlaneUrl: legacyControlPlane, machineId: 'legacy-machine', machineName: 'Mac', deviceId: 'legacy-device', expiresAt: '2030-01-01T00:00:00Z' };
+  assert.deepEqual(connect.parseConnectMetadata(legacyMetadata), legacyMetadata, 'Legacy profiles remain readable.');
+  assert.match(connect.getConnectCredentialError(legacyMetadata, 'legacy-secret'), /trusted/);
+  await assert.rejects(connect.getConnectSession(legacyControlPlane, 'apple'), /trusted/);
+  const legacySegment = Array.from(legacyControlPlane).map((char) => char.charCodeAt(0).toString(16)).join('-');
+  for (const kind of ['session', 'pairing']) {
+    const key = `opencode-mobile.connect-${kind}.apple.${legacySegment}`;
+    const value = JSON.stringify({ legacy: kind });
+    legacySecrets.set(key, value);
+    globalThis.__connectSecrets.set(key, value);
+  }
+}
+for (const controlPlane of connect.getConnectControlPlanes()) {
+  assert.equal(await connect.getConnectSession(controlPlane, 'apple'), undefined, 'New environments do not reuse legacy sessions.');
+  assert.equal(await connect.getPendingConnectPairing(controlPlane, 'apple'), undefined, 'New environments do not reuse legacy QR records.');
+}
+for (const [key, value] of legacySecrets) assert.equal(globalThis.__connectSecrets.get(key), value, 'Legacy secure records remain untouched.');
 const session = { user_id: 'owner', user_token: 'user-token', session_expires_at: new Date(Date.now() + 86400000).toISOString(), subscription_expires_at: new Date(Date.now() + 3600000).toISOString(), entitlements: ['connect'] };
 await connect.saveConnectSession(pairing.controlPlaneUrl, 'apple', session);
 assert.deepEqual(await connect.getConnectSession(pairing.controlPlaneUrl, 'apple'), session);
@@ -60,8 +82,8 @@ await connect.savePendingConnectPairing(pairing.controlPlaneUrl, 'apple');
 assert.equal(await connect.getPendingConnectPairing(pairing.controlPlaneUrl, 'apple'), undefined);
 
 assert.equal(connect.normalizeControlPlaneUrl('  https://STAGING.example.test/connect///  '), 'https://staging.example.test/connect');
-const customControlPlane = connect.normalizeTrustedControlPlaneUrl('  https://APISTAGING.getopencode.app///  ');
-assert.equal(customControlPlane, 'https://apistaging.getopencode.app');
+const customControlPlane = connect.normalizeTrustedControlPlaneUrl('  https://APISTAGING.opencodecloud.link///  ');
+assert.equal(customControlPlane, 'https://apistaging.opencodecloud.link');
 assert.throws(() => connect.normalizeTrustedControlPlaneUrl('https://staging.example.test'), /trusted/);
 for (const invalid of ['http://localhost:8787', 'ftp://staging.example.test', 'https://user:secret@staging.example.test', 'https://staging.example.test?token=x', 'https://staging.example.test#fragment', 'not-a-url']) {
   assert.throws(() => connect.normalizeControlPlaneUrl(invalid));
@@ -85,8 +107,13 @@ let status = 200, response = claim;
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (address, init) => { calls.push({ address, init }); return new Response(status === 204 ? null : JSON.stringify(response), { status }); };
 try {
+  for (const legacyControlPlane of ['https://api.getopencode.app', 'https://apistaging.getopencode.app']) {
+    await assert.rejects(connect.getConnectCatalog(legacyControlPlane), /trusted/);
+    await assert.rejects(connect.claimConnectSubscription(legacyControlPlane, { store: 'apple', signedTransaction: 'native.jws.proof' }), /trusted/);
+  }
+  assert.equal(calls.length, 0, 'Legacy endpoints must be rejected before sending any request or store proof.');
   assert.deepEqual(await connect.claimConnectPairing(pairing, 'user-token', ' My phone '), claim);
-  assert.equal(calls[0].address, 'https://api.getopencode.app/v1/pairings/pair-1/claim');
+  assert.equal(calls[0].address, 'https://api.opencodecloud.link/v1/pairings/pair-1/claim');
   assert.equal(calls[0].init.headers.Authorization, 'Bearer user-token');
   assert.deepEqual(JSON.parse(calls[0].init.body), { pairing_token: 'temporary-token', device_name: 'My phone' });
   assert.ok(!calls[0].address.includes('temporary-token'));
@@ -121,7 +148,7 @@ try {
   status = 204;
   await connect.revokeConnectMachine(pairing.controlPlaneUrl, 'machine-1', 'user-token');
   assert.equal(calls.at(-1).init.method, 'DELETE');
-  assert.equal(calls.at(-1).address, 'https://api.getopencode.app/v1/machines/machine-1');
+  assert.equal(calls.at(-1).address, 'https://api.opencodecloud.link/v1/machines/machine-1');
   const count = calls.length;
   await assert.rejects(connect.listConnectMachines(pairing.controlPlaneUrl, ''), (error) => error.status === 401);
   globalThis.__connectPlatform = 'web';
@@ -298,7 +325,7 @@ for (const platform of ['apple', 'google']) {
     globalThis.__connectPlatform = platform === 'apple' ? 'ios' : 'android';
     globalThis.__connectSecrets.clear();
     const runtime = hookRuntime();
-    const staging = 'https://apistaging.getopencode.app';
+    const staging = 'https://apistaging.opencodecloud.link';
     const purchase = { id: 'recovery-transaction', productId: `fixture.${platform}`, store: platform, purchaseState: 'purchased', purchaseToken: 'exact-native-proof', transactionDate: Date.now() };
     if (scenario === 'routing' && platform === 'apple') purchase.environmentIOS = 'Sandbox';
     const requests = [], events = [];
