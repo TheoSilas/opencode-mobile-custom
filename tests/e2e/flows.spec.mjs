@@ -272,11 +272,20 @@ async function ensureAiSection(page) {
 }
 
 async function sendPrompt(page, prompt) {
-  // Focus first so Paper's focus render settles before the controlled fill.
-  await page.getByPlaceholder('Ask anything...').click();
-  await page.getByPlaceholder('Ask anything...').fill(prompt);
-  await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Send task');
-  await page.getByTestId('chat-primary-button').click();
+  const input = page.getByPlaceholder('Ask anything...');
+  const primary = page.getByTestId('chat-primary-button');
+  // The composer mounts after boot and, on small viewports, after a resize
+  // settles. Its draft is local state, so a remount between typing and tapping
+  // would wipe the input and leave the primary button on "Start conversation
+  // mode". Re-assert the draft and wait for the send affordance each attempt so
+  // the final click can never land on a stale voice button.
+  await expect(async () => {
+    await input.click();
+    await input.fill(prompt);
+    await expect(input).toHaveValue(prompt);
+    await expect(primary).toHaveAccessibleName('Send task', { timeout: 2_000 });
+    await primary.click();
+  }).toPass({ timeout: 20_000 });
 }
 
 async function waitForServer(request, url, timeoutMs = 10_000) {
