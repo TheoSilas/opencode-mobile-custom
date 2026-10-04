@@ -28,7 +28,7 @@ export function useConnectionProfiles({ settings, switchConnection, updateSettin
     const stored = await loadConnectionProfiles(true);
     const previous = id ? stored.find((profile) => profile.id === id) : undefined;
     if (id && !previous) throw new Error('This connection profile is no longer available.');
-    if (previous?.connect) throw new Error('Manage this connection through Connect.');
+    if (previous?.connect) throw new Error('Manage this connection through Cloud Link.');
     const profile: ConnectionProfile = { ...previous, id: id ?? createProfileId(), name: values.name, serverUrl: values.serverUrl, username: values.username };
     const oldPassword = previous ? await getProfilePassword(profile.id) : '';
     await saveProfilePassword(profile.id, values.password);

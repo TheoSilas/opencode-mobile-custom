@@ -86,7 +86,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
     try { return (await action()) !== false; }
     catch (reason) {
       if (reason instanceof ConnectPurchaseEnvironmentChange) nextControlPlane = reason.controlPlaneUrl;
-      else { setError(reason instanceof Error ? reason.message : 'Connect setup failed. Try again.'); setCanRetry(true); }
+      else { setError(reason instanceof Error ? reason.message : 'Cloud Link setup failed. Try again.'); setCanRetry(true); }
       return false;
     }
     finally {
@@ -134,7 +134,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   const recoverSession = useCallback(async () => {
     const purchases = await availablePurchases();
     const purchase = pendingPurchase.current?.purchase ?? purchases[0];
-    if (!purchase) throw new Error('No Connect subscription is available in this store. Purchase or use Restore with the original store account.');
+    if (!purchase) throw new Error('No Cloud Link subscription is available in this store. Purchase or use Restore with the original store account.');
     await finishPurchase(purchase);
     return sessionRef.current!;
   }, [availablePurchases, finishPurchase]);
@@ -195,7 +195,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
     let password = profile ? await getProfilePassword(profile.id) : settings.password;
     let connect = profile?.connect ?? settings.connect;
     if (getConnectCredentialError(connect, password) || (Date.parse(connect.expiresAt) - Date.now() <= 5 * 60_000 && Date.now() - (lastAccess.current.get(connect.machineId) ?? 0) > 60_000)) {
-      if (connect.controlPlaneUrl !== controlPlaneUrl) throw new Error('Select this machine’s trusted Connect environment to recover access.');
+      if (connect.controlPlaneUrl !== controlPlaneUrl) throw new Error('Select this machine’s trusted Cloud Link environment to recover access.');
       if (pendingClaim.current && pendingClaim.current.response.machine_id !== connect.machineId) throw new Error('Finish saving the pending machine before reconnecting another machine.');
       const next = pendingClaim.current ? await saveAccess() : await requestAccess(connect.machineId);
       password = await getProfilePassword(next.id);
@@ -277,7 +277,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
     const catalog = await getConnectCatalog(controlPlaneUrl);
     catalogRef.current = catalog;
     const products = catalog.plans.filter((plan) => plan.entitlements.includes('connect')).flatMap((plan) => plan.products.filter((product) => product.store === store));
-    if (!products.length) throw new Error('Connect subscriptions are not configured for this store.');
+    if (!products.length) throw new Error('Cloud Link subscriptions are not configured for this store.');
     const native = await api.fetchProducts({ skus: [...new Set(products.map((product) => product.productId))], type: 'subs' });
     const subscriptions = native as import('expo-iap').ProductSubscription[];
     const eligible = new Set<string>();
@@ -287,7 +287,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
       }
     }));
     const choices = selectConnectOffers(catalog, subscriptions, store, eligible);
-    if (!choices.length) throw new Error('No matching Connect products, base plans, or eligible offers are available in this store.');
+    if (!choices.length) throw new Error('No matching Cloud Link products, base plans, or eligible offers are available in this store.');
     setOffers(choices);
     setPhase('idle');
   }, [controlPlaneUrl, store]);

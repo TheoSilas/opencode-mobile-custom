@@ -28,7 +28,7 @@
     "testSuccess": "Connection succeeded.",
     "failed": "Could not connect to the server.",
     "hint": "Example: http://192.168.1.10:4096. If you open a web UI at this address, use its API base URL instead, usually ending in /api.",
-    "pairHint": "Pair with Connect to link a device, or enter your server URL below."
+    "pairHint": "Pair with Cloud Link to link a device, or enter your server URL below."
   },
   "workspace": {
     "title": "Choose a workspace",

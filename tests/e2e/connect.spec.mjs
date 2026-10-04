@@ -16,7 +16,7 @@ async function storeFixture(page, options = {}) {
   await page.addInitScript(({ productId, options }) => {
     const purchase = { id: 'native-transaction', productId, store: 'google', purchaseState: 'purchased', purchaseToken: 'native-test-proof', quantity: 1, transactionDate: Date.now(), isAutoRenewing: true, isAcknowledgedAndroid: false };
     globalThis.__connectStoreTest = {
-      products: [{ id: productId, title: 'Connect Monthly', type: 'subs', platform: 'android', displayPrice: '$4.99', currency: 'USD', description: 'Connect', nameAndroid: 'Connect', subscriptionOffers: [{ id: 'monthly', basePlanIdAndroid: 'monthly', offerTokenAndroid: 'native-offer', displayPrice: '$4.99', price: 4.99, period: { unit: 'month', value: 1 }, pricingPhasesAndroid: { pricingPhaseList: [{ formattedPrice: '$4.99', billingPeriod: 'P1M', billingCycleCount: 0 }] } }] }],
+      products: [{ id: productId, title: 'Cloud Link Monthly', type: 'subs', platform: 'android', displayPrice: '$4.99', currency: 'USD', description: 'Cloud Link', nameAndroid: 'Cloud Link', subscriptionOffers: [{ id: 'monthly', basePlanIdAndroid: 'monthly', offerTokenAndroid: 'native-offer', displayPrice: '$4.99', price: 4.99, period: { unit: 'month', value: 1 }, pricingPhasesAndroid: { pricingPhaseList: [{ formattedPrice: '$4.99', billingPeriod: 'P1M', billingCycleCount: 0 }] } }] }],
       nextPurchase: purchase, restoredPurchases: [purchase], purchases: options.recovered ? [purchase] : [],
       events: [], outcome: options.outcome, finishFailures: options.finishFailures,
     };
@@ -118,7 +118,7 @@ test.beforeEach(async ({ request }) => {
 });
 test.afterEach(async ({ page }) => { await page.unrouteAll({ behavior: 'ignoreErrors' }); });
 
-test('Connect trusts only fixed environments and has no manual control-plane configuration', async ({ page }) => {
+test('Cloud Link trusts only fixed environments and has no manual control-plane configuration', async ({ page }) => {
   await storeFixture(page);
   const production = await mockControlPlane(page);
   await openPair(page);
@@ -188,7 +188,7 @@ test('purchase finalizes then automatically pairs, saves securely, and connects 
   const runtimeErrors = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
   await openPair(page);
-  await expect(page.getByText('OpenCode Connect', { exact: true })).toBeVisible();
+  await expect(page.getByText('Cloud Link', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   await page.screenshot({ path: '/tmp/opencode-subscriptions-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -442,7 +442,7 @@ test('subscription dismissal returns to the chooser and Manual stays available',
     await expect(sheet).toBeVisible();
     if (dismiss === 'close') await sheet.getByText('Close', { exact: true }).click();
     else if (dismiss === 'escape') await page.keyboard.press('Escape');
-    else await sheet.getByLabel('Close OpenCode Connect').click({ position: { x: 10, y: 10 } });
+    else await sheet.getByLabel('Close Cloud Link').click({ position: { x: 10, y: 10 } });
     await expect(page.getByTestId('connection-method-chooser')).toBeVisible();
     await expect(page.getByTestId('connect-panel')).toHaveCount(0);
     await expect(sheet).toHaveCount(0);
@@ -455,7 +455,7 @@ test('subscription dismissal returns to the chooser and Manual stays available',
   expect(await events(page)).not.toContain('purchase');
 });
 
-test('an existing subscriber selecting Connect opens the pairing screen without a purchase overlay', async ({ page }) => {
+test('an existing subscriber selecting Cloud Link opens the pairing screen without a purchase overlay', async ({ page }) => {
   await storeFixture(page, { recovered: true }); const state = await mockControlPlane(page);
   await page.addInitScript(() => {
     localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 }));
@@ -554,7 +554,7 @@ test('store setup errors keep subscription recovery separate from pairing settin
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair');
   const sheet = page.getByTestId('connect-subscription-sheet');
-  await expect(sheet.getByTestId('connect-error')).toContainText('No matching Connect products');
+  await expect(sheet.getByTestId('connect-error')).toContainText('No matching Cloud Link products');
   await expect(sheet.getByTestId('connect-retry')).toBeVisible();
   await expect(sheet.getByTestId('connect-purchase')).toBeDisabled();
   await expect(sheet.getByTestId('connect-restore')).toBeVisible();

@@ -18,7 +18,7 @@ export function parseConnectionSettings(raw: string): Partial<OpencodeConnection
   }
   if (value.connect !== undefined) {
     const connect = parseConnectMetadata(value.connect);
-    if (!connect || connect.deviceId !== settings.username?.trim()) throw new Error('Invalid Connect identity.');
+    if (!connect || connect.deviceId !== settings.username?.trim()) throw new Error('Invalid Cloud Link identity.');
     settings.connect = connect;
   }
   return settings;

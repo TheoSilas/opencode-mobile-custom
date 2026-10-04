@@ -246,13 +246,13 @@ they cannot silently regrow.
 
 ### Connection Identity And Credentials
 
-The optional native Connect method composes `use-connect-state.ts`
-inside the provider, verifies native subscriptions through the Connect service,
+The optional native Cloud Link method composes `use-connect-state.ts`
+inside the provider, verifies native subscriptions through the Cloud Link service,
 validates catalog/session/pairing protocol in `lib/connect.ts`, and
 activates Basic-auth profiles through `switchConnection()`. Shared connection
 preparation refreshes credentials on the same owned machine; expiry preserves
 profiles and renewal migrates state to the rotated credential scope. The `pair` route is
-independent of onboarding completion. See [Connect pilot](connect.md).
+independent of onboarding completion. See [Cloud Link pilot](connect.md).
 
 - `lib/connection-scope.ts`
   Canonical, deterministic, password-free connection identity (`getConnectionScope`). Every server-scoped storage key, favorite, and pending notification record derives from it; scheme/host are normalized while URL path and query casing are preserved.

@@ -1307,7 +1307,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
         }
         targetSettings = prepared;
       } catch (reason) {
-        const failed: ConnectionState = { status: 'error', message: reason instanceof Error ? reason.message : 'Could not recover Connect access.', checkedAt: Date.now() };
+        const failed: ConnectionState = { status: 'error', message: reason instanceof Error ? reason.message : 'Could not recover Cloud Link access.', checkedAt: Date.now() };
         setConnection(failed);
         return failed;
       }

@@ -17,7 +17,7 @@ prevents the anchor's default browser navigation before calling the router's
 tab handler. E2E coverage checks that switching tabs sends no document request
 and preserves an unsent chat draft; a full reload can otherwise race input or
 workspace selection on slower CI runners.
-The Connect renewal fixture waits for the initial last-session bootstrap write
+The Cloud Link renewal fixture waits for the initial last-session bootstrap write
 before seeding next-launch data, and waits for the rotated scope to persist
 before asserting preservation. Navigation completion alone does not signal
 that provider persistence has finished.
@@ -344,7 +344,7 @@ This strategy gives confidence in:
 
 ## Coverage Gaps
 
-Connect subscription checks are described in [connect.md](connect.md). Static
+Cloud Link subscription checks are described in [connect.md](connect.md). Static
 checks validate claim/secure-write/finalization ordering on both stores. Mocked
 E2E validates explicit Purchase/Restore, silent unfinished-purchase recovery,
 pending/cancellation, exact QR continuation, transient/save/finalization retries,
@@ -356,7 +356,7 @@ revocation still require explicit physical-device validation.
 The service-domain cutover checks reject both legacy control planes before any
 request or store proof is sent, preserve isolated legacy secure records, and
 discard legacy environment preferences in favor of `api.opencodecloud.link`.
-Connect E2E exercises both old preferences through purchase and pairing on the
+Cloud Link E2E exercises both old preferences through purchase and pairing on the
 new production endpoint, plus the existing production/staging recovery flows.
 These E2E edits require explicit human validation under `AGENTS.md`; mocked
 requests do not verify deployment or real store acceptance on the new domain.
@@ -456,7 +456,7 @@ The composer approval toggle is now the sole Chat approval affordance: the shiel
 
 ## Add connection redesign validation
 
-Connection creation now enters through a shared Connect/Manual chooser in
+Connection creation now enters through a shared Cloud Link/Manual chooser in
 Settings and onboarding. The web flows cover manual form retry and duplicate
 submission guards, subscription dismissal back to the chooser, subscriber
 auto-pairing without a subscription-sheet flash, invalid/untrusted QR replacement,

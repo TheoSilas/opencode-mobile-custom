@@ -27,13 +27,13 @@ OpenCode Mobile is built with Expo and React Native.
    npm run start:dev-client
    ```
 
-   Native Connect is available in every build. Purchase/Restore requires a native
+   Native Cloud Link is available in every build. Purchase/Restore requires a native
    development or store build, not Expo Go. Use
    `EXPO_APP_VARIANT=development npm run start:dev-client` for the separate dev app.
-   Connect routes real purchases to `https://api.opencodecloud.link` and test purchases
+   Cloud Link routes real purchases to `https://api.opencodecloud.link` and test purchases
    to `https://apistaging.opencodecloud.link` automatically. No manual URL configuration
    is needed. The resolved environment survives relaunch. Products come from its backend catalog,
-   never app configuration. See [Connect prerequisites and validation](connect.md).
+   never app configuration. See [Cloud Link prerequisites and validation](connect.md).
 
 ### Common Commands
 
@@ -62,7 +62,7 @@ npm run build:development:android
 Install `android/app/build/outputs/apk/debug/app-debug.apk` (**OpenCode Mobile
 Dev**) and use `EXPO_APP_VARIANT=development npm run start:dev-client`. Both prebuild and Gradle use the
 development variant. The APK built from a push to `main` uses production and
-also exposes Connect subscriptions. See [Connect](connect.md) for native store,
+also exposes Cloud Link subscriptions. See [Cloud Link](connect.md) for native store,
 trusted environment, and sandbox configuration.
 
 **Release Automation**:

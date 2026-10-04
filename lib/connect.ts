@@ -43,7 +43,7 @@ export function normalizeTrustedControlPlaneUrl(value: string) {
 }
 
 function requireControlPlane(value: string) {
-  if (!isConnectEnabled()) throw new Error('Connect is available on iOS and Android.');
+  if (!isConnectEnabled()) throw new Error('Cloud Link is available on iOS and Android.');
   return normalizeTrustedControlPlaneUrl(value);
 }
 
@@ -88,10 +88,10 @@ export function parseConnectMetadata(value: unknown): ConnectMetadata | undefine
 
 export function getConnectCredentialError(connect: ConnectMetadata | undefined, password: string, now = Date.now()) {
   if (!connect) return undefined;
-  if (!parseConnectMetadata(connect)) return 'Invalid Connect profile. Pair this device again.';
+  if (!parseConnectMetadata(connect)) return 'Invalid Cloud Link profile. Pair this device again.';
   try { requireControlPlane(connect.controlPlaneUrl); } catch (error) { return (error as Error).message; }
-  if (Date.parse(connect.expiresAt) <= now) return 'Connect credentials expired. Restore or renew access to reconnect.';
-  if (!password) return 'Connect credentials are missing. Recover machine access to reconnect.';
+  if (Date.parse(connect.expiresAt) <= now) return 'Cloud Link credentials expired. Restore or renew access to reconnect.';
+  if (!password) return 'Cloud Link credentials are missing. Recover machine access to reconnect.';
   return undefined;
 }
 
@@ -168,13 +168,13 @@ export class ConnectApiError extends Error {
   constructor(public status: number, value?: unknown) {
     super({
       400: 'Invalid subscription proof or request. Restore to recover your purchase.',
-      401: 'Connect session is invalid. Recover or restore access and try again.',
-      403: 'No active Connect entitlement. Purchase or restore to recover access.',
+      401: 'Cloud Link session is invalid. Recover or restore access and try again.',
+      403: 'No active Cloud Link entitlement. Purchase or restore to recover access.',
       404: 'Unknown pairing or machine. Open a fresh link from the connector.',
       409: 'This pairing expired, was already claimed, or is being provisioned. Retry or scan a fresh QR.',
       429: 'Too many requests. Wait before trying again.',
       502: 'Store or machine provisioning is temporarily unavailable. Retry without purchasing again.',
-      503: 'Connect configuration or access reconciliation is unavailable. Try again later.',
+      503: 'Cloud Link configuration or access reconciliation is unavailable. Try again later.',
     }[status] ?? 'The control plane could not complete the request. Try again.');
     const record = value as { machine_id?: unknown; error?: unknown } | undefined;
     this.testPurchase = status === 403 && record?.error === 'Google test purchases are disabled in this environment';
@@ -209,7 +209,7 @@ async function connectRequest(controlPlaneUrl: string, path: string, token?: str
 
 export async function getConnectCatalog(controlPlaneUrl: string): Promise<ConnectCatalog> {
   const value = await connectRequest(controlPlaneUrl, '/v1/subscriptions/catalog') as ConnectCatalog | undefined;
-  if (!value || !Array.isArray(value.plans) || !value.plans.length) throw new Error('Connect subscription catalog is unavailable.');
+  if (!value || !Array.isArray(value.plans) || !value.plans.length) throw new Error('Cloud Link subscription catalog is unavailable.');
   const identities = new Set<string>();
   return { plans: value.plans.map((plan) => {
     if (!plan || typeof plan.id !== 'string' || !plan.id.trim() || !Array.isArray(plan.entitlements) || !plan.entitlements.every((entry) => typeof entry === 'string') || !Array.isArray(plan.products)) throw new Error('Invalid subscription catalog.');
@@ -225,7 +225,7 @@ export async function getConnectCatalog(controlPlaneUrl: string): Promise<Connec
 }
 export async function claimConnectSubscription(controlPlaneUrl: string, proof: ConnectProof) {
   const response = parseConnectSession(await connectRequest(controlPlaneUrl, '/v1/subscriptions/claim', undefined, 'POST', proof));
-  if (!hasConnectEntitlement(response)) throw new Error('The store purchase has no active Connect entitlement.');
+  if (!hasConnectEntitlement(response)) throw new Error('The store purchase has no active Cloud Link entitlement.');
   return response;
 }
 

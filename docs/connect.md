@@ -1,13 +1,20 @@
-# OpenCode Connect
+# Cloud Link
 
-Connect is an optional native alternative to manual server setup. Settings,
+Cloud Link is the feature previously named Connect. The public name appears in
+pairing, subscriptions, machine management and camera permission copy. Existing
+`connect` code identifiers, translation keys, storage keys, entitlement/product
+IDs and the `opencodemobile://pair` protocol remain compatible.
+Native subscription titles come from the stores; update their display names to
+Cloud Link in the store consoles while retaining the existing product IDs.
+
+Cloud Link is an optional native alternative to manual server setup. Settings,
 onboarding and the independent `pair` route reuse the same provider flow.
 Account creation is invisible: a verified App Store or Google Play subscription
-issues the Connect session. There is no signup, login or token-entry step.
+issues the Cloud Link session. There is no signup, login or token-entry step.
 
 ## Environment and native prerequisites
 
-Connect automatically chooses between two fixed trusted environments:
+Cloud Link automatically chooses between two fixed trusted environments:
 `https://api.opencodecloud.link` for real purchases and
 `https://apistaging.opencodecloud.link` for test purchases. There is no manual URL
 editor or build-time URL override. The last resolved environment is persisted as
@@ -24,7 +31,7 @@ Machine URLs continue to come directly from backend responses.
 
 Release the updated app only after both new endpoints are available with the
 existing subscription and pairing contracts. DNS, Worker publishing and store
-notification configuration are managed in the separate Connect service repo.
+notification configuration are managed in the separate Cloud Link service repo.
 
 Google purchase metadata does not identify a test buyer locally. The app first
 submits a new or rediscovered transaction to production. Only its exact verified
@@ -57,7 +64,7 @@ unregistered development bundle/package ID.
 
 Apple prerequisites: auto-renewable subscription group, In-App Purchase
 capability, sandbox/TestFlight testers, backend verification credentials and V2
-notifications. **Keep Family Sharing disabled.** Shared Connect ownership is not
+notifications. **Keep Family Sharing disabled.** Shared Cloud Link ownership is not
 supported. Family-shareable native products are not offered by the app.
 Google prerequisites: active auto-renewing base plan, eligible offers when
 advertised, license testers/test-track build, backend verification credentials
@@ -74,19 +81,19 @@ claim must safely recover the same store ownership when repeated.
 ## Add connection and pairing UI
 
 Settings retains connection status and saved profiles. Add connection is the
-single creation entry and opens two stacked choices: Pair with Connect, then
+single creation entry and opens two stacked choices: Pair with Cloud Link, then
 Manual. Onboarding uses the same chooser and retains Skip. Manual opens the
 shared full-screen Name/URL/Username/Password form with Save & connect. Failed
 connections retain the form and reuse the saved profile on retry.
 
-Connect opens a full-screen camera surface, outside the tabs. Store/session
+Cloud Link opens a full-screen camera surface, outside the tabs. Store/session
 initialization is explicit (`loading`, `ready`, `error`); scanning and the
 subscription overlay wait for recovery to settle. A verified subscriber scans
 and automatically pairs, securely saves, and connects through the provider's
 `pairLink` action. Non-subscribers immediately see the shared subscription
 sheet with benefits, native localized offers, Subscribe and Restore purchases.
 Dismissing it clears the pending QR, dismisses the camera surface, and returns
-to the chooser. Every new Connect attempt checks entitlement again and shows
+to the chooser. Every new Cloud Link attempt checks entitlement again and shows
 the sheet for a non-subscriber; dismissal is never remembered. Active subscribers
 go directly to the camera surface without the buy/Restore sheet, including when
 opening pairing again after a successful connection. No purchase is
@@ -98,9 +105,9 @@ Invalid/untrusted links show recoverable errors; dismissing resumes scanning.
 Permission denial/unavailable cameras retain device Settings, Retry and a
 pairing-link fallback. The subscription sheet, including store setup and purchase errors, contains
 only purchase/Restore content and recovery controls. Pairing-link fallback belongs to the pairing surface. Machine management lives in a separate `pair?mode=manage`
-view, reached through saved profiles' Manage Connect or Your machines after
-Restore. Production web offers Manual and explains native Connect availability;
-only the existing web E2E harness enables mocked Connect.
+view, reached through saved profiles' Manage Cloud Link or Your machines after
+Restore. Production web offers Manual and explains native Cloud Link availability;
+only the existing web E2E harness enables mocked Cloud Link.
 
 ## Purchase, Restore and pairing
 
@@ -115,7 +122,7 @@ may query available purchases, but never synchronize StoreKit interactively or
 open a purchase dialog. iOS queries explicitly use
 `onlyIncludeActiveItemsIOS: true` and `alsoPublishToEventListenerIOS: false`.
 Unfinished iOS transactions are inspected through the native pending-transaction
-API. Client metadata never authorizes Connect access.
+API. Client metadata never authorizes Cloud Link access.
 
 Both stores follow this order:
 
@@ -180,7 +187,7 @@ non-secret cache/remembered-session copies remain for interruption-safe recovery
 subscription expiry. Second-device Restore recovers store ownership and obtains
 machine access without a new QR. Expiry preserves machine/profile records;
 Purchase/Restore reactivates the same machine/tunnel/hostname. Reconnect paths
-prepare Connect credentials centrally. Foreground access refresh starts five
+prepare Cloud Link credentials centrally. Foreground access refresh starts five
 minutes before expiry, avoids repeatedly refreshing unchanged paid-through
 credentials, and retries transient failures. Expiry still closes SSE/terminal
 sockets and blocks all SDK/polling/background traffic.
@@ -212,7 +219,7 @@ Control-plane checks cover the fixed allowlist, URL normalization/rejection,
 explicit pairing trust, and environment-isolated sessions and pending QR records.
 Actual provider-hook checks on both stores cover automatic purchase routing,
 duplicate Subscribe/error preservation, retained-proof Restore, and checkpoint
-isolation during secure-save/finalization failures. Connect E2E covers real buyers
+isolation during secure-save/finalization failures. Cloud Link E2E covers real buyers
 returning to production from a remembered staging preference, test buyers routing
 to staging through Purchase/Restore/restart, exact staging QR continuation, and the
 absence of manual URL configuration. Updated E2E assertions and real Android
@@ -259,7 +266,7 @@ Native acceptance remains separate: real sandbox/license-test purchase and
 second-device Restore in each store, secure cold/locked-device relaunch,
 finalization after interruption, Google plan replacement/lineage, renewal of the
 same machine/tunnel/hostname, expiry/refund termination of active SSE/WebSockets,
-camera allow/deny/unavailable, cold/warm deep links, manual/Connect switching and
+camera allow/deny/unavailable, cold/warm deep links, manual/Cloud Link switching and
 background notifications. Both variants share `opencodemobile`; verify routing
 when both are installed. Mocked checks and simulator compilation do not establish
 live purchase, Restore, acknowledgement or tunnel behavior.

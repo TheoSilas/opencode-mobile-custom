@@ -125,7 +125,7 @@ const config: ExpoConfig = {
     'expo-background-task',
     'expo-web-browser',
     ['expo-camera', {
-      cameraPermission: 'Allow $(PRODUCT_NAME) to scan an OpenCode Connect pairing QR code.',
+      cameraPermission: 'Allow $(PRODUCT_NAME) to scan a Cloud Link pairing QR code.',
       recordAudioAndroid: false,
     }],
     [

@@ -28,7 +28,7 @@
     "testSuccess": "Connection succeeded.",
     "failed": "Could not connect to the server.",
     "hint": "Example: http://192.168.1.10:4096. If you open a web UI at this address, use its API base URL instead, usually ending in /api.",
-    "pairHint": "Connectでデバイスをペアリングするか、下にサーバーURLを入力してください。"
+    "pairHint": "Cloud Linkでデバイスをペアリングするか、下にサーバーURLを入力してください。"
   },
   "workspace": {
     "title": "Choose a workspace",

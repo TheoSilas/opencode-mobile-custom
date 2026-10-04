@@ -213,7 +213,7 @@ not re-derive connection keys anywhere else.
 Persisted values:
 
 - `opencode-mobile.settings` (connection URL and username; the password lives in secure storage)
-- `opencode-mobile.connect-control-plane` (last automatically resolved Connect environment; defaults to production, accepts only production/staging, hydrated before pairing/Connect startup)
+- `opencode-mobile.connect-control-plane` (last automatically resolved Cloud Link environment; defaults to production, accepts only production/staging, hydrated before pairing/Cloud Link startup)
 - `opencode-mobile.connection-profiles` (saved connections with name and optional per-profile model selection; passwords live in secure storage)
 - `opencode-mobile.chat-preferences` (chat preferences, including the global UI `language`; not connection-scoped)
 - `opencode-mobile.active-project`
@@ -258,7 +258,7 @@ list.
 
 Hydration rules:
 
-- persisted settings validate known string fields and Connect identity before merging over defaults
+- persisted settings validate known string fields and Cloud Link identity before merging over defaults
 - persisted chat preferences validate individual strings, booleans, arrays, maps, and enum values; numeric controls are clamped to their supported ranges before merging over defaults and current provider state
 - saved connection profiles are hydrated on demand and fully validated, including `modelPreferences`; entries with any malformed field are dropped and unknown fields are ignored
 - active project path is restored if present
@@ -270,12 +270,12 @@ Hydration rules:
 
 Credentials:
 
-- Connect profiles and active settings carry non-secret metadata (control-plane
+- Cloud Link profiles and active settings carry non-secret metadata (control-plane
   URL, machine ID/name, device ID, expiry). Secrets and environment/store-scoped subscription
-  sessions use SecureStore. Expired/missing Connect credentials never fall back to
+  sessions use SecureStore. Expired/missing Cloud Link credentials never fall back to
   active passwords; expiry stops streams/sockets. Development web E2E substitutes
-  memory only. See [Connect pilot](connect.md).
-- Connect setup exposes initialization readiness separately from operation phase.
+  memory only. See [Cloud Link pilot](connect.md).
+- Cloud Link setup exposes initialization readiness separately from operation phase.
   Provider-owned `pairLink` securely accepts scanned/deep-linked QR data and
   automatically claims after initialization settles and entitlement is verified.
   Subscription recovery and automatic pairing use the existing operation lock;
@@ -287,7 +287,7 @@ Credentials:
   session awaiting secure save or store finalization blocks switching environments.
   The provider exposes `canPurchase` so the UI cannot offer another subscription
   while that checkpoint still needs recovery or store approval is pending.
-- Connect uses a default phone name and backend-issued device credentials.
+- Cloud Link uses a default phone name and backend-issued device credentials.
   Native purchase/Restore verifies ownership, securely saves the issued session,
   then finalizes the store transaction. Pending QR continuation is secure;
   subscription expiry preserves profiles, and access refresh keeps machine/profile

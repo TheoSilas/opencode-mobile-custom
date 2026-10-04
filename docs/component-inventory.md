@@ -403,7 +403,7 @@ This is important to parity because the chat layout is intentionally dense and h
 
 ## Settings Components
 
-`connection-method-chooser.tsx` renders the shared Connect/Manual choices.
+`connection-method-chooser.tsx` renders the shared Cloud Link/Manual choices.
 `connection-setup-form.tsx` composes the chooser and existing manual profile form
 for onboarding and returning from pairing. `connect-pairing.tsx` composes the
 full-screen scanner plus shared subscription, error and pairing-link overlays.
@@ -411,7 +411,7 @@ Environment routing belongs to the provider and purchase service; no URL editor
 is rendered. `connect-scanner.tsx` owns camera presentation/lifecycle;
 `connect-subscription.tsx` renders native offers and explicit purchase/Restore.
 `connect-panel.tsx` renders the separate machine/profile management view. `app/pair.tsx` ingests links and navigates only.
-Domain state/actions come from `useConnection().connectSetup`; see [Connect](connect.md).
+Domain state/actions come from `useConnection().connectSetup`; see [Cloud Link](connect.md).
 
 ## `components/settings/settings-sections.tsx`
 
@@ -782,7 +782,7 @@ But parity is easiest if these responsibilities remain separated:
 - `ChatContent` renders task progress as a right-side floating FAB with a filling icon. The detailed progress overlay remains available. Patch summary chips open Changes and select their parent user turn when that message is present in the current session; otherwise the existing changes scope is retained. `TranscriptMessage` memoization includes the review callback to keep the session mapping current.
 - The chat library's connection-wide group is Running & recent, with an explicit Running indicator. Deduplicated chats do not create an empty Chats section. Search-empty copy is distinct from a truly empty library.
 - `components/workspace/files-panel.tsx` renders provider-owned changed-file statuses immediately. Added/modified files use the existing reader; deleted rows explain unavailable content. Button and keyboard search share one guarded handler. Query, submitted query, loading, and failure presentation are local and reset with the connection/workspace key; results remain provider-owned.
-- Setup has one guarded Connect & continue action through `switchConnection`. Input survives failures; connection controls and Skip are disabled while submitting. The shared Connect/Manual chooser precedes the manual form.
+- Setup has one guarded Connect & continue action through `switchConnection`. Input survives failures; connection controls and Skip are disabled while submitting. The shared Cloud Link/Manual chooser precedes the manual form.
 - Approval cards separate the current resources from server-provided future `always` patterns and explain that the server controls rule duration. Missing patterns explicitly have unspecified scope. Question descriptions appear before selection, while existing custom/multiple/conditional answer handling remains intact.
 - Starter examples fill the draft; the bug example appends a symptoms prompt. Terminal's empty state calls the existing creation handler and describes line-at-a-time commands.
 - Icon actions and provider-credential removal expose translated action names. All supported locales carry matching keys and plural forms.

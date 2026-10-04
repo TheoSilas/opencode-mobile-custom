@@ -126,7 +126,7 @@ async function fetchConnection(input: RequestInfo | URL, init?: RequestInit, set
   // Expo's native fetch supports streams and redirect rejection; RN's XHR
   // polyfill ignores redirect mode. Manual connections retain their transport.
   const response = settings?.connect ? await expoFetch(input, { ...init, redirect: 'error' }) : await fetch(input, init);
-  if (settings?.connect && response.status === 401) throw new Error('Connect credentials were rejected. Pair this device again.');
+  if (settings?.connect && response.status === 401) throw new Error('Cloud Link credentials were rejected. Pair this device again.');
   return response;
 }
 
