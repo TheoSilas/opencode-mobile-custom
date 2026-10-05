@@ -1,0 +1,48 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
+import { Card, Text } from 'react-native-paper';
+
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { PendingPermissionRequest } from '@/lib/opencode/client';
+import { PermissionRequestCard } from './permission-request-card';
+
+export function PendingInteractionsCard({
+  onPermissionReply,
+  permissions,
+}: {
+  onPermissionReply: (requestId: string, reply: 'once' | 'always' | 'reject') => Promise<void>;
+  permissions: PendingPermissionRequest[];
+}) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const palette = Colors[colorScheme];
+
+  return (
+    <Card mode="contained" style={[styles.sectionCard, { backgroundColor: palette.surface }]}> 
+      <Card.Content style={styles.pendingInteractionsContent}>
+        <View style={styles.waitingNoticeHeader}>
+          <MaterialCommunityIcons name="message-alert-outline" size={18} color={palette.warning} />
+          <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:cards.respondToContinue')}</Text>
+        </View>
+        <Text variant="bodySmall" style={{ color: palette.muted }}>
+          {t('chat:cards.waitingForAnswer')}
+        </Text>
+        {permissions.map((request) => (
+          <PermissionRequestCard
+            key={request.id}
+            request={request}
+            onReply={(reply) => onPermissionReply(request.id, reply)}
+          />
+        ))}
+      </Card.Content>
+    </Card>
+  );
+}
+
+const styles = StyleSheet.create({
+  sectionCard: { borderRadius: 20 },
+  pendingInteractionsContent: { gap: 12 },
+  waitingNoticeHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+});

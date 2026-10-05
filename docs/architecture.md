@@ -167,6 +167,42 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
   Small provider-agnostic helpers (project labels, pending-request grouping).
 - `providers/opencode-provider-selectors.ts`
   Derived selectors extracted from the provider body.
+- `providers/use-opencode-provider-state.ts`
+  The provider's core state, latest-ref bridges, and connection-generation
+  counters, returned as one flat object.
+- `providers/opencode-provider-effects.ts`
+  Provider lifecycle effects: language sync, active-session seeding, boot
+  connect, refresh fan-out, chat bootstrap, transcript pruning, and working
+  sound.
+- `providers/opencode-provider-events.ts`
+  Pure global-event dispatch (`handleProviderEvent(event, actions)`), kept
+  testable outside React.
+- `providers/opencode-provider-values.ts`
+  Derived selectors and the memoized domain context values rendered by
+  `OpencodeProvider`.
+- `providers/use-workspace-actions.ts`
+  Workspace catalog, project selection, session/file refresh, file
+  search/read/save, and diagnostics actions.
+- `providers/use-session-actions.ts`
+  Session lifecycle, favorites, permissions/questions, and
+  `ensureActiveSession`.
+- `providers/use-prompt-lifecycle.ts`
+  `sendPrompt`/`abortSession`, the submission guard, and task-completion
+  notification tracking.
+- `providers/use-capabilities-actions.ts`
+  Chat capability discovery, provider auth/OAuth, and auto-approve.
+- `providers/use-connection-actions.ts`
+  Connect/switch/profile orchestration, deep-link restore, and session
+  restore.
+- `providers/connect/`
+  Cloud Link pairing, subscription, and access state machine
+  (`use-connect-machine.ts`), with catalog discovery (`catalog.ts`), purchase
+  finalization/recovery (`purchases.ts`), pairing link handling (`pairing.ts`),
+  and access credential preparation (`access.ts`); re-exported through
+  `providers/use-connect-state.ts`.
+- `providers/conversation/`
+  Conversation listening, playback, connection-feedback, and shared feedback
+  helpers composed by `providers/use-conversation-state.ts`.
 - `providers/use-opencode-persistence.ts`
   AsyncStorage hydration and ordered write-back, with field validation in
   `providers/persisted-preferences.ts`.
@@ -216,8 +252,13 @@ These domain hooks are composed by `OpencodeProvider`, which stays the single
 orchestrator. Each hook receives the current client (and, when it must call a
 later-defined provider callback, a latest-ref) and exposes its own reset, so the
 provider's project/connection reset composes them instead of inlining state.
-`test:architecture` ratchets the provider size and the public context surface so
-they cannot silently regrow.
+
+`test:architecture` enforces a repo-wide readable-size ratchet: every source
+file under `app/`, `components/`, `providers/`, and `lib/` must stay at or below
+**500 lines** (200-400 is the target; generated `lib/i18n/resources.ts` is
+exempt), the provider stays at or below 500, and the public context surface
+cannot grow past 135 members. When a limit is genuinely outgrown, split the file
+into the right layer and, if needed, lower the number in the same change.
 
 ### Services
 
@@ -239,11 +280,13 @@ they cannot silently regrow.
 ### OpenCode Protocol Helpers
 
 - `lib/opencode/client.ts`
-  Normalizes server URL, adds optional basic auth, preserves configured URL path prefixes, probes the server contract, and builds either the OpenCode 1.x SDK client or the V2 adapter.
+  Builds either the OpenCode 1.x SDK client or the V2 adapter. The barrel re-exports the connection helpers now split by concern under `lib/opencode/client/` (`types`, `url`, `fetch`, `errors`, `probe`, `interactions`); URL normalization, basic auth, path-prefix handling, transport, contract probing, and pending-interaction calls each live in one module.
 - `lib/opencode/v2-client.ts`
-  OpenCode 2.x adapter over `@opencode/client`. Normalizes V2 responses and events back into the app's 1.x-shaped domain types and reports unsupported features explicitly. The V1-shaped client is assembled from per-domain builders (project, session, capabilities, filesystem, VCS, worktree, MCP, PTY, global, interactions) so a protocol change touches one builder.
+  OpenCode 2.x adapter over `@opencode/client`. Keeps the `buildV2Client` entrypoint and error wrapping; the V1-shaped client is re-assembled from per-domain builders so a protocol change touches one builder.
+- `lib/opencode/v2/`
+  The 2.x adapter's per-domain builder modules (`raw`, `project`, `session`, `capabilities`, `filesystem`, `vcs`, `worktree`, `mcp`, `pty`, `global`, `interactions`), plus shared protocol types/helpers (`shared`), response mappers (`mappers`), and event mapping (`events`). Normalizes V2 responses and events back into the app's 1.x-shaped domain types and reports unsupported features explicitly.
 - `lib/opencode/format.ts`
-  Converts raw message records into transcript entries and helper labels.
+  Barrel over `lib/opencode/format/` (`types`, `tool`, `time`, `preview`, `todos`, `window`, `transcript`). Converts raw message records into transcript entries, previews, todos, and windowed history.
 - `lib/opencode/transcript.ts`
   Transcript activity helpers and display filtering.
 - `lib/opencode/types.ts`
@@ -271,15 +314,15 @@ independent of onboarding completion. See [Cloud Link pilot](connect.md).
 ### Chat UI
 
 - `components/chat/chat-view.tsx`
-  Main chat screen controller.
+  Main chat screen render, driven by `components/chat/use-chat-view-controller.ts` and `components/chat/use-chat-view-actions.ts`.
 - `components/chat/chat-content.tsx`
-  Transcript, pending interactions, task overlay, and changes overlay rendering.
+  Barrel over `components/chat/content/` (transcript list, changes overlay, pending interactions, skeleton).
 - `components/chat/chat-composer.tsx`
   Prompt input, attachments, and controls.
 - `components/chat/chat-header.tsx`
   Session picker and conversation overlay mount point.
 - `components/chat/chat-cards.tsx`
-  Message, diff, and permission cards, including message fork/revert actions.
+  Barrel over `components/chat/cards/` (message, diff, session-diff, permission, question-flow cards).
 - `components/chat/chat-markdown.tsx`
   Memoized GFM renderer backed by `react-native-enriched-markdown`.
 - `components/chat/chat-overlay.tsx`
@@ -288,7 +331,7 @@ independent of onboarding completion. See [Cloud Link pilot](connect.md).
 ### Settings UI
 
 - `components/settings/settings-sections.tsx`
-  Settings sections as presentational components.
+  Barrel over `components/settings/sections/` (diagnostics, connection, AI defaults, notifications, voice, language, appearance) plus `setting-rows.tsx`.
 - `components/settings/provider-config-dialog.tsx`
   Provider auth modal.
 - `components/settings/settings-utils.ts`

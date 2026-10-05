@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import ts from 'typescript';
+import { loadTsModule, toDataUri } from './helpers/runtime.mjs';
 
-// Stub the i18n alias so the data-URL import does not pull in the real i18n
-// instance (expo-localization, bundled locale JSON).
-const i18nStubUri = `data:text/javascript,${encodeURIComponent('export function getFormatLocale() { return "en"; }')}`;
-const source = await readFile(new URL('../lib/opencode/format.ts', import.meta.url), 'utf8');
-const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } })
-  .outputText.replace(/from '@\/lib\/i18n'/g, `from "${i18nStubUri}"`);
-const { getMessagePreview, toTranscriptEntry, deriveTodosFromMessages } = await import(`data:text/javascript,${encodeURIComponent(output)}`);
+// Stub the i18n alias so the loader does not pull in the real i18n instance
+// (expo-localization, bundled locale JSON).
+const i18nStubUri = toDataUri('export function getFormatLocale() { return "en"; }');
+const { getMessagePreview, toTranscriptEntry, deriveTodosFromMessages } = await loadTsModule('lib/opencode/format.ts', {
+  imports: { '@/lib/i18n': i18nStubUri },
+});
 const info = { id: 'message-1', role: 'assistant', sessionID: 'session-1', time: { created: 1 } };
 
 assert.equal(getMessagePreview({ info, parts: [{ type: 'reasoning', text: 'private reasoning' }, { type: 'text', text: 'Visible reply' }] }), 'Visible reply');
@@ -64,9 +62,10 @@ assert.deepEqual(
 
 console.log('format tests passed');
 
-const transcriptSource = await readFile(new URL('../lib/opencode/transcript.ts', import.meta.url), 'utf8');
-const transcriptOutput = ts.transpileModule(transcriptSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
-const { getUserTurnForMessage } = await import(`data:text/javascript,${encodeURIComponent(transcriptOutput)}`);
+const transcriptSource = await loadTsModule('lib/opencode/transcript.ts', {
+  imports: { '@/lib/i18n': i18nStubUri },
+});
+const { getUserTurnForMessage } = transcriptSource;
 const turnRecords = [
   { info: { id: 'user-a', role: 'user' }, parts: [] },
   { info: { id: 'reply-a', role: 'assistant', parentID: 'user-a' }, parts: [] },

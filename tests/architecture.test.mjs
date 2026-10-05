@@ -32,8 +32,27 @@ async function collectSourceFiles(dir) {
 const provider = await read('providers/opencode-provider.tsx');
 const providerLines = provider.split('\n').length;
 assert.ok(
-  providerLines <= 2700,
+  providerLines <= 500,
   `providers/opencode-provider.tsx is ${providerLines} lines. Extract a domain into a providers/use-*-state.ts hook instead of growing the provider.`,
+);
+
+// 1b. No source file may exceed the readable-size ceiling. Generated locale
+// registries are exempt. 400 is the target, 500 the hard limit.
+const MAX_LINES = 500;
+const LINE_LIMIT_EXEMPT = new Set(['lib/i18n/resources.ts']);
+const oversized = [];
+for (const dir of ['app', 'components', 'providers', 'lib']) {
+  for (const file of await collectSourceFiles(path.join(root, dir))) {
+    const relative = path.relative(root, file);
+    if (LINE_LIMIT_EXEMPT.has(relative)) continue;
+    const lines = (await readFile(file, 'utf8')).split('\n').length;
+    if (lines > MAX_LINES) oversized.push(`${relative} (${lines})`);
+  }
+}
+assert.deepEqual(
+  oversized,
+  [],
+  `Source files over ${MAX_LINES} lines must be split: ${oversized.join(', ')}`,
 );
 
 // 2. The public context surface stays a deliberate contract, not an accidental

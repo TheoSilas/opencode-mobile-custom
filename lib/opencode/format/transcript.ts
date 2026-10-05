@@ -1,0 +1,150 @@
+import { getMessageError, getToolBody, getToolTitle } from './tool';
+import type { SessionMessageRecord, TranscriptDetail, TranscriptEntry } from './types';
+
+const transcriptEntryCache = new WeakMap<SessionMessageRecord, TranscriptEntry>();
+
+export function toTranscriptEntry(record: SessionMessageRecord): TranscriptEntry {
+  const cached = transcriptEntryCache.get(record);
+  if (cached) {
+    return cached;
+  }
+
+  const textBlocks: string[] = [];
+  const details: TranscriptDetail[] = [];
+
+  record.parts.forEach((part, index) => {
+    const id = `${record.info.id}-${index}`;
+
+    if (part.type === 'text') {
+      const text = part.text.trim();
+      if (text) {
+        textBlocks.push(text);
+      }
+      return;
+    }
+
+    if (part.type === 'reasoning') {
+      const text = part.text.trim();
+      if (text) {
+        details.push({
+          id,
+          kind: 'reasoning',
+          label: 'Reasoning',
+          body: text,
+        });
+      }
+      return;
+    }
+
+    if (part.type === 'tool') {
+      details.push({
+        id,
+        kind: 'tool',
+        label: getToolTitle(part),
+        body: getToolBody(part),
+        status: part.state.status,
+      });
+      if (part.state.status === 'completed') {
+        part.state.attachments?.forEach((attachment, attachmentIndex) => {
+          details.push({
+            id: `${id}-attachment-${attachmentIndex}`,
+            kind: 'file',
+            label: attachment.filename || 'Tool attachment',
+            body: attachment.mime || 'Attachment',
+          });
+        });
+      }
+      return;
+    }
+
+    if (part.type === 'patch') {
+      details.push({
+        id,
+        kind: 'patch',
+        label: `Patch ${part.files.length} files`,
+        body: part.files.join('\n'),
+      });
+      return;
+    }
+
+    if (part.type === 'file') {
+      details.push({
+        id,
+        kind: 'file',
+        label: part.filename || 'File attachment',
+        body: part.mime || 'Attachment',
+      });
+      return;
+    }
+
+    if (part.type === 'subtask') {
+      details.push({
+        id,
+        kind: 'subtask',
+        label: 'Subtask',
+        body: part.description,
+      });
+      return;
+    }
+
+    if (part.type === 'step-start') {
+      details.push({
+        id,
+        kind: 'step',
+        label: 'Step started',
+        body: part.snapshot || 'OpenCode started a new step.',
+      });
+      return;
+    }
+
+    if (part.type === 'step-finish') {
+      details.push({
+        id,
+        kind: 'step',
+        label: 'Step finished',
+        body: `${part.reason}${part.snapshot ? `\n\n${part.snapshot}` : ''}`,
+      });
+      return;
+    }
+
+    if (part.type === 'agent') {
+      details.push({
+        id,
+        kind: 'agent',
+        label: 'Agent',
+        body: part.name,
+      });
+      return;
+    }
+
+    if (part.type === 'retry') {
+      details.push({
+        id,
+        kind: 'retry',
+        label: `Retry ${part.attempt}`,
+        body: 'data' in part.error && part.error.data && 'message' in part.error.data ? String(part.error.data.message) : 'Request failed',
+      });
+      return;
+    }
+
+    if (part.type === 'compaction') {
+      details.push({
+        id,
+        kind: 'compaction',
+        label: 'Context compaction',
+        body: part.auto ? 'OpenCode compacted the session automatically.' : 'OpenCode compacted the session.',
+      });
+    }
+  });
+
+  const entry: TranscriptEntry = {
+    id: record.info.id,
+    role: record.info.role,
+    createdAt: record.info.time.created,
+    text: textBlocks.join('\n\n').trim(),
+    details,
+    error: getMessageError(record),
+  };
+  transcriptEntryCache.set(record, entry);
+  return entry;
+}

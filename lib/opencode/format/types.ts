@@ -1,0 +1,26 @@
+import type { Message, Part } from '@/lib/opencode/types';
+
+export type SessionMessageRecord = {
+  info: Message;
+  parts: Part[];
+};
+
+export type TranscriptDetail =
+  | { id: string; kind: 'reasoning'; label: string; body: string }
+  | { id: string; kind: 'tool'; label: string; body: string; status: string }
+  | { id: string; kind: 'patch'; label: string; body: string }
+  | { id: string; kind: 'file'; label: string; body: string }
+  | { id: string; kind: 'subtask'; label: string; body: string }
+  | { id: string; kind: 'step'; label: string; body: string }
+  | { id: string; kind: 'agent'; label: string; body: string }
+  | { id: string; kind: 'retry'; label: string; body: string }
+  | { id: string; kind: 'compaction'; label: string; body: string };
+
+export type TranscriptEntry = {
+  id: string;
+  role: Message['role'];
+  createdAt: number;
+  text: string;
+  details: TranscriptDetail[];
+  error?: string;
+};

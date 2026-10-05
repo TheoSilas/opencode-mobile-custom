@@ -1,0 +1,131 @@
+import type { Dispatch, SetStateAction } from 'react';
+
+import type { PendingPermissionRequest, PendingQuestionRequest, ServerContract, OpencodeConnectionSettings } from '@/lib/opencode/client';
+import type { SessionMessageRecord } from '@/lib/opencode/format';
+import type { SessionUsageStep } from '@/lib/opencode/usage';
+import type {
+  Config,
+  Command,
+  File,
+  FileContent,
+  FileDiff,
+  GlobalSession,
+  McpLocalConfig,
+  McpRemoteConfig,
+  McpStatus,
+  Project,
+  Pty,
+  PtyShellsResponse,
+  Session,
+  SessionStatus,
+  Todo,
+  VcsInfo,
+  Worktree,
+} from '@/lib/opencode/types';
+import type { AgentOption, ModelOption } from '@/providers/opencode-model-selection';
+import type { ChatPreferences } from '@/providers/opencode-preferences';
+import type {
+  ActiveSessionItem,
+  ConnectionState,
+  DiffScope,
+  FavoriteSession,
+  OpencodeProject,
+  ProviderAuthMethod,
+  ProviderOption,
+} from '@/providers/opencode-provider-types';
+import type { Diagnostics } from '@/providers/services/diagnostics-service';
+import type { useCapabilitiesActions } from '@/providers/use-capabilities-actions';
+import type { useConnectionActions } from '@/providers/use-connection-actions';
+import type { useConversationState } from '@/providers/use-conversation-state';
+import type { usePromptLifecycle } from '@/providers/use-prompt-lifecycle';
+import type { useSessionActions } from '@/providers/use-session-actions';
+import type { useWorkspaceActions } from '@/providers/use-workspace-actions';
+
+type ActionInputs =
+  ReturnType<typeof useWorkspaceActions> &
+  ReturnType<typeof useSessionActions> &
+  ReturnType<typeof useCapabilitiesActions> &
+  ReturnType<typeof usePromptLifecycle> &
+  ReturnType<typeof useConnectionActions> &
+  ReturnType<typeof useConversationState>;
+
+export type ProviderValuesInput = ActionInputs & {
+  isHydrated: boolean;
+  onboardingCompleted: boolean;
+  onboardingActive: boolean;
+  completeOnboarding: () => Promise<void>;
+  startOnboardingReview: () => void;
+  stopOnboardingReview: () => void;
+  settings: OpencodeConnectionSettings;
+  connection: ConnectionState;
+  eventStreamStatus: 'idle' | 'connecting' | 'connected' | 'error';
+  diagnostics?: Diagnostics;
+  currentConfig?: Config;
+  availableProviders: ProviderOption[];
+  providerAuthMethodsById: Record<string, ProviderAuthMethod[]>;
+  availableModels: ModelOption[];
+  availableAgents: AgentOption[];
+  chatPreferences: ChatPreferences;
+  projects: OpencodeProject[];
+  activeProjectPath?: string;
+  activeProject?: OpencodeProject;
+  serverProjects: Project[];
+  currentProjectPath?: string;
+  serverRootPath?: string;
+  isRefreshingWorkspaceCatalog: boolean;
+  workspaceFiles: string[];
+  workspaceFileStatuses: File[];
+  selectedWorkspaceFile?: { path: string; content: FileContent };
+  vcsInfo?: VcsInfo;
+  worktrees: (string | Worktree)[];
+  refreshWorktrees: () => Promise<void>;
+  createWorktree: (name?: string, startCommand?: string) => Promise<void>;
+  resetWorktree: (directory: string) => Promise<void>;
+  removeWorktree: (directory: string) => Promise<void>;
+  sessions: Session[];
+  archivedSessions: GlobalSession[];
+  sessionStatuses: Record<string, SessionStatus>;
+  favoriteSessions: FavoriteSession[];
+  activeSessions: ActiveSessionItem[];
+  refreshActiveSessions: () => Promise<void>;
+  setActiveSessionsVisible: Dispatch<SetStateAction<boolean>>;
+  currentSessionId?: string;
+  messagesBySession: Record<string, SessionMessageRecord[]>;
+  diffScopeBySession: Record<string, DiffScope>;
+  diffsBySession: Record<string, FileDiff[]>;
+  vcsDiffsByScope: Record<'uncommitted' | 'branch', FileDiff[]>;
+  selectedDiffMessageBySession: Record<string, string | undefined>;
+  todosBySession: Record<string, Todo[]>;
+  todoRecordsBySession: Record<string, SessionMessageRecord[]>;
+  usageStepsBySession: Record<string, SessionUsageStep[]>;
+  messageWindows: Record<string, { nextBefore?: string; hasMore: boolean }>;
+  loadingOlderBySession: Record<string, boolean>;
+  loadOlderMessages: (sessionId: string) => Promise<void>;
+  pendingPermissionsBySession: Record<string, PendingPermissionRequest[]>;
+  pendingQuestionsBySession: Record<string, PendingQuestionRequest[]>;
+  sendingState: { sessionId?: string; active: boolean };
+  isRefreshingSessions: boolean;
+  isRefreshingMessages: boolean;
+  isRefreshingDiffs: boolean;
+  isBootstrappingChat: boolean;
+  commands: Command[];
+  serverContract: ServerContract;
+  terminals: Pty[];
+  terminalShells: PtyShellsResponse;
+  activeTerminalId?: string;
+  terminalOutput: string;
+  terminalConnection: 'idle' | 'connecting' | 'connected' | 'error';
+  refreshTerminals: () => Promise<void>;
+  createTerminal: (command?: string, title?: string) => Promise<Pty>;
+  openTerminal: (ptyId: string) => Promise<void>;
+  sendTerminalInput: (input: string) => void;
+  closeTerminal: (ptyId: string) => Promise<void>;
+  mcpStatuses: Record<string, McpStatus>;
+  refreshMcpServers: () => Promise<void>;
+  addMcpServer: (name: string, config: McpLocalConfig | McpRemoteConfig) => Promise<void>;
+  connectMcpServer: (name: string) => Promise<void>;
+  disconnectMcpServer: (name: string) => Promise<void>;
+  setMcpServerEnabled: (name: string, enabled: boolean) => Promise<void>;
+  startMcpOAuth: (name: string) => Promise<string>;
+  completeMcpOAuth: (name: string, code: string) => Promise<void>;
+};

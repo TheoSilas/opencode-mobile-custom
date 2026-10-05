@@ -1,28 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { AppState } from 'react-native';
 import type { PendingPermissionRequest, PendingQuestionRequest } from '@/lib/opencode/client';
 import { toTranscriptEntry, type SessionMessageRecord } from '@/lib/opencode/format';
 import { isTranscriptDisplayMessage } from '@/lib/opencode/transcript';
 import type { SessionStatus } from '@/lib/opencode/types';
 import type { VoiceRecoveryAction } from '@/lib/voice/speech-errors';
-import { speakText, stopSpeaking } from '@/lib/voice/speech-output';
+import { stopSpeaking } from '@/lib/voice/speech-output';
 import { useSpeechInput } from '@/lib/voice/use-speech-input';
 import { stopWorkingSoundAsync } from '@/lib/voice/working-sound';
 import { getTranscript, getConversationStatusLabel, getTranscriptActivityLabelForEntries } from '@/providers/opencode-provider-selectors';
-import { CONVERSATION_FINAL_RESULT_SETTLE_MS, CONVERSATION_KEEP_AWAKE_TAG, CONVERSATION_LISTENING_RESTART_MS,
+import { CONVERSATION_FINAL_RESULT_SETTLE_MS, CONVERSATION_KEEP_AWAKE_TAG,
   type ChatContextValue, type ChatPreferences, type ConnectionState, type ConversationPhase, type ConversationState } from '@/providers/opencode-provider-types';
 import { useConversationKeepAwake } from '@/providers/use-conversation-keep-awake';
 import { useConversationScreenDim } from '@/providers/use-conversation-screen-dim';
-
-function applyConversationFeedback(
-  setFeedback: (value: string | undefined) => void,
-  setAction: (value: VoiceRecoveryAction) => void,
-  message: string | undefined,
-  action: VoiceRecoveryAction = 'none',
-) {
-  setFeedback(message);
-  setAction(action);
-}
+import { applyConversationFeedback } from '@/providers/conversation/feedback';
+import { useConversationListeningEffects } from '@/providers/conversation/use-conversation-listening';
+import { useConversationPlayback } from '@/providers/conversation/use-conversation-playback';
+import { useConversationConnectionFeedback } from '@/providers/conversation/use-conversation-connection';
 
 export function useConversationState({ connection, chatPreferences, currentSessionId, setCurrentSessionId,
   sessionStatuses, messagesBySession, pendingPermissionsBySession, pendingQuestionsBySession,
@@ -122,23 +115,6 @@ export function useConversationState({ connection, chatPreferences, currentSessi
     setConversationPhase('submitting');
   }, [abortSpeechInput, clearPendingConversationResult]);
   useLayoutEffect(() => { flushPendingConversationResultRef.current = flushPendingConversationResult; }, [flushPendingConversationResult]);
-
-  // Stop the microphone when the app is backgrounded or the provider unmounts.
-  // Without this, speech recognition stays active after the user switches apps,
-  // continuing to capture audio in the background (privacy + battery cost).
-  // abort() is safe to call when not listening — the underlying native call is
-  // wrapped in try/catch inside useSpeechInput.
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') {
-        abortSpeechInput();
-      }
-    });
-    return () => {
-      subscription.remove();
-      abortSpeechInput();
-    };
-  }, [abortSpeechInput]);
 
   const getLatestConversationAssistantEntry = useCallback(
     (sessionId?: string) => {
@@ -280,65 +256,26 @@ export function useConversationState({ connection, chatPreferences, currentSessi
     }
   }, [conversationPhase]);
 
-  useEffect(() => {
-    if (conversationPhase !== 'listening' || isConversationListening || isConversationListeningStarting) {
-      if (conversationListeningRestartTimeoutRef.current) {
-        clearTimeout(conversationListeningRestartTimeoutRef.current);
-        conversationListeningRestartTimeoutRef.current = undefined;
-      }
-      return;
-    }
-
-    if (conversationCancelRequestedRef.current || conversationSubmittingRef.current) {
-      return;
-    }
-
-    conversationListeningRestartTimeoutRef.current = setTimeout(() => {
-      conversationListeningRestartTimeoutRef.current = undefined;
-      if (
-        conversationPhaseRef.current !== 'listening' ||
-        conversationCancelRequestedRef.current ||
-        conversationSubmittingRef.current
-      ) {
-        return;
-      }
-
-      void startConversationListening();
-    }, CONVERSATION_LISTENING_RESTART_MS);
-
-    return () => {
-      if (conversationListeningRestartTimeoutRef.current) {
-        clearTimeout(conversationListeningRestartTimeoutRef.current);
-        conversationListeningRestartTimeoutRef.current = undefined;
-      }
-    };
-  }, [conversationPhase, isConversationListening, isConversationListeningStarting, startConversationListening]);
-
   useConversationKeepAwake(conversationPhase, CONVERSATION_KEEP_AWAKE_TAG);
   useConversationScreenDim(conversationPhase);
 
-  useEffect(() => {
-    if (!speechInputError) {
-      return;
-    }
-
-    if (
-      conversationPhaseRef.current === 'listening' &&
-      (speechInputErrorCode === 'client' || speechInputErrorCode === 'no-speech' || speechInputErrorCode === 'speech-timeout')
-    ) {
-      return;
-    }
-
-    applyConversationFeedback(
-      setConversationFeedback,
-      setConversationFeedbackAction,
-      speechInputError,
-      speechInputErrorAction,
-    );
-    if (conversationPhaseRef.current !== 'off') {
-      void stopConversationMode();
-    }
-  }, [speechInputError, speechInputErrorAction, speechInputErrorCode, stopConversationMode]);
+  useConversationListeningEffects({
+    conversationPhase,
+    isConversationListening,
+    isConversationListeningStarting,
+    conversationPhaseRef,
+    conversationCancelRequestedRef,
+    conversationSubmittingRef,
+    conversationListeningRestartTimeoutRef,
+    startConversationListening,
+    abortSpeechInput,
+    speechInputError,
+    speechInputErrorAction,
+    speechInputErrorCode,
+    stopConversationMode,
+    setConversationFeedback,
+    setConversationFeedbackAction,
+  });
 
   useEffect(() => {
     if (conversationPhase !== 'submitting' || !pendingConversationTurn || !conversationSessionId) {
@@ -398,125 +335,31 @@ export function useConversationState({ connection, chatPreferences, currentSessi
     stopConversationMode,
   ]);
 
-  useEffect(() => {
-    if (conversationPhase !== 'waiting') {
-      return;
-    }
-
-    const pendingInteractions = conversationSessionId
-      ? (pendingPermissionsBySession[conversationSessionId] || []).length + (pendingQuestionsBySession[conversationSessionId] || []).length
-      : 0;
-    const latestAssistantEntry = getLatestConversationAssistantEntry(conversationSessionId);
-    const sessionStatus = conversationSessionId ? sessionStatuses[conversationSessionId] : undefined;
-    const isSessionRunning = conversationSessionId
-      ? sendingState.sessionId === conversationSessionId || sendingState.active || (!!sessionStatus && sessionStatus.type !== 'idle')
-      : false;
-
-    if (pendingInteractions > 0) {
-      applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, 'Conversation mode paused because the assistant needs your input on screen.');
-      void stopConversationMode();
-      return;
-    }
-
-    if (isSessionRunning) {
-      return () => {
-        void stopWorkingSoundAsync().catch(() => undefined);
-      };
-    }
-
-    void stopWorkingSoundAsync().catch(() => undefined);
-    if (latestAssistantEntry && latestAssistantEntry.id !== assistantReplyBaselineIdRef.current) {
-      void (async () => {
-        const started = await speakText({
-          language: chatPreferences.speechLocale,
-          onDone: () => {
-            if (conversationPhaseRef.current !== 'off' && chatPreferences.resumeListeningAfterReply) {
-              void startConversationListening();
-            } else {
-              void stopConversationMode();
-            }
-          },
-          onError: () => {
-            applyConversationFeedback(setConversationFeedback, setConversationFeedbackAction, 'Unable to play this assistant reply.');
-            void stopConversationMode();
-          },
-          onStart: () => {
-            setConversationPhase('speaking');
-          },
-          rate: chatPreferences.speechRate,
-          text: latestAssistantEntry.text,
-          voice: chatPreferences.speechVoiceId,
-        });
-
-        if (!started) {
-          if (chatPreferences.resumeListeningAfterReply) {
-            void startConversationListening();
-          } else {
-            void stopConversationMode();
-          }
-        }
-      })();
-      return;
-    }
-
-    conversationResumeTimeoutRef.current = setTimeout(() => {
-      if (conversationPhaseRef.current === 'waiting' && !isSessionRunning) {
-        void startConversationListening();
-      }
-    }, 1200);
-
-    return () => {
-      if (conversationResumeTimeoutRef.current) {
-        clearTimeout(conversationResumeTimeoutRef.current);
-        conversationResumeTimeoutRef.current = undefined;
-      }
-    };
-  }, [
-    chatPreferences.resumeListeningAfterReply,
-    chatPreferences.speechLocale,
-    chatPreferences.speechRate,
-    chatPreferences.speechVoiceId,
+  useConversationPlayback({
+    chatPreferences,
     conversationPhase,
     conversationSessionId,
-    getLatestConversationAssistantEntry,
     pendingPermissionsBySession,
     pendingQuestionsBySession,
-    sendingState.active,
-    sendingState.sessionId,
     sessionStatuses,
+    sendingState,
+    getLatestConversationAssistantEntry,
+    assistantReplyBaselineIdRef,
+    conversationResumeTimeoutRef,
+    conversationPhaseRef,
     startConversationListening,
     stopConversationMode,
-  ]);
+    setConversationPhase,
+    setConversationFeedback,
+    setConversationFeedbackAction,
+  });
 
-  useEffect(() => {
-    if (conversationPhase === 'off' || connection.status === 'connected') {
-      return;
-    }
-
-    applyConversationFeedback(
-      setConversationFeedback,
-      setConversationFeedbackAction,
-      connection.message || 'OpenCode disconnected. Conversation mode will resume when the connection returns.',
-    );
-  }, [connection.message, connection.status, conversationPhase]);
-
-  useEffect(() => {
-    if (connection.status !== 'connected') {
-      return;
-    }
-
-    setConversationFeedback((current) => {
-      if (!current) {
-        return current;
-      }
-
-      if (current === connection.message || current.includes('resume when the connection returns')) {
-        return undefined;
-      }
-
-      return current;
-    });
-  }, [connection.message, connection.status]);
+  useConversationConnectionFeedback({
+    connection,
+    conversationPhase,
+    setConversationFeedback,
+    setConversationFeedbackAction,
+  });
 
   const conversationMessages = useMemo(
     () => (conversationSessionId ? messagesBySession[conversationSessionId] || [] : []),

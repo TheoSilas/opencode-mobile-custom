@@ -1,0 +1,181 @@
+import type { Dispatch, SetStateAction } from 'react';
+
+import type {
+  OpencodeConnectionSettings,
+  PendingPermissionRequest,
+  PendingQuestionRequest,
+  ScopedOpencodeClient,
+  ServerContract,
+} from '@/lib/opencode/client';
+import type { SessionMessageRecord } from '@/lib/opencode/format';
+import type {
+  Command,
+  Config,
+  File,
+  FileContent,
+  FileDiff,
+  GlobalSession,
+  Project,
+  Session,
+  SessionStatus,
+  Todo,
+  VcsInfo,
+} from '@/lib/opencode/types';
+import type { AgentOption, ModelOption } from '@/providers/opencode-model-selection';
+import type { ChatPreferences } from '@/providers/opencode-preferences';
+import type {
+  ConnectionState,
+  DiffScope,
+  FavoriteSession,
+  ProviderAuthMethod,
+  ProviderOption,
+  SessionDeepLinkTarget,
+  WorkspaceCatalog,
+} from '@/providers/opencode-provider-types';
+import type { Diagnostics } from '@/providers/services/diagnostics-service';
+
+export type WorkspaceActionsInput = {
+  client: ScopedOpencodeClient;
+  catalogClient: ScopedOpencodeClient;
+  isCurrentClient: (candidate: object) => boolean;
+  isCurrentCatalogClient: (candidate: object) => boolean;
+  activeProjectPath?: string;
+  setActiveProjectPath: Dispatch<SetStateAction<string | undefined>>;
+  activeProjectPathRef: { current: string | undefined };
+  clearProjectState: () => void;
+  serverProjectsRef: { current: Project[] };
+  setServerProjects: Dispatch<SetStateAction<Project[]>>;
+  setCurrentProjectPath: Dispatch<SetStateAction<string | undefined>>;
+  setServerRootPath: Dispatch<SetStateAction<string | undefined>>;
+  connectionScope: string;
+  connectionScopeRef: { current: string };
+  isHydrated: boolean;
+  setSessions: Dispatch<SetStateAction<Session[]>>;
+  setSessionStatuses: Dispatch<SetStateAction<Record<string, SessionStatus>>>;
+  setIsRefreshingWorkspaceCatalog: Dispatch<SetStateAction<boolean>>;
+  setIsRefreshingSessions: Dispatch<SetStateAction<boolean>>;
+  setIsRefreshingDiffs: Dispatch<SetStateAction<boolean>>;
+  setDiffsBySession: Dispatch<SetStateAction<Record<string, FileDiff[]>>>;
+  setVcsDiffsByScope: Dispatch<SetStateAction<Record<'uncommitted' | 'branch', FileDiff[]>>>;
+  setTodosBySession: Dispatch<SetStateAction<Record<string, Todo[]>>>;
+  setPendingPermissionsBySession: Dispatch<SetStateAction<Record<string, PendingPermissionRequest[]>>>;
+  setPendingQuestionsBySession: Dispatch<SetStateAction<Record<string, PendingQuestionRequest[]>>>;
+  setWorkspaceFiles: Dispatch<SetStateAction<string[]>>;
+  setWorkspaceFileStatuses: Dispatch<SetStateAction<File[]>>;
+  setSelectedWorkspaceFile: Dispatch<SetStateAction<{ path: string; content: FileContent } | undefined>>;
+  setVcsInfo: Dispatch<SetStateAction<VcsInfo | undefined>>;
+  setCommands: Dispatch<SetStateAction<Command[]>>;
+  setDiagnostics: Dispatch<SetStateAction<Diagnostics | undefined>>;
+  setDiffScopeBySession: Dispatch<SetStateAction<Record<string, DiffScope>>>;
+  setSelectedDiffMessageBySession: Dispatch<SetStateAction<Record<string, string | undefined>>>;
+  selectedDiffMessageBySessionRef: { current: Record<string, string | undefined> };
+  diffScopeBySessionRef: { current: Record<string, DiffScope> };
+  currentSessionIdRef: { current: string | undefined };
+  messagesBySessionRef: { current: Record<string, SessionMessageRecord[]> };
+  workspaceSearchRequestRef: { current: number };
+  workspaceFileRequestRef: { current: number };
+  scopeGenerationRef: { current: number };
+  sessionRefreshTimeoutsRef: { current: Record<string, ReturnType<typeof setTimeout>> };
+  sessionRefreshOptionsRef: { current: Record<string, { messages?: boolean; fullMessages?: boolean; diff?: boolean; todos?: boolean; sessions?: boolean }> };
+  serverContract: ServerContract;
+  settingsRef: { current: OpencodeConnectionSettings };
+  refreshMessages: (sessionId: string, silent?: boolean, options?: { full?: boolean }) => Promise<SessionMessageRecord[]>;
+};
+
+export type SessionActionsInput = {
+  client: ScopedOpencodeClient;
+  catalogClient: ScopedOpencodeClient;
+  isCurrentClient: (candidate: object) => boolean;
+  isCurrentCatalogClient: (candidate: object) => boolean;
+  activeProjectPath?: string;
+  connection: ConnectionState;
+  connectionScope: string;
+  connectionScopeRef: { current: string };
+  currentSessionId?: string;
+  diffScopeBySessionRef: { current: Record<string, DiffScope> };
+  sessions: Session[];
+  messagesBySession: Record<string, SessionMessageRecord[]>;
+  favoriteSessions: FavoriteSession[];
+  pendingPermissionsBySession: Record<string, PendingPermissionRequest[]>;
+  pendingQuestionsBySession: Record<string, PendingQuestionRequest[]>;
+  lastSessionByConnection: Record<string, Record<string, string>>;
+  setLastSessionByConnection: Dispatch<SetStateAction<Record<string, Record<string, string>>>>;
+  setCurrentSessionId: Dispatch<SetStateAction<string | undefined>>;
+  setMessagesBySession: Dispatch<SetStateAction<Record<string, SessionMessageRecord[]>>>;
+  setDiffsBySession: Dispatch<SetStateAction<Record<string, FileDiff[]>>>;
+  setTodosBySession: Dispatch<SetStateAction<Record<string, Todo[]>>>;
+  setPendingPermissionsBySession: Dispatch<SetStateAction<Record<string, PendingPermissionRequest[]>>>;
+  setPendingQuestionsBySession: Dispatch<SetStateAction<Record<string, PendingQuestionRequest[]>>>;
+  setFavoriteSessions: Dispatch<SetStateAction<FavoriteSession[]>>;
+  setArchivedSessions: Dispatch<SetStateAction<GlobalSession[]>>;
+  setIsBootstrappingChat: Dispatch<SetStateAction<boolean>>;
+  pendingDeepLinkTargetRef: { current: SessionDeepLinkTarget | undefined };
+  bootstrapPromiseRef: { current: Promise<string | undefined> | null };
+  bootstrapTokenRef: { current: object | undefined };
+  fetchSessions: (silent?: boolean) => Promise<Session[]>;
+  refreshSessions: (silent?: boolean) => Promise<unknown>;
+  refreshMessages: (sessionId: string, silent?: boolean, options?: { full?: boolean }) => Promise<SessionMessageRecord[]>;
+  refreshSessionDiff: (sessionId: string, silent?: boolean, messageId?: string) => Promise<FileDiff[]>;
+  refreshSessionTodos: (sessionId: string) => Promise<Todo[]>;
+  refreshVcsDiff: (scope: 'uncommitted' | 'branch', silent?: boolean) => Promise<FileDiff[]>;
+  refreshPendingInteractions: () => Promise<unknown>;
+  refreshChatCapabilities: () => Promise<unknown>;
+  refreshServerFeatures: () => Promise<unknown>;
+  refreshDiagnostics: () => Promise<unknown>;
+  refreshActiveSessions: () => Promise<unknown>;
+  chatPreferences: ChatPreferences;
+};
+
+export type ConnectionActionsInput = {
+  settings: OpencodeConnectionSettings;
+  setSettings: Dispatch<SetStateAction<OpencodeConnectionSettings>>;
+  controlPlaneUrl: string;
+  setControlPlaneUrl: Dispatch<SetStateAction<string>>;
+  connection: ConnectionState;
+  setConnection: Dispatch<SetStateAction<ConnectionState>>;
+  serverContract: ServerContract;
+  setServerContract: Dispatch<SetStateAction<ServerContract>>;
+  activeProjectPath?: string;
+  setActiveProjectPath: Dispatch<SetStateAction<string | undefined>>;
+  activeProjectPathRef: { current: string | undefined };
+  connectionScopeRef: { current: string };
+  clearProjectState: () => void;
+  isHydrated: boolean;
+  isCurrentCatalogClient: (candidate: object) => boolean;
+  loadWorkspaceCatalog: (silent?: boolean, targetClient?: ScopedOpencodeClient) => Promise<WorkspaceCatalog>;
+  selectProject: (path: string) => void;
+  refreshSessions: (silent?: boolean) => Promise<unknown>;
+  refreshArchivedSessions: () => Promise<unknown>;
+  refreshActiveSessions: () => Promise<unknown>;
+  ensureActiveSessionRef: { current: () => Promise<string | undefined> };
+  serverProjectsRef: { current: Project[] };
+  setServerProjects: Dispatch<SetStateAction<Project[]>>;
+  setCurrentProjectPath: Dispatch<SetStateAction<string | undefined>>;
+  setServerRootPath: Dispatch<SetStateAction<string | undefined>>;
+  setSessions: Dispatch<SetStateAction<Session[]>>;
+  setSessionStatuses: Dispatch<SetStateAction<Record<string, SessionStatus>>>;
+  setCurrentConfig: Dispatch<SetStateAction<Config | undefined>>;
+  setAvailableProviders: Dispatch<SetStateAction<ProviderOption[]>>;
+  setProviderAuthMethodsById: Dispatch<SetStateAction<Record<string, ProviderAuthMethod[]>>>;
+  setAvailableModels: Dispatch<SetStateAction<ModelOption[]>>;
+  setAvailableAgents: Dispatch<SetStateAction<AgentOption[]>>;
+  setMessagesBySession: Dispatch<SetStateAction<Record<string, SessionMessageRecord[]>>>;
+  setDiffsBySession: Dispatch<SetStateAction<Record<string, FileDiff[]>>>;
+  setTodosBySession: Dispatch<SetStateAction<Record<string, Todo[]>>>;
+  setFavoriteSessions: Dispatch<SetStateAction<FavoriteSession[]>>;
+  setLastSessionByConnection: Dispatch<SetStateAction<Record<string, Record<string, string>>>>;
+  setChatPreferences: Dispatch<SetStateAction<ChatPreferences>>;
+  setDiagnostics: Dispatch<SetStateAction<Diagnostics | undefined>>;
+  setSendingState: Dispatch<SetStateAction<{ sessionId?: string; active: boolean }>>;
+  settingsRef: { current: OpencodeConnectionSettings };
+  chatPreferencesRef: { current: ChatPreferences };
+  serverContractRef: { current: ServerContract };
+  connectionRef: { current: ConnectionState };
+  serverGenerationRef: { current: number };
+  catalogGenerationRef: { current: WeakMap<object, number> };
+  scopeGenerationRef: { current: number };
+  currentSessionIdRef: { current: string | undefined };
+  pendingDeepLinkTargetRef: { current: SessionDeepLinkTarget | undefined };
+  deepLinkOperationRef: { current: object | undefined };
+  initialConnectStartedRef: { current: boolean };
+};

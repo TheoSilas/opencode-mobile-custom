@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
-import { loadTs, deferred } from './helpers/runtime.mjs';
+import { loadTs, loadTsModule, toDataUri, deferred } from './helpers/runtime.mjs';
 
 const flights = await loadTs('lib/opencode/in-flight.ts');
 const services = await loadTs('providers/services/session-service.ts', {
   '@/lib/opencode/in-flight': flights,
   '@/providers/services/require-data': await loadTs('providers/services/require-data.ts'),
 });
-const mappers = await loadTs('lib/opencode/v2-mappers.ts');
 const history = Array.from({ length: 4300 }, (_, i) => ({ id: `m-${i}`, type: 'user', text: `Message ${i}`, time: { created: i } }));
 let messageCalls = 0, listCalls = 0;
 const api = {
@@ -25,10 +24,19 @@ const api = {
     async diff({ messageID }) { assert.equal(messageID, 'm-4299'); return []; },
   },
 };
-const adapter = await loadTs('lib/opencode/v2-client.ts', {
-  '@opencode/client': { OpenCode: { make: () => api } },
-  './in-flight': flights, './v2-mappers': mappers,
-  './client': { getServerBase: () => ({ origin: 'http://test', pathPrefix: '' }), getRequestHeaders: () => ({}), createPrefixFetch: () => () => {} },
+globalThis.__opencodeTestApi = api;
+const opencodeStub = toDataUri('export const OpenCode = { make: () => globalThis.__opencodeTestApi };');
+const clientStub = toDataUri(`
+export const getServerBase = () => ({ origin: 'http://test', pathPrefix: '' });
+export const getRequestHeaders = () => ({});
+export const createPrefixFetch = () => () => {};
+`);
+const adapter = await loadTsModule('lib/opencode/v2-client.ts', {
+  imports: {
+    '@opencode/client': opencodeStub,
+    './client': clientStub,
+    '../client': clientStub,
+  },
 });
 const client = adapter.buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' });
 // A cold transcript read and the diff fallback share one outstanding newest page.

@@ -1,0 +1,182 @@
+import { useCallback } from 'react';
+
+import { findProfileByConnectionScope, getProfilePassword, loadConnectionProfiles } from '@/lib/connection-profiles';
+import { getConnectionScope } from '@/lib/connection-scope';
+import { buildClient } from '@/lib/opencode/client';
+import type { SessionDeepLinkTarget } from '@/providers/opencode-provider-types';
+import { restoreSession as svcRestoreSession } from '@/providers/services/session-service';
+import type { ConnectionActionsInput } from '@/providers/opencode-provider-action-inputs';
+import type { useConnectionConnectActions } from '@/providers/use-connection-connect-actions';
+
+type ConnectionLinkActionsInput = ConnectionActionsInput
+  & Pick<ReturnType<typeof useConnectionConnectActions>, 'connect' | 'switchConnection'>;
+
+export function useConnectionLinkActions({
+  connect,
+  switchConnection,
+  selectProject,
+  activeProjectPathRef,
+  connectionRef,
+  connectionScopeRef,
+  currentSessionIdRef,
+  deepLinkOperationRef,
+  ensureActiveSessionRef,
+  pendingDeepLinkTargetRef,
+  serverGenerationRef,
+  serverProjectsRef,
+  settingsRef,
+  serverContractRef,
+  refreshSessions,
+  refreshArchivedSessions,
+  refreshActiveSessions,
+}: ConnectionLinkActionsInput) {
+  const waitForConnectionScope = useCallback(async (scope: string, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    while (connectionScopeRef.current !== scope && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return connectionScopeRef.current === scope;
+  }, [connectionScopeRef]);
+
+  const openDeepLinkSession = useCallback(
+    async (target: SessionDeepLinkTarget, signal?: AbortSignal): Promise<{ ok: boolean; error?: string }> => {
+      const sessionId = target.sessionId.trim();
+      const projectPath = target.projectPath?.trim();
+      const operation = {};
+      deepLinkOperationRef.current = operation;
+      let operationServerGeneration: number | undefined;
+      const ownsOperation = () => deepLinkOperationRef.current === operation &&
+        (operationServerGeneration === undefined || operationServerGeneration === serverGenerationRef.current);
+      const cancelOperation = () => {
+        if (deepLinkOperationRef.current === operation) {
+          pendingDeepLinkTargetRef.current = undefined;
+          deepLinkOperationRef.current = undefined;
+        }
+      };
+      const finish = (result: { ok: boolean; error?: string }) => {
+        signal?.removeEventListener('abort', cancelOperation);
+        if (deepLinkOperationRef.current === operation) {
+          pendingDeepLinkTargetRef.current = undefined;
+          deepLinkOperationRef.current = undefined;
+        }
+        return result;
+      };
+      signal?.addEventListener('abort', cancelOperation, { once: true });
+      if (signal?.aborted) {
+        cancelOperation();
+        return finish({ ok: false, error: 'This session link was cancelled.' });
+      }
+      const connectionStatus = () => connectionRef.current.status;
+      if (!sessionId) {
+        return finish({ ok: false, error: 'This session link is missing a session ID.' });
+      }
+
+      if (connectionStatus() !== 'connected') {
+        if (connectionStatus() !== 'connecting') {
+          await connect();
+        }
+        const connectDeadline = Date.now() + 20000;
+        while (connectionStatus() === 'connecting' && Date.now() < connectDeadline) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        if (!ownsOperation()) {
+          return finish({ ok: false, error: 'This session link was superseded.' });
+        }
+        if (connectionStatus() !== 'connected') {
+          return finish({ ok: false, error: connectionRef.current.message || 'Could not connect to the server.' });
+        }
+      }
+
+      operationServerGeneration = serverGenerationRef.current;
+      const targetProjectPath = projectPath || activeProjectPathRef.current;
+      if (!targetProjectPath) {
+        return finish({ ok: false, error: 'This session link does not name a project, and no project is open.' });
+      }
+      if (projectPath && !serverProjectsRef.current.some((project) => project.worktree === projectPath)) {
+        return finish({ ok: false, error: `Project ${projectPath} is not available from the configured server.` });
+      }
+
+      pendingDeepLinkTargetRef.current = { sessionId, projectPath: targetProjectPath };
+      if (targetProjectPath !== activeProjectPathRef.current) {
+        selectProject(targetProjectPath);
+      }
+
+      const deadline = Date.now() + 30000;
+      while (ownsOperation() && activeProjectPathRef.current !== targetProjectPath && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      if (!ownsOperation()) {
+        return finish({ ok: false, error: 'This session link was superseded.' });
+      }
+      if (activeProjectPathRef.current !== targetProjectPath) {
+        return finish({ ok: false, error: `Could not open the ${targetProjectPath} project.` });
+      }
+
+      let openedSessionId: string | undefined;
+      try {
+        for (let attempt = 0; attempt < 2 && openedSessionId !== sessionId; attempt += 1) {
+          openedSessionId = await ensureActiveSessionRef.current();
+          if (!ownsOperation()) {
+            return finish({ ok: false, error: 'This session link was superseded.' });
+          }
+          if (openedSessionId !== sessionId) await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      } catch (error) {
+        return finish({
+          ok: false,
+          error: error instanceof Error ? error.message : 'Could not open this session link.',
+        });
+      }
+
+      while (ownsOperation() && openedSessionId === sessionId && currentSessionIdRef.current !== sessionId && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      if (!ownsOperation()) {
+        return finish({ ok: false, error: 'This session link was superseded.' });
+      }
+      if (currentSessionIdRef.current === sessionId) {
+        return finish({ ok: true });
+      }
+
+      return finish({ ok: false, error: `Session ${sessionId} was not found in the ${targetProjectPath} project.` });
+    },
+    [activeProjectPathRef, connect, connectionRef, currentSessionIdRef, deepLinkOperationRef, ensureActiveSessionRef, pendingDeepLinkTargetRef, selectProject, serverGenerationRef, serverProjectsRef],
+  );
+
+  const openSessionInProject = useCallback(async (projectPath: string, sessionId: string, targetConnectionScope?: string) => {
+    if (targetConnectionScope && targetConnectionScope !== connectionScopeRef.current) {
+      const profiles = await loadConnectionProfiles();
+      const profile = findProfileByConnectionScope(profiles, targetConnectionScope);
+      if (!profile) {
+        throw new Error('This favorite belongs to a saved connection that no longer exists.');
+      }
+      const password = await getProfilePassword(profile.id);
+      await switchConnection({
+        serverUrl: profile.serverUrl,
+        username: profile.username,
+        password,
+      }, profile.modelPreferences);
+      if (!await waitForConnectionScope(getConnectionScope(settingsRef.current))) {
+        throw new Error('Could not switch to the connection that owns this favorite.');
+      }
+    }
+
+    const result = await openDeepLinkSession({ sessionId, projectPath });
+    if (!result.ok) {
+      throw new Error(result.error || 'Could not open the session.');
+    }
+  }, [connectionScopeRef, openDeepLinkSession, settingsRef, switchConnection, waitForConnectionScope]);
+
+  const restoreSession = useCallback(async (sessionId: string, options?: { projectPath?: string; open?: boolean }) => {
+    const projectPath = options?.projectPath || activeProjectPathRef.current;
+    const generation = serverGenerationRef.current;
+    const targetClient = buildClient({ ...settingsRef.current, directory: projectPath || '' }, serverContractRef.current);
+    await svcRestoreSession(targetClient, sessionId);
+    if (generation !== serverGenerationRef.current) throw new Error('The connection changed while restoring the session.');
+    await Promise.all([refreshSessions(true), refreshArchivedSessions(), refreshActiveSessions()]);
+    if (generation !== serverGenerationRef.current) throw new Error('The connection changed while restoring the session.');
+    if (options?.open && projectPath) await openSessionInProject(projectPath, sessionId);
+  }, [activeProjectPathRef, openSessionInProject, refreshActiveSessions, refreshArchivedSessions, refreshSessions, serverContractRef, serverGenerationRef, settingsRef]);
+
+  return { openDeepLinkSession, openSessionInProject, restoreSession };
+}

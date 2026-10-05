@@ -1,0 +1,56 @@
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
+import { Button, Chip, List, Text } from 'react-native-paper';
+
+import { formatDataUsage, resetDataUsage, useDataUsage } from '@/lib/opencode/data-usage';
+import type { Diagnostics } from '@/providers/services/diagnostics-service';
+import type { Palette } from './setting-rows';
+
+export function DiagnosticsSection({
+  diagnostics,
+  eventStreamStatus,
+  formatterAvailable = true,
+  lspAvailable = true,
+  onRefresh,
+  palette,
+}: {
+  diagnostics?: Diagnostics;
+  eventStreamStatus: 'idle' | 'connecting' | 'connected' | 'error';
+  formatterAvailable?: boolean;
+  lspAvailable?: boolean;
+  onRefresh: () => void;
+  palette: Palette;
+}) {
+  const { t } = useTranslation();
+  const dataUsage = useDataUsage();
+  const health = diagnostics?.health.available ? diagnostics.health.data : undefined;
+  const mcpCount = diagnostics?.mcp.available ? Object.keys(diagnostics.mcp.data).length : undefined;
+  const lspCount = lspAvailable && diagnostics?.lsp.available ? diagnostics.lsp.data.length : undefined;
+  const formatterCount = formatterAvailable && diagnostics?.formatter.available ? diagnostics.formatter.data.length : undefined;
+  const notAvailable = t('settings:diagnostics.notAvailable');
+  const subsystemParts = [t('settings:diagnostics.subsystemsMcp', { value: mcpCount ?? notAvailable })];
+  if (lspAvailable) subsystemParts.push(t('settings:diagnostics.subsystemsLsp', { value: lspCount ?? notAvailable }));
+  if (formatterAvailable) subsystemParts.push(t('settings:diagnostics.subsystemsFormatters', { value: formatterCount ?? notAvailable }));
+  return (
+    <View style={styles.section}>
+        <Text variant="titleLarge" style={[styles.title, { color: palette.text }]}>{t('settings:diagnostics.title')}</Text>
+        <List.Item title={t('settings:diagnostics.server')} description={health ? t('settings:diagnostics.openCodeVersion', { version: health.version }) : t('settings:diagnostics.healthUnavailable')} right={() => <Chip compact>{health?.healthy ? t('settings:diagnostics.healthy') : t('common:labels.unknown')}</Chip>} />
+        <List.Item title={t('settings:diagnostics.realtimeUpdates')} description={eventStreamStatus === 'connected' ? t('settings:diagnostics.eventStreamConnected') : t('settings:diagnostics.pollingFallback')} right={() => <Chip compact>{eventStreamStatus}</Chip>} />
+        <List.Item title={t('settings:diagnostics.subsystems')} description={subsystemParts.join(' • ')} />
+        <List.Item
+          title={t('settings:diagnostics.networkUsage')}
+          description={t('settings:diagnostics.networkUsageValue', { requests: dataUsage.requests, size: formatDataUsage(dataUsage.bytes) })}
+        />
+        <View style={styles.diagnosticsActions}>
+          <Button mode="outlined" onPress={onRefresh}>{t('settings:diagnostics.refresh')}</Button>
+          <Button mode="text" onPress={resetDataUsage}>{t('settings:diagnostics.networkUsageReset')}</Button>
+        </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  section: { gap: 14, paddingBottom: 8 },
+  diagnosticsActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontWeight: '600' },
+});

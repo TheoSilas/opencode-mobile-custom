@@ -19,6 +19,7 @@ The authoritative implementation is:
 
 - `lib/opencode/client.ts`
 - `lib/opencode/v2-client.ts`
+- `lib/opencode/v2/`
 - `lib/opencode/types.ts`
 - `providers/services/*.ts`
 - `providers/opencode-provider.tsx`

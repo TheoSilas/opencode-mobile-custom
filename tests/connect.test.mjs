@@ -391,14 +391,25 @@ for (const platform of ['apple', 'google']) {
       purchaseUpdatedListener: (listener) => { onPurchase = listener; return { remove() {} }; },
       purchaseErrorListener: () => ({ remove() {} }),
     };
-    const hook = await loadTs('providers/use-connect-state.ts', {
-      react: runtime.react,
+    const concern = {
       'react-native': { Platform: { OS: globalThis.__connectPlatform }, AppState: { addEventListener: () => ({ remove() {} }) } },
       '@/lib/connect': connect,
       '@/lib/connect-store': { ...storeApi, loadConnectStore: async () => nativeApi },
       '@/lib/connection-profiles': { loadConnectionProfiles: async () => [] },
       '@/providers/connection-refresh': {},
       '@/providers/services/connect-subscription-service': subscriptionService,
+    };
+    const catalogModule = await loadTs('providers/connect/catalog.ts', concern);
+    const purchasesModule = await loadTs('providers/connect/purchases.ts', concern);
+    const pairingModule = await loadTs('providers/connect/pairing.ts', concern);
+    const accessModule = await loadTs('providers/connect/access.ts', concern);
+    const hook = await loadTs('providers/connect/use-connect-machine.ts', {
+      ...concern,
+      react: runtime.react,
+      '@/providers/connect/catalog': catalogModule,
+      '@/providers/connect/purchases': purchasesModule,
+      '@/providers/connect/pairing': pairingModule,
+      '@/providers/connect/access': accessModule,
     });
     globalThis.fetch = async (address) => {
       requests.push(address);
@@ -511,8 +522,7 @@ for (const platform of ['apple', 'google']) {
       finishTransaction: async () => { events.push('finish'); },
       purchaseUpdatedListener: () => ({ remove() {} }), purchaseErrorListener: () => ({ remove() {} }),
     };
-    const hook = await loadTs('providers/use-connect-state.ts', {
-      react: runtime.react,
+    const concern = {
       'react-native': { Platform: { OS: globalThis.__connectPlatform }, AppState: { addEventListener: () => ({ remove() {} }) } },
       '@/lib/connect': connect,
       '@/lib/connect-store': { ...storeApi, loadConnectStore: async () => nativeApi },
@@ -522,6 +532,18 @@ for (const platform of ['apple', 'google']) {
       }, getProfilePassword: async () => 'device-secret' },
       '@/providers/connection-refresh': {},
       '@/providers/services/connect-subscription-service': subscriptionService,
+    };
+    const catalogModule = await loadTs('providers/connect/catalog.ts', concern);
+    const purchasesModule = await loadTs('providers/connect/purchases.ts', concern);
+    const pairingModule = await loadTs('providers/connect/pairing.ts', concern);
+    const accessModule = await loadTs('providers/connect/access.ts', concern);
+    const hook = await loadTs('providers/connect/use-connect-machine.ts', {
+      ...concern,
+      react: runtime.react,
+      '@/providers/connect/catalog': catalogModule,
+      '@/providers/connect/purchases': purchasesModule,
+      '@/providers/connect/pairing': pairingModule,
+      '@/providers/connect/access': accessModule,
     });
     globalThis.fetch = async (address, init) => {
       requests.push({ address, token: init.headers.Authorization });

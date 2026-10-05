@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
-import { loadTs } from './helpers/runtime.mjs';
+import { loadTsModule, toDataUri } from './helpers/runtime.mjs';
 
 const source = await readFile(new URL('../lib/opencode/v2-mappers.ts', import.meta.url), 'utf8');
 const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
@@ -112,11 +112,19 @@ const api = {
     } },
   },
 };
-const adapter = await loadTs('lib/opencode/v2-client.ts', {
-  '@opencode/client': { OpenCode: { make: () => api } },
-  './in-flight': await loadTs('lib/opencode/in-flight.ts'),
-  './v2-mappers': await loadTs('lib/opencode/v2-mappers.ts'),
-  './client': { getServerBase: () => ({ origin: 'http://test', pathPrefix: '' }), getRequestHeaders: () => ({}), createPrefixFetch: () => () => {} },
+globalThis.__opencodeTestApi = api;
+const opencodeStub = toDataUri('export const OpenCode = { make: () => globalThis.__opencodeTestApi };');
+const clientStub = toDataUri(`
+export const getServerBase = () => ({ origin: 'http://test', pathPrefix: '' });
+export const getRequestHeaders = () => ({});
+export const createPrefixFetch = () => () => {};
+`);
+const adapter = await loadTsModule('lib/opencode/v2-client.ts', {
+  imports: {
+    '@opencode/client': opencodeStub,
+    './client': clientStub,
+    '../client': clientStub,
+  },
 });
 const client = adapter.buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' });
 assert.deepEqual(Array.from((await client.provider.list()).data.connected), ['openai', 'env-provider']);

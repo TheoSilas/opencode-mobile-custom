@@ -1,0 +1,202 @@
+import type { Purchase } from 'expo-iap';
+import { Platform } from 'react-native';
+
+import {
+  accessConnectMachine,
+  claimConnectPairing,
+  ConnectApiError,
+  getConnectCredentialError,
+  getConnectSession,
+  hasConnectSession,
+  saveConnectSession,
+  type ConnectClaim,
+  type ConnectPairing,
+  type ConnectSession,
+  type ConnectStore,
+} from '@/lib/connect';
+import { migrateConnectConnectionScope } from '@/providers/connection-refresh';
+import {
+  getProfilePassword,
+  loadConnectionProfiles,
+  saveConnectProfile,
+  type ConnectionProfile,
+} from '@/lib/connection-profiles';
+import type { OpencodeConnectionSettings } from '@/lib/opencode/client';
+import type { ChatPreferences, ConnectionState } from '@/providers/opencode-provider-types';
+import {
+  ConnectPurchaseEnvironmentChange,
+  type PendingConnectPurchase,
+} from '@/providers/services/connect-subscription-service';
+import type { ConnectPhase } from '@/providers/connect/catalog';
+
+export type PendingAccess = { controlPlaneUrl: string; response: ConnectClaim; previous?: ConnectionProfile; fromPairing?: boolean };
+
+export type AccessDeps = {
+  controlPlaneUrl: string;
+  store: ConnectStore;
+  sessionRef: { current: ConnectSession | undefined };
+  pairingRef: { current: ConnectPairing | undefined };
+  pendingClaim: { current: PendingAccess | undefined };
+  pendingPurchase: { current: PendingConnectPurchase | undefined };
+  entitlementRecovery: { current: boolean };
+  recoveryMachineId: { current: string | undefined };
+  lastAccess: { current: Map<string, number> };
+  setSession: (session: ConnectSession | undefined) => void;
+  setPhase: (phase: ConnectPhase) => void;
+  setProfiles: (profiles: ConnectionProfile[]) => void;
+  setSavedProfile: (profile: ConnectionProfile | undefined) => void;
+  switchConnection: (
+    next: Pick<OpencodeConnectionSettings, 'serverUrl' | 'username' | 'password' | 'connect'>,
+    modelPreferences?: Partial<ChatPreferences>,
+  ) => Promise<ConnectionState>;
+  beforeProfileRefresh: () => Promise<void>;
+  onProfileRefreshed: (previous: ConnectionProfile, next: ConnectionProfile) => void;
+  clearPairing: () => Promise<void>;
+  finishPurchase: (purchase: Purchase) => Promise<boolean>;
+  recoverSession: () => Promise<ConnectSession>;
+};
+
+export async function authenticateConnectRequest<T>({
+  controlPlaneUrl,
+  store,
+  sessionRef,
+  pendingPurchase,
+  entitlementRecovery,
+  setSession,
+  finishPurchase,
+  recoverSession,
+}: AccessDeps, request: (token: string) => Promise<T>): Promise<T> {
+  const invalidateEntitlement = async () => {
+    const saved = sessionRef.current;
+    if (!saved) return;
+    const inactive = { ...saved, entitlements: saved.entitlements.filter((entry) => entry !== 'connect') };
+    sessionRef.current = inactive;
+    setSession(inactive);
+    await saveConnectSession(controlPlaneUrl, store, inactive);
+  };
+  if (pendingPurchase.current) await finishPurchase(pendingPurchase.current.purchase);
+  let current = sessionRef.current ?? await getConnectSession(controlPlaneUrl, store);
+  if (!hasConnectSession(current)) current = await recoverSession();
+  sessionRef.current = current;
+  setSession(current);
+  try {
+    const result = await request(current!.user_token);
+    entitlementRecovery.current = false;
+    return result;
+  }
+  catch (reason) {
+    if (!(reason instanceof ConnectApiError) || reason.invalidPairingToken || (reason.status !== 401 && !reason.noActiveSubscription)) throw reason;
+    if (reason.noActiveSubscription) await invalidateEntitlement();
+    if (reason.noActiveSubscription && entitlementRecovery.current) {
+      entitlementRecovery.current = false;
+      throw reason;
+    }
+    entitlementRecovery.current = reason.noActiveSubscription;
+    let changingEnvironment = false;
+    try {
+      const recovered = await recoverSession();
+      return await request(recovered.user_token);
+    }
+    catch (retryReason) {
+      changingEnvironment = retryReason instanceof ConnectPurchaseEnvironmentChange;
+      if (retryReason instanceof ConnectApiError && retryReason.noActiveSubscription) await invalidateEntitlement();
+      throw retryReason;
+    }
+    finally {
+      if (!changingEnvironment) entitlementRecovery.current = false;
+    }
+  }
+}
+
+export async function saveConnectAccess({
+  pendingClaim,
+  setPhase,
+  onProfileRefreshed,
+  clearPairing,
+  setProfiles,
+  setSavedProfile,
+  lastAccess,
+}: AccessDeps) {
+  const pending = pendingClaim.current;
+  if (!pending) throw new Error('No connection is waiting to be saved.');
+  setPhase('saving');
+  let rollbackScope: (() => Promise<void>) | undefined;
+  if (pending.previous) {
+    const next = { ...pending.previous, serverUrl: pending.response.server_url, username: pending.response.device_id };
+    if (new URL(next.serverUrl).hostname !== new URL(pending.previous.serverUrl).hostname) throw new Error('machine_hostname_mismatch: Access returned a different hostname.');
+    rollbackScope = await migrateConnectConnectionScope(pending.previous, next);
+  }
+  let profile: ConnectionProfile;
+  try { profile = await saveConnectProfile(pending.controlPlaneUrl, pending.response); }
+  catch { await rollbackScope?.(); throw new Error('Access succeeded, but secure saving failed. Retry saving without claiming or purchasing again.'); }
+  if (pending.previous) onProfileRefreshed(pending.previous, profile);
+  if (pending.fromPairing) await clearPairing();
+  pendingClaim.current = undefined;
+  setProfiles(await loadConnectionProfiles());
+  setSavedProfile(profile);
+  lastAccess.current.set(profile.connect!.machineId, Date.now());
+  return profile;
+}
+
+export async function requestConnectAccess(deps: AccessDeps, machineId: string, fromPairing = false) {
+  const { controlPlaneUrl, recoveryMachineId, beforeProfileRefresh, pendingClaim } = deps;
+  recoveryMachineId.current = machineId;
+  await beforeProfileRefresh();
+  const previous = (await loadConnectionProfiles(true)).find((profile) => profile.connect?.controlPlaneUrl === controlPlaneUrl && profile.connect.machineId === machineId);
+  const response = await authenticateConnectRequest(deps, (token) => accessConnectMachine(controlPlaneUrl, machineId, token));
+  if (previous && new URL(previous.serverUrl).hostname !== new URL(response.server_url).hostname) throw new Error('machine_hostname_mismatch: Access returned a different hostname.');
+  pendingClaim.current = { controlPlaneUrl, response, previous, fromPairing };
+  const saved = await saveConnectAccess(deps);
+  recoveryMachineId.current = undefined;
+  return saved;
+}
+
+export async function prepareConnectSettings(deps: AccessDeps, settings: OpencodeConnectionSettings): Promise<OpencodeConnectionSettings> {
+  const { controlPlaneUrl, pendingPurchase, pendingClaim, lastAccess } = deps;
+  if (!settings.connect) return settings;
+  if (pendingPurchase.current) throw new Error('Finish securing and finalizing your subscription before reconnecting.');
+  const profile = (await loadConnectionProfiles(true)).find((entry) => entry.connect?.machineId === settings.connect!.machineId && entry.connect.controlPlaneUrl === settings.connect!.controlPlaneUrl);
+  let password = profile ? await getProfilePassword(profile.id) : settings.password;
+  let connect = profile?.connect ?? settings.connect;
+  if (getConnectCredentialError(connect, password) || (Date.parse(connect.expiresAt) - Date.now() <= 5 * 60_000 && Date.now() - (lastAccess.current.get(connect.machineId) ?? 0) > 60_000)) {
+    if (connect.controlPlaneUrl !== controlPlaneUrl) throw new Error('Select this machine’s trusted Cloud Link environment to recover access.');
+    if (pendingClaim.current && pendingClaim.current.response.machine_id !== connect.machineId) throw new Error('Finish saving the pending machine before reconnecting another machine.');
+    const next = pendingClaim.current ? await saveConnectAccess(deps) : await requestConnectAccess(deps, connect.machineId);
+    password = await getProfilePassword(next.id);
+    connect = next.connect!;
+    return { ...settings, serverUrl: next.serverUrl, username: next.username, password, connect };
+  }
+  return { ...settings, serverUrl: profile?.serverUrl ?? settings.serverUrl, username: profile?.username ?? settings.username, password, connect };
+}
+
+export async function activateConnectProfile({ setSavedProfile, setPhase, switchConnection }: AccessDeps, profile: ConnectionProfile) {
+  const password = await getProfilePassword(profile.id);
+  setSavedProfile(profile);
+  setPhase('connecting');
+  const result = await switchConnection({ serverUrl: profile.serverUrl, username: profile.username, password, connect: profile.connect }, profile.modelPreferences);
+  if (result.status !== 'connected') throw new Error(result.message);
+  setPhase('paired');
+  return true;
+}
+
+export async function claimConnectAction(deps: AccessDeps) {
+  const { controlPlaneUrl, pairingRef, pendingClaim, pendingPurchase, finishPurchase, setPhase, clearPairing } = deps;
+  if (pendingClaim.current) return activateConnectProfile(deps, await saveConnectAccess(deps));
+  const current = pairingRef.current;
+  if (!current) throw new Error('Scan or open a pairing link first.');
+  if (current.controlPlaneUrl !== controlPlaneUrl) throw new Error('This QR is for a different subscription environment. Open a fresh QR from the matching connector.');
+  if (pendingPurchase.current) await finishPurchase(pendingPurchase.current.purchase);
+  setPhase('claiming');
+  let response: ConnectClaim;
+  try {
+    const deviceName = Platform.OS === 'ios' ? 'iPhone' : Platform.OS === 'android' ? 'Android phone' : 'Web test device';
+    response = await authenticateConnectRequest(deps, (token) => claimConnectPairing(current, token, deviceName));
+  } catch (reason) {
+    if (reason instanceof ConnectApiError && reason.machineId) return activateConnectProfile(deps, await requestConnectAccess(deps, reason.machineId, true));
+    if (reason instanceof ConnectApiError && (reason.status === 404 || reason.invalidPairingToken || reason.pairingExpired)) await clearPairing();
+    throw reason;
+  }
+  const previous = (await loadConnectionProfiles(true)).find((profile) => profile.connect?.controlPlaneUrl === current.controlPlaneUrl && profile.connect.machineId === response.machine_id);
+  pendingClaim.current = { controlPlaneUrl: current.controlPlaneUrl, response, previous, fromPairing: true };
+  return activateConnectProfile(deps, await saveConnectAccess(deps));
+}

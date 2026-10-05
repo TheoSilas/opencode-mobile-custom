@@ -4,13 +4,51 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { loadTs, hookRuntime, deferred } from './helpers/runtime.mjs';
 
-// Exercise the real provider file actions, including a server switch where
-// the next server exposes the same directory as the previous server.
-const provider = await readFile(new URL('../providers/opencode-provider.tsx', import.meta.url), 'utf8');
-const ast = ts.createSourceFile('provider.tsx', provider, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const body = ast.statements.find((n) => ts.isFunctionDeclaration(n) && n.name?.text === 'OpencodeProvider').body;
+// Exercise the real provider actions, including a server switch where the next
+// server exposes the same directory as the previous server. The declarations
+// now live in the extracted provider action hooks, so collect them by name from
+// their new modules instead of the OpencodeProvider body.
+async function readSource(relative) {
+  return readFile(new URL(relative, import.meta.url), 'utf8');
+}
+function extractDeclarations(source, names) {
+  const ast = ts.createSourceFile('module.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const found = [];
+  function visit(node) {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && names.includes(node.name.text)) {
+      found.push(node.parent.parent.getText(ast));
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  return found.join('\n');
+}
+function extractEffect(source, marker) {
+  const ast = ts.createSourceFile('module.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  let found;
+  function visit(node) {
+    if (!found
+      && ts.isExpressionStatement(node)
+      && ts.isCallExpression(node.expression)
+      && node.expression.expression.getText(ast) === 'useEffect'
+      && node.getText(ast).includes(marker)) {
+      found = node.getText(ast);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  return found;
+}
+const workspaceActionsSource = await readSource('../providers/use-workspace-file-actions.ts');
+const promptLifecycleSource = await readSource('../providers/use-prompt-lifecycle.ts');
+const sessionActionsSource = await readSource('../providers/use-session-bootstrap-actions.ts');
+const connectionActionsSource = await readSource('../providers/use-connection-link-actions.ts');
+const providerEffectsSource = await readSource('../providers/use-opencode-provider-effects.ts');
 const names = ['searchWorkspaceFiles', 'openWorkspaceFile', 'saveWorkspaceFile', 'abortSession'];
-const declarations = body.statements.filter((n) => ts.isVariableStatement(n) && names.includes(n.declarationList.declarations[0].name.getText(ast))).map((n) => n.getText(ast)).join('\n');
+const declarations = [
+  extractDeclarations(workspaceActionsSource, ['searchWorkspaceFiles', 'openWorkspaceFile', 'saveWorkspaceFile']),
+  extractDeclarations(promptLifecycleSource, ['abortSession']),
+].join('\n');
 let aborted = false;
 const client = { __opencode: { directory: '/repo' }, session: { abort: async () => { aborted = true; } } };
 let active = client, files = [], selected, patches = 0;
@@ -109,7 +147,7 @@ const selectors = await loadTs('providers/opencode-provider-selectors.ts', {
   '@/lib/opencode/format': { toTranscriptEntry: (record) => record, getHistoryPreview: () => '' },
   '@/lib/opencode/transcript': { isTranscriptDisplayMessage: (entry) => Boolean(entry.text), getTranscriptActivityLabel: () => undefined },
 });
-const conversation = await loadTs('providers/use-conversation-state.ts', {
+const conversationImports = {
   react: voiceRuntime.react,
   'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
   '@/lib/opencode/format': { toTranscriptEntry: (record) => record },
@@ -121,6 +159,17 @@ const conversation = await loadTs('providers/use-conversation-state.ts', {
   '@/providers/opencode-provider-types': { CONVERSATION_FINAL_RESULT_SETTLE_MS: 2200, CONVERSATION_KEEP_AWAKE_TAG: 'test', CONVERSATION_LISTENING_RESTART_MS: 350 },
   '@/providers/use-conversation-keep-awake': { useConversationKeepAwake: () => {} },
   '@/providers/use-conversation-screen-dim': { useConversationScreenDim: () => {} },
+};
+const conversationFeedback = await loadTs('providers/conversation/feedback.ts', {}, voiceRuntime.globals);
+const conversationListening = await loadTs('providers/conversation/use-conversation-listening.ts', { ...conversationImports, '@/providers/conversation/feedback': conversationFeedback }, voiceRuntime.globals);
+const conversationPlayback = await loadTs('providers/conversation/use-conversation-playback.ts', { ...conversationImports, '@/providers/conversation/feedback': conversationFeedback }, voiceRuntime.globals);
+const conversationConnection = await loadTs('providers/conversation/use-conversation-connection.ts', { ...conversationImports, '@/providers/conversation/feedback': conversationFeedback }, voiceRuntime.globals);
+const conversation = await loadTs('providers/use-conversation-state.ts', {
+  ...conversationImports,
+  '@/providers/conversation/feedback': conversationFeedback,
+  '@/providers/conversation/use-conversation-listening': conversationListening,
+  '@/providers/conversation/use-conversation-playback': conversationPlayback,
+  '@/providers/conversation/use-conversation-connection': conversationConnection,
 }, voiceRuntime.globals);
 const chatPreferences = (await loadTs('providers/opencode-preferences.ts')).defaultChatPreferences;
 voiceRuntime.mount(conversation.useConversationState, {
@@ -187,7 +236,10 @@ console.log('provider-owned profile ordering, rollback, and callback stability c
 // Actual session callbacks: restore in the row's workspace, preserve scope,
 // and refresh an explicit target missing from an otherwise populated cache.
 const sessionNames = ['restoreSession', 'ensureActiveSession', 'openDeepLinkSession'];
-const sessionDeclarations = body.statements.filter((n) => ts.isVariableStatement(n) && sessionNames.includes(n.declarationList.declarations[0].name.getText(ast))).map((n) => n.getText(ast)).join('\n');
+const sessionDeclarations = [
+  extractDeclarations(sessionActionsSource, ['ensureActiveSession']),
+  extractDeclarations(connectionActionsSource, ['restoreSession', 'openDeepLinkSession']),
+].join('\n');
 let restoreGate, restoreFailure, restoredDirectory, reopened, createdSessions = 0, fetchedSessions = 0;
 const target = { id: 'target' };
 const sessionContext = {
@@ -280,9 +332,7 @@ assert.equal(libraryError, undefined);
 
 // The CI favorite failure opened the right session with an empty transcript.
 // Pruning must wait until bootstrap selects the session whose reads just landed.
-const pruneEffect = body.statements.find((n) => ts.isExpressionStatement(n)
-  && ts.isCallExpression(n.expression) && n.expression.expression.getText(ast) === 'useEffect'
-  && n.getText(ast).includes('const keepIds = new Set<string>()')).getText(ast);
+const pruneEffect = extractEffect(providerEffectsSource, 'const keepIds = new Set<string>()');
 let cachedMessages = { old: ['old transcript'], target: ['new transcript'] };
 let cachedDiffs = { old: ['old diff'], target: ['new diff'] };
 let cachedTodos = { old: ['old todo'], target: ['new todo'] };
