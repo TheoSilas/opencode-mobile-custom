@@ -31,6 +31,9 @@ import type { ConnectPhase } from '@/providers/connect/catalog';
 
 export type PendingAccess = { controlPlaneUrl: string; response: ConnectClaim; previous?: ConnectionProfile; fromPairing?: boolean };
 
+// ponytail: 15s cumulative backoff; extend only if real connector timings require it.
+const tunnelStartupRetryDelays = [1_000, 2_000, 4_000, 8_000] as const;
+
 export type AccessDeps = {
   controlPlaneUrl: string;
   store: ConnectStore;
@@ -173,10 +176,15 @@ export async function activateConnectProfile({ setSavedProfile, setPhase, switch
   const password = await getProfilePassword(profile.id);
   setSavedProfile(profile);
   setPhase('connecting');
-  const result = await switchConnection({ serverUrl: profile.serverUrl, username: profile.username, password, connect: profile.connect }, profile.modelPreferences);
-  if (result.status !== 'connected') throw new Error(result.message);
-  setPhase('paired');
-  return true;
+  for (let attempt = 0; ; attempt += 1) {
+    const result = await switchConnection({ serverUrl: profile.serverUrl, username: profile.username, password, connect: profile.connect }, profile.modelPreferences);
+    if (result.status === 'connected') {
+      setPhase('paired');
+      return true;
+    }
+    if (!profile.connect || !/\b1033\b/.test(result.message) || attempt === tunnelStartupRetryDelays.length) throw new Error(result.message);
+    await new Promise((resolve) => setTimeout(resolve, tunnelStartupRetryDelays[attempt]));
+  }
 }
 
 export async function claimConnectAction(deps: AccessDeps) {

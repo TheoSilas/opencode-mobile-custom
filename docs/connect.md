@@ -212,6 +212,11 @@ minutes before expiry, avoids repeatedly refreshing unchanged paid-through
 credentials, and retries transient failures. Expiry still closes SSE/terminal
 sockets and blocks all SDK/polling/background traffic.
 
+After a pairing claim is saved, the first connection retries Cloudflare Error
+1033 with bounded 1/2/4/8-second delays while a newly started tunnel comes online.
+Other connection errors remain immediately actionable; the saved profile can be
+retried without scanning or claiming the QR again.
+
 Sessions are SecureStore records scoped by trusted environment and store; Apple
 and Google identities never merge. Session/pending-QR storage requires an
 unlocked device and uses device-only iOS accessibility. Profile credentials use
@@ -230,7 +235,8 @@ local records only after the backend acknowledges successful cleanup.
 
 `test:connect` covers trusted catalog/API/proof/session contracts and the actual
 claim → secure-write → finalization aggregation on both stores, including
-failures, retries and rediscovered transactions. It also tests catalog/base-plan/
+failures, retries, rediscovered transactions, and bounded Cloudflare 1033 tunnel
+startup recovery after pairing. It also tests catalog/base-plan/
 offer selection, native JWS forwarding, Family Sharing exclusion, DEFERRED
 replacement, URL safety, app identity/camera/build variants and WebSocket headers.
 `test:connection-profiles` checks stable profile identity, credential rotation,

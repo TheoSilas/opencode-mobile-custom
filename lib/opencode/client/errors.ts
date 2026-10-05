@@ -20,6 +20,10 @@ export function getConnectionErrorMessage(error: unknown, serverUrl: string) {
     ? ' This app supports OpenCode 1.x and 2.x servers; verify the API base URL is correct.'
     : '';
 
+  if (/\b1033\b/.test(message)) {
+    return 'The Cloudflare tunnel is still starting (Error 1033). Retry shortly.';
+  }
+
   if (/unsupported.?content.?type|malformed.?response/i.test(message)) {
     return `The server at ${normalizedUrl} did not return an OpenCode API response.${apiHint}${versionHint}`;
   }

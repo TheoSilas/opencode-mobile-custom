@@ -25,6 +25,23 @@ const connect = await import(await moduleUri('../lib/connect.ts', [
   [/from 'expo\/fetch'/g, `from "${uri('export const fetch = (...args) => globalThis.fetch(...args);')}"`],
   [/from 'expo-constants'/g, `from "${constants}"`], [/from 'react-native'/g, `from "${native}"`], [/from 'expo-secure-store'/g, `from "${secure}"`],
 ]));
+const tunnelRetryDelays = [];
+const access = await loadTs('providers/connect/access.ts', {
+  'react-native': { Platform: { OS: 'ios' } },
+  '@/lib/connect': {},
+  '@/providers/connection-refresh': {},
+  '@/lib/connection-profiles': { getProfilePassword: async () => 'device-secret' },
+  '@/providers/services/connect-subscription-service': {},
+  '@/providers/connect/catalog': {},
+}, {
+  setTimeout(callback, delay) { tunnelRetryDelays.push(delay); callback(); return tunnelRetryDelays.length; },
+  clearTimeout() {},
+});
+const connectionErrors = await loadTs('lib/opencode/client/errors.ts', {
+  './url': { normalizeServerUrl: (serverUrl) => ({ valid: true, displayUrl: serverUrl }) },
+}, { Error });
+const tunnelHtmlError = new Error('<html><meta content="text/html">Cloudflare Error 1033</html>');
+assert.match(connectionErrors.getConnectionError('https://machine.example.test', tunnelHtmlError), /1033/);
 assert.equal(new connect.ConnectApiError(403, { error: 'Google test purchases are disabled in this environment' }).testPurchase, true);
 assert.equal(new connect.ConnectApiError(403, { error: 'no active subscription' }).testPurchase, false);
 assert.equal(new connect.ConnectApiError(502, { error: 'Google test purchases are disabled in this environment' }).testPurchase, false);
@@ -602,3 +619,35 @@ for (const platform of ['apple', 'google']) {
   }
 }
 console.log('Apple/Android stale entitlement recovery, QR preservation, and bounded retries passed');
+
+const connectProfile = { id: 'cloud-machine', serverUrl: 'https://machine.example.test', username: 'device', connect: { machineId: 'machine-1' } };
+let connectionAttempts = 0;
+const phases = [];
+await access.activateConnectProfile({
+  setSavedProfile() {},
+  setPhase: (phase) => phases.push(phase),
+  switchConnection: async () => ++connectionAttempts < 3
+    ? { status: 'error', message: '<html>Cloudflare Error 1033</html>' }
+    : { status: 'connected', message: 'Connected' },
+}, connectProfile);
+assert.equal(connectionAttempts, 3);
+assert.deepEqual(tunnelRetryDelays.splice(0), [1_000, 2_000]);
+assert.deepEqual(phases, ['connecting', 'paired']);
+
+connectionAttempts = 0;
+await assert.rejects(access.activateConnectProfile({
+  setSavedProfile() {},
+  setPhase() {},
+  switchConnection: async () => { connectionAttempts += 1; return { status: 'error', message: 'The Cloudflare tunnel is still starting (Error 1033).' }; },
+}, connectProfile), /1033/);
+assert.equal(connectionAttempts, 5, 'Cloud Link readiness retries stop after the 15-second backoff window.');
+assert.deepEqual(tunnelRetryDelays.splice(0), [1_000, 2_000, 4_000, 8_000]);
+
+connectionAttempts = 0;
+await assert.rejects(access.activateConnectProfile({
+  setSavedProfile() {},
+  setPhase() {},
+  switchConnection: async () => { connectionAttempts += 1; return { status: 'error', message: 'Cloudflare Error 1033' }; },
+}, { ...connectProfile, connect: undefined }), /1033/);
+assert.equal(connectionAttempts, 1, 'Manual connections do not receive Cloud Link tunnel retries.');
+console.log('Cloud Link tunnel startup retries only Cloudflare 1033 and leaves manual connections unchanged');
