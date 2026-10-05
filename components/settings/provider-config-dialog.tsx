@@ -61,10 +61,7 @@ export function ProviderConfigDialog({
         {effectiveAuthMethods.length > 1 ? (
           <RadioButton.Group onValueChange={(value) => onMethodChange(Number(value))} value={String(selectedMethodIndex)}>
             {effectiveAuthMethods.map((method, index) => (
-              <View key={`${method.label}-${index}`} style={styles.authMethodRow}>
-                <RadioButton value={String(index)} />
-                <Text style={{ color: palette.text }}>{method.label}</Text>
-              </View>
+              <RadioButton.Item key={`${method.label}-${index}`} value={String(index)} label={method.label} position="leading" labelStyle={{ color: palette.text }} />
             ))}
           </RadioButton.Group>
         ) : null}
@@ -124,7 +121,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   dialogContent: { gap: 14, padding: 16 },
   actions: { borderTopWidth: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
-  authMethodRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   promptGroup: { gap: 8 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

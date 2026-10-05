@@ -27,7 +27,7 @@ export function useProviderConfiguration() {
   const { t } = useTranslation();
   const palette = Colors[useColorScheme() ?? 'light'];
   const { availableProviders, providerAuthMethodsById, setProviderAuth, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth } = useCapabilities();
-  const { connect } = useConnection();
+  const { connect, serverCapabilities } = useConnection();
 
   const [selectedProviderId, setSelectedProviderId] = useState<string>();
   const [selectedMethodIndex, setSelectedMethodIndex] = useState(0);
@@ -53,11 +53,13 @@ export function useProviderConfiguration() {
   );
   const effectiveAuthMethods = useMemo(
     () =>
-      (authMethods.length > 0
-        ? authMethods
-        : supportsGenericApiKey(selectedProviderId)
+      [
+        ...authMethods,
+        ...(serverCapabilities.contract !== 'v2' && supportsGenericApiKey(selectedProviderId)
+          && !authMethods.some((method) => method.type === 'api')
           ? [{ type: 'api' as const, label: t('settings:providers.apiKey') }]
-          : [])
+          : []),
+      ]
         .map((method) => method.type === 'api' && !method.prompts?.length
           ? {
               ...method,
@@ -69,7 +71,7 @@ export function useProviderConfiguration() {
               }],
             }
           : method),
-    [authMethods, selectedProviderId, t],
+    [authMethods, selectedProviderId, serverCapabilities.contract, t],
   );
   const selectedMethod = effectiveAuthMethods[selectedMethodIndex];
   const visiblePrompts = useMemo(

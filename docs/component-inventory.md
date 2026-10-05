@@ -478,6 +478,7 @@ connection.
 Responsibility:
 
 - show configured providers
+- tap a configured provider chip to reopen login or replace its API key
 - allow adding unconfigured providers
 - allow removing configured provider credentials
 - show models grouped by provider

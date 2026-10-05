@@ -87,6 +87,20 @@ Important behavior:
 
 ## Capabilities And Preferences State
 
+V2 lists active providers through `/api/provider`; `/api/integration` supplies
+the connectable catalog. The adapter merges integration-only entries (without
+models until connected) into the provider picker and excludes MCP integrations.
+For V2, `activation: auto` describes catalog policy, not a connected account.
+The adapter derives connected providers from integration connections or
+server-enabled models, excluding explicitly disabled providers. Unconnected
+entries remain available in Add provider. Only key and OAuth integration
+methods map to interactive login; environment/command methods are not API-key
+methods. V1 catalog providers offer API-key entry alongside auth metadata,
+except known OAuth-only providers. Credentials are written through the existing
+provider action and V2 integration key endpoint, then capabilities are refreshed.
+Catalog and login requests carry the active workspace location. Go keys prefer
+the direct Go integration even when the active provider uses Console for OAuth.
+
 Primary fields:
 
 - `currentConfig`

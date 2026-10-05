@@ -17,9 +17,8 @@ export const WORKING_SOUND_OPTIONS: { value: WorkingSoundVariant }[] = [
 
 export const LANGUAGE_OPTIONS: { value: string; label: string }[] = SUPPORTED_LANGUAGES.map((language) => ({ value: language.code, label: language.nativeName }));
 
-// One entry per provider that ships curated copy. `genericApiKey` marks the
-// providers the app can configure with a plain API key. Adding a provider is a
-// single entry here plus the `settings:providerCopy.<id>` translation keys.
+// Curated copy is independent of credential support. V1 providers offer
+// API-key entry alongside auth metadata, except known OAuth-only providers.
 const PROVIDER_DESCRIPTORS = new Map<string, { genericApiKey: boolean }>([
   ['anthropic', { genericApiKey: true }],
   ['azure', { genericApiKey: true }],
@@ -33,7 +32,7 @@ const PROVIDER_DESCRIPTORS = new Map<string, { genericApiKey: boolean }>([
 ]);
 
 export function supportsGenericApiKey(providerId?: string) {
-  return Boolean(providerId && PROVIDER_DESCRIPTORS.get(providerId)?.genericApiKey);
+  return Boolean(providerId && (PROVIDER_DESCRIPTORS.get(providerId)?.genericApiKey ?? true));
 }
 
 export function getProviderCopy(providerId: string, fallbackLabel: string, t: TFunction) {

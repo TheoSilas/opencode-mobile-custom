@@ -23,6 +23,7 @@ type V2Model = Awaited<ReturnType<V2Api['model']['list']>>['data'][number];
 type V2Agent = Awaited<ReturnType<V2Api['agent']['list']>>['data'][number];
 type V2Integration = Awaited<ReturnType<V2Api['integration']['list']>>['data'][number];
 type V2Shell = Awaited<ReturnType<V2Api['config']['shells']>>[number];
+type LocationOptions = { location?: { directory?: string } };
 
 type RawResult = { data?: unknown; response?: { headers: Headers } };
 
@@ -713,16 +714,17 @@ function buildV2Raw(settings: OpencodeConnectionSettings): { client: Record<stri
       update: async (parameters: { config?: unknown }) => ok(parameters?.config),
     },
     provider: {
-      list: async () => ok(await providersToV1(api)),
-      auth: async () => ok(await providerAuthToV1(api)),
+      list: async () => ok(await providersToV1(api, vcsLocation)),
+      auth: async () => ok(await providerAuthToV1(api, vcsLocation)),
       oauth: {
         authorize: async (parameters: { providerID: string; method: number; inputs?: Record<string, string> }) => {
-          const integration = await findIntegration(api, parameters.providerID);
-          const method = integration?.methods[parameters.method];
+          const integration = await findIntegration(api, parameters.providerID, vcsLocation);
+          const method = integration?.methods.filter((method) => method.type === 'key' || method.type === 'oauth')[parameters.method];
           if (!integration || !method || method.type !== 'oauth') {
             throw new Error('This provider does not offer OAuth on OpenCode 2.');
           }
           const attempt = await api.integration.oauth.connect({
+            ...vcsLocation,
             integrationID: integration.id,
             methodID: method.id,
             ...(parameters.inputs ? { answer: parameters.inputs } : {}),
@@ -748,14 +750,17 @@ function buildV2Raw(settings: OpencodeConnectionSettings): { client: Record<stri
     },
     auth: {
       set: async (parameters: { providerID: string; auth?: { key?: string; token?: string } }) => {
-        const integration = await findIntegration(api, parameters.providerID);
+        const integration = await findIntegration(api, parameters.providerID, vcsLocation, true);
         if (!integration) throw new Error('This provider is not available on OpenCode 2.');
         const key = parameters.auth?.key || parameters.auth?.token || '';
-        await api.integration.connect.key({ integrationID: integration.id, key });
+        await api.integration.connect.key({ ...vcsLocation, integrationID: integration.id, key });
         return ok(undefined);
       },
       remove: async (parameters: { providerID: string }) => {
-        const integration = await findIntegration(api, parameters.providerID);
+        let integration = await findIntegration(api, parameters.providerID, vcsLocation, true);
+        if (!integration?.connections.some((connection) => connection.type === 'credential')) {
+          integration = await findIntegration(api, parameters.providerID, vcsLocation);
+        }
         const credential = integration?.connections.find((connection) => connection.type === 'credential');
         if (credential && credential.type === 'credential') {
           await api.credential.remove({ credentialID: credential.id });
@@ -1039,11 +1044,12 @@ function configToV1(entries: unknown): Record<string, unknown> {
   };
 }
 
-async function providersToV1(api: V2Api) {
-  const [providersResponse, modelsResponse, defaultResponse] = await Promise.all([
-    api.provider.list(),
-    api.model.list(),
-    api.model.default().catch(() => ({ data: null })),
+async function providersToV1(api: V2Api, location: LocationOptions) {
+  const [providersResponse, modelsResponse, defaultResponse, integrationsResponse] = await Promise.all([
+    api.provider.list(location),
+    api.model.list(location),
+    api.model.default(location).catch(() => ({ data: null })),
+    api.integration.list(location),
   ]);
   const providers: V2Provider[] = providersResponse.data ?? [];
   const models: V2Model[] = modelsResponse.data ?? [];
@@ -1054,6 +1060,16 @@ async function providersToV1(api: V2Api) {
     name: provider.name,
     models: Object.fromEntries(models.filter((model) => model.providerID === provider.id).map((model) => [model.modelID, modelToV1(model)])),
   }));
+  // V2's provider endpoint lists active providers. The integration endpoint is
+  // the connectable catalog, including providers with no credentials yet.
+  const providerIds = new Set(providers.map((provider) => provider.id));
+  const linkedIntegrationIds = new Set(providers.map((provider) => provider.integrationID ?? provider.id));
+  for (const integration of integrationsResponse.data ?? []) {
+    if (providerIds.has(integration.id) || linkedIntegrationIds.has(integration.id)
+      || integration.metadata?.source === 'mcp'
+      || !integration.methods.some((method) => method.type === 'key' || method.type === 'oauth')) continue;
+    all.push({ id: integration.id, name: integration.name, models: {} });
+  }
 
   const defaults: Record<string, string> = {};
   providers.forEach((provider) => {
@@ -1062,17 +1078,33 @@ async function providersToV1(api: V2Api) {
   });
   if (defaultRef) defaults[defaultRef.providerID] = defaultRef.modelID;
 
-  const connected = providers.filter((provider) => provider.activation !== 'disabled').map((provider) => provider.id);
+  // `auto` is a catalog activation policy, not evidence of a connection.
+  // Keep unconnected providers available in Settings' Add provider picker.
+  const connected = providers.filter((provider) => {
+    if (provider.activation === 'disabled') return false;
+    const integration = integrationsResponse.data.find((item) => item.id === (provider.integrationID ?? provider.id));
+    return Boolean(integration?.connections.length)
+      || models.some((model) => model.providerID === provider.id && model.enabled);
+  }).map((provider) => provider.id);
   return { all, default: defaults, connected };
 }
 
-async function providerAuthToV1(api: V2Api) {
-  const [integrationsResponse, providersResponse] = await Promise.all([api.integration.list(), api.provider.list()]);
+async function providerAuthToV1(api: V2Api, location: LocationOptions) {
+  const [integrationsResponse, providersResponse] = await Promise.all([api.integration.list(location), api.provider.list(location)]);
   const result: Record<string, unknown[]> = {};
-  (providersResponse.data ?? []).forEach((provider) => {
-    const integration = (integrationsResponse.data ?? []).find((item) => item.id === provider.integrationID);
+  const providers = providersResponse.data ?? [];
+  const ids = new Set([...providers.map((provider) => provider.id), ...(integrationsResponse.data ?? [])
+    .filter((integration) => integration.metadata?.source !== 'mcp').map((integration) => integration.id)]);
+  ids.forEach((id) => {
+    const provider = providers.find((item) => item.id === id);
+    const integration = (integrationsResponse.data ?? []).find((item) => item.id === (provider?.integrationID ?? id));
     if (!integration) return;
-    result[provider.id] = integration.methods.map((method) => ({
+    const methods = integration.methods.filter((method) => method.type === 'key' || method.type === 'oauth');
+    // A shared Console integration can supply OAuth while the provider's
+    // direct integration accepts its API key. Keep both choices available.
+    const directKey = (integrationsResponse.data ?? []).find((item) => item.id === id)?.methods.find((method) => method.type === 'key');
+    if (directKey && !methods.some((method) => method.type === 'key')) methods.push(directKey);
+    result[id] = methods.map((method) => ({
       type: method.type === 'oauth' ? 'oauth' : 'api',
       label: 'label' in method && method.label ? method.label : method.type,
     }));
@@ -1080,11 +1112,14 @@ async function providerAuthToV1(api: V2Api) {
   return result;
 }
 
-async function findIntegration(api: V2Api, providerID: string): Promise<V2Integration | undefined> {
-  const [integrations, providers] = await Promise.all([api.integration.list(), api.provider.list()]);
+async function findIntegration(api: V2Api, providerID: string, location: LocationOptions, forKey = false): Promise<V2Integration | undefined> {
+  const [integrations, providers] = await Promise.all([api.integration.list(location), api.provider.list(location)]);
   const provider = (providers.data ?? []).find((item) => item.id === providerID);
-  if (!provider) return undefined;
-  return (integrations.data ?? []).find((item) => item.id === provider.integrationID);
+  // Console-managed Go providers may use `opencode` for OAuth while their API
+  // keys belong to the provider's own integration.
+  const direct = (integrations.data ?? []).find((item) => item.id === providerID);
+  if (forKey && direct?.methods.some((method) => method.type === 'key')) return direct;
+  return (integrations.data ?? []).find((item) => item.id === (provider?.integrationID ?? providerID));
 }
 
 function agentToV1(agent: V2Agent): Record<string, unknown> {

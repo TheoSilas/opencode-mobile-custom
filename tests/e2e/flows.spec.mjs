@@ -784,6 +784,24 @@ test('settings can configure an additional provider against the fake server', as
   await expect(page.getByRole('button', { name: 'OpenRouter', exact: true })).toBeVisible();
 });
 
+test('V1 providers retain API-key login alongside OAuth metadata', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await page.route('**/provider/auth?**', (route) => route.fulfill({ json: {
+    openrouter: [{ type: 'oauth', label: 'Sign in with account' }],
+  } }));
+  await openReadyChat(page);
+  await goToTab(page, 'Settings');
+  await ensureAiSection(page);
+  await page.getByTestId('settings-add-provider-button').click();
+  await page.getByRole('button', { name: 'OpenRouter', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Sign in with account' })).toBeVisible();
+  await page.getByRole('radio', { name: 'API key', exact: true }).click();
+  await page.getByPlaceholder('Paste your API key').fill('sk-test-manual-key');
+  await page.getByTestId('settings-provider-save-button').click();
+  await expect(page.getByText('Configure OpenRouter')).not.toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Remove OpenRouter credentials', exact: true })).toBeVisible();
+});
+
 test('chat model picker searches and groups models by provider', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   await openReadyChat(page);
@@ -1017,6 +1035,46 @@ test('connects to an OpenCode 2 server and completes a prompt', async ({ page, r
     server.kill('SIGTERM');
   }
 });
+
+for (const providerName of ['OpenCode Go', 'OpenRouter']) {
+  test(`OpenCode 2 connects ${providerName} using an API key`, async ({ page, request }) => {
+    await resetScenario(request, 'happy-path');
+    const port = await getFreePort();
+    const server = spawnV2Server(port);
+    try {
+      await waitForServer(request, `http://127.0.0.1:${port}/api/info`);
+      await openReadyChat(page);
+      await connectToServer(page, `http://127.0.0.1:${port}`);
+      await goToTab(page, 'Settings');
+      await ensureAiSection(page);
+      await page.getByTestId('settings-add-provider-button').click();
+      await page.getByRole('button', { name: new RegExp(`${providerName}$`) }).click();
+      await expect(page.getByText(`Configure ${providerName}`)).toBeVisible();
+      await page.getByPlaceholder('Paste your API key').fill('sk-test-provider');
+      await page.getByTestId('settings-provider-save-button').click();
+      await expect(page.getByText(`Configure ${providerName}`)).not.toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole('button', { name: `Remove ${providerName} credentials`, exact: true })).toBeVisible();
+      await page.getByRole('button', { name: new RegExp(`${providerName} [0-9]+ of`) }).click();
+      await expect(page.getByText(`${providerName} coding model`, { exact: true })).toBeVisible();
+      // A reconnect must rediscover the saved connection rather than relying
+      // on the adapter's synthetic config.update response.
+      await page.reload();
+      await ensureAiSection(page);
+      await expect(page.getByRole('button', { name: `Remove ${providerName} credentials`, exact: true })).toBeVisible();
+      await page.getByRole('button', { name: new RegExp(`${providerName} [0-9]+ of`) }).click();
+      await expect(page.getByText(`${providerName} coding model`, { exact: true })).toBeVisible();
+      // Existing connections can also replace a key without removing the
+      // provider first (including providers connected through environment).
+      await page.getByRole('button', { name: new RegExp(`${providerName}$`) }).click();
+      await expect(page.getByText(`Configure ${providerName}`)).toBeVisible();
+      await page.getByPlaceholder('Paste your API key').fill('sk-test-replacement');
+      await page.getByTestId('settings-provider-save-button').click();
+      await expect(page.getByText(`Configure ${providerName}`)).not.toBeVisible();
+    } finally {
+      server.kill('SIGTERM');
+    }
+  });
+}
 
 test('OpenCode 2 adds a server workspace from the shared picker', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');

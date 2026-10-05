@@ -165,7 +165,7 @@ export function AiDefaultsSection({
 
         <View style={styles.chipWrap}>
           {configuredProviders.map((provider) => (
-            <Chip key={provider.id} icon={({ size, color }) => renderProviderIcon(provider.id, size, color)} compact closeIconAccessibilityLabel={t('settings:providers.removeCredentials', { provider: getProviderCopy(provider.id, provider.label, t).label })} onClose={() => onRemoveProvider(provider.id)}>
+            <Chip key={provider.id} icon={({ size, color }) => renderProviderIcon(provider.id, size, color)} compact onPress={() => onStartProviderConfiguration(provider.id)} closeIconAccessibilityLabel={t('settings:providers.removeCredentials', { provider: getProviderCopy(provider.id, provider.label, t).label })} onClose={() => onRemoveProvider(provider.id)}>
               {getProviderCopy(provider.id, provider.label, t).label}
             </Chip>
           ))}

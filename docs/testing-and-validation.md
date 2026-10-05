@@ -220,6 +220,15 @@ The SSE endpoint intentionally fails, forcing the app to complete the workflow t
 - save configuration
 - verify provider appears as configured
 
+V2 regression coverage also connects OpenCode Go and OpenRouter from an `auto`
+catalog using API keys, checks their model lists, and reloads to verify server
+credential discovery. The fake V2 catalog includes environment and key methods
+so environment methods cannot masquerade as a key form. `test:v2-mappers`
+exercises the real adapter's discovery, key submission, and OAuth method indices.
+A V1 flow verifies manual key entry remains available alongside OAuth metadata.
+These fake-server and E2E changes require explicit human validation under
+AGENTS.md, including adding a provider against a real V2 server.
+
 ### Connection API Base Flow
 
 - point at a fake server with a configured API base path and verify the root-URL failure message suggests the prefixed URL

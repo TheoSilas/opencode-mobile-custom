@@ -288,6 +288,19 @@ try {
 
   const v2Info = await v2request('/api/info');
   assert(v2Info.version === '2.0.0-fake', 'V2 server info missing');
+  const initialProviders = (await v2request('/api/provider')).data;
+  assert(initialProviders.length === 1 && initialProviders[0].id === 'openai', 'V2 lists active providers, not its unconnected catalog');
+  const integrations = (await v2request('/api/integration')).data;
+  assert(integrations.some((item) => item.id === 'opencode-go' && item.connections.length === 0 && item.methods.some((method) => method.type === 'key')), 'V2 unconnected Go key integration missing');
+  const keyPath = '/api/integration/opencode-go/connect/key?location[directory]=/workspace/demo-project';
+  const emptyKey = await fetch(`${v2Origin}${keyPath}`, json('POST', { key: '' }));
+  assert(emptyKey.status === 400, 'V2 key login must reject an empty key');
+  const missingKeyLocation = await fetch(`${v2Origin}/api/integration/opencode-go/connect/key`, json('POST', { key: 'test-key' }));
+  assert(missingKeyLocation.status === 400, 'V2 key login must include location');
+  await v2request(keyPath, json('POST', { key: 'test-go-key' }));
+  assert((await v2request('/api/provider')).data.some((item) => item.id === 'opencode-go'), 'V2 key login must activate Go');
+  assert((await v2request('/api/model')).data.some((item) => item.providerID === 'opencode-go' && item.enabled), 'V2 key login must expose Go models');
+  assert((await v2request('/api/integration')).data.find((item) => item.id === 'opencode-go').connections.some((connection) => connection.method === 'key'), 'V2 key login must retain the credential connection');
   const v2Session = (await v2request('/api/session', json('POST', { title: 'V2 smoke session' }))).data;
   assert(v2Session.model?.id === 'gpt-4.1-mini' && v2Session.model.providerID === 'openai', 'V2 session did not expose a model');
   assert(v2Session.tokens?.input === 0 && v2Session.cost === 0, 'V2 session did not expose usage fields');

@@ -119,6 +119,18 @@ Enter the protected server URL in the app, authenticate, choose your workspace, 
 
 For the complete setup flow, see the [Getting Started guide](https://getopencode.app/docs/getting-started/).
 
+### 4. Connect an AI provider
+
+Open **Settings → AI & providers → Add provider**, choose your provider,
+select **API key** if multiple login methods are offered, paste the key, and
+save. For OpenCode Go, choose **OpenCode Go** and paste the key from your
+OpenCode console. You can then enable its models and select one in Chat.
+Tap an already configured provider to reopen login or replace its key.
+
+Provider keys are saved on the connected OpenCode server. On OpenCode 2,
+the server's integration catalog determines which providers support API-key
+or OAuth login; environment-only providers must be configured on the server.
+
 ## Install
 
 ### Android

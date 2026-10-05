@@ -255,6 +255,20 @@ const models = [{
   limit: { context: 128000, output: 4096 },
 }];
 
+const providerCatalog = [
+  { id: 'openai', name: 'OpenAI', activation: 'auto', integrationID: 'openai', package: 'aisdk:@ai-sdk/openai' },
+  { id: 'openrouter', name: 'OpenRouter', activation: 'auto', integrationID: 'openrouter', package: 'aisdk:@openrouter/ai-sdk-provider' },
+  { id: 'opencode-go', name: 'OpenCode Go', activation: 'auto', integrationID: 'opencode-go', package: 'aisdk:@ai-sdk/openai-compatible' },
+];
+
+function modelCatalog() {
+  return [models[0], ...providerCatalog.slice(1).map((provider) => ({
+    ...models[0], id: `${provider.id}/coding-model`, modelID: 'coding-model',
+    providerID: provider.id, name: `${provider.name} coding model`,
+    enabled: state.configuredProviderIds.has(provider.id),
+  }))];
+}
+
 const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url || '/', `http://${req.headers.host || `127.0.0.1:${port}`}`);
   const pathname = requestUrl.pathname;
@@ -341,16 +355,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/api/provider') {
       sendJson(res, 200, {
         location: location(),
-        data: [
-          { id: 'openai', name: 'OpenAI', activation: 'enabled', integrationID: 'openai', package: 'aisdk:@ai-sdk/openai' },
-          { id: 'openrouter', name: 'OpenRouter', activation: 'disabled', integrationID: 'openrouter', package: 'aisdk:@openrouter/ai-sdk-provider' },
-        ],
+        data: providerCatalog.filter((provider) => state.configuredProviderIds.has(provider.id)),
       });
       return;
     }
 
     if (req.method === 'GET' && pathname === '/api/model') {
-      sendJson(res, 200, { location: location(), data: models });
+      sendJson(res, 200, { location: location(), data: modelCatalog().filter((model) => model.enabled) });
       return;
     }
 
@@ -373,11 +384,28 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/api/integration') {
       sendJson(res, 200, {
         location: location(),
-        data: [
-          { id: 'openai', name: 'OpenAI', methods: [{ type: 'key', label: 'API key' }], connections: [] },
-          { id: 'openrouter', name: 'OpenRouter', methods: [{ type: 'key', label: 'API key' }], connections: [] },
-        ],
+        data: providerCatalog.map((provider) => ({
+          id: provider.integrationID, name: provider.name,
+          methods: [{ type: 'env', names: ['PROVIDER_API_KEY'] }, { type: 'key', label: 'API key' }],
+          connections: state.configuredProviderIds.has(provider.id)
+            ? [{ type: 'credential', id: `credential-${provider.id}`, label: 'API key', method: 'key' }] : [],
+        })),
       });
+      return;
+    }
+
+    const keyConnect = pathname.match(/^\/api\/integration\/([^/]+)\/connect\/key$/);
+    if (req.method === 'POST' && keyConnect) {
+      if (!requireLocation(requestUrl, res)) return;
+      const provider = providerCatalog.find((item) => item.integrationID === decodeURIComponent(keyConnect[1]));
+      const body = await readJson(req);
+      if (!provider || !body?.key?.trim()) {
+        sendJson(res, 400, { error: 'A known integration and API key are required' });
+        return;
+      }
+      state.configuredProviderIds.add(provider.id);
+      state.authByProvider[provider.id] = { type: 'api', key: body.key };
+      sendJson(res, 204);
       return;
     }
 
