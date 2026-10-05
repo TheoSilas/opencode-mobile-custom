@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   defaultConnectionSettings,
@@ -93,7 +93,6 @@ export function useOpencodeProviderState() {
   const activeProjectPathRef = useRef(activeProjectPath);
   const connectionRef = useRef(connection);
   const serverContractRef = useRef<ServerContract>('v1');
-  serverContractRef.current = serverContract;
   const serverProjectsRef = useRef<Project[]>([]);
   const currentSessionIdRef = useRef<string | undefined>(undefined);
   const pendingDeepLinkTargetRef = useRef<import('@/providers/opencode-provider-types').SessionDeepLinkTarget | undefined>(undefined);
@@ -115,15 +114,22 @@ export function useOpencodeProviderState() {
   const promptSubmissionRef = useRef<{ active: boolean; sessionId?: string }>({ active: false });
   const workspaceSearchRequestRef = useRef(0);
   const workspaceFileRequestRef = useRef(0);
-  settingsRef.current = settings;
-  chatPreferencesRef.current = chatPreferences;
-  connectionScopeRef.current = connectionScope;
-  activeProjectPathRef.current = activeProjectPath;
-  connectionRef.current = connection;
-  currentSessionIdRef.current = currentSessionId;
-  diffScopeBySessionRef.current = diffScopeBySession;
-  selectedDiffMessageBySessionRef.current = selectedDiffMessageBySession;
-  messagesBySessionRef.current = messagesBySession;
+
+  // Latest-ref mirror. Updating refs in a layout effect (instead of during
+  // render) is the React-sanctioned pattern: the mirrored values are only read
+  // from callbacks, async work, and effects, all of which run after commit.
+  useLayoutEffect(() => {
+    serverContractRef.current = serverContract;
+    settingsRef.current = settings;
+    chatPreferencesRef.current = chatPreferences;
+    connectionScopeRef.current = connectionScope;
+    activeProjectPathRef.current = activeProjectPath;
+    connectionRef.current = connection;
+    currentSessionIdRef.current = currentSessionId;
+    diffScopeBySessionRef.current = diffScopeBySession;
+    selectedDiffMessageBySessionRef.current = selectedDiffMessageBySession;
+    messagesBySessionRef.current = messagesBySession;
+  });
 
   return {
     settings, setSettings,

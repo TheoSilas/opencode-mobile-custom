@@ -1,5 +1,5 @@
 import type { GlobalEvent } from '@opencode-ai/sdk/v2/client';
-import { useCallback, useMemo, useRef, type PropsWithChildren } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, type PropsWithChildren } from 'react';
 
 import { buildClient, defaultConnectionSettings, getRequestHeaders } from '@/lib/opencode/client';
 import { defaultChatPreferences } from '@/providers/opencode-preferences';
@@ -151,12 +151,17 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     [state.activeProjectPath, state.serverContract, state.settings],
   );
   const catalogClient = useMemo(() => buildClient({ ...state.settings, directory: '' }, state.serverContract), [state.serverContract, state.settings]);
-  if (!clientGenerationRef.current.has(client)) {
-    clientGenerationRef.current.set(client, scopeGenerationRef.current);
-  }
-  if (!catalogGenerationRef.current.has(catalogClient)) {
-    catalogGenerationRef.current.set(catalogClient, serverGenerationRef.current);
-  }
+  // Tag each client instance with the generation current when it is first seen.
+  // A layout effect keeps this off the render path while still running before
+  // any callback that could consume `isCurrentClient`.
+  useLayoutEffect(() => {
+    if (!clientGenerationRef.current.has(client)) {
+      clientGenerationRef.current.set(client, scopeGenerationRef.current);
+    }
+    if (!catalogGenerationRef.current.has(catalogClient)) {
+      catalogGenerationRef.current.set(catalogClient, serverGenerationRef.current);
+    }
+  });
   const isCurrentClient = useCallback(
     (candidate: object) => clientGenerationRef.current.get(candidate) === scopeGenerationRef.current,
     [clientGenerationRef, scopeGenerationRef],
@@ -218,10 +223,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   }, [mcp.resetMcpState, terminal.resetTerminal, transcript.reset, worktree.resetWorktrees, bootstrapPromiseRef, bootstrapTokenRef, busyNotificationsRef, pendingNotificationsRef, sessionRefreshOptionsRef, sessionRefreshTimeoutsRef, setArchivedSessions, setAvailableAgents, setAvailableModels, setAvailableProviders, setCommands, setCurrentConfig, setCurrentSessionId, setPendingPermissionsBySession, setPendingQuestionsBySession, setProviderAuthMethodsById, setSelectedWorkspaceFile, setSessionStatuses, setSessions, setVcsInfo, setWorkspaceFileStatuses, setWorkspaceFiles]);
 
   const workspace = useWorkspaceActions({ ...state, client, catalogClient, isCurrentClient, isCurrentCatalogClient, clearProjectState, isHydrated, refreshMessages: transcript.refreshMessages });
-  refreshWorkspaceCatalogRef.current = workspace.refreshWorkspaceCatalog;
 
   const capabilities = useCapabilitiesActions({ ...state, client, isCurrentClient });
-  refreshChatCapabilitiesRef.current = capabilities.refreshChatCapabilities;
 
   const sessionActions = useSessionActions({
     ...state,
@@ -235,7 +238,6 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     refreshChatCapabilities: capabilities.refreshChatCapabilities,
   });
   const ensureActiveSessionRef = useRef(sessionActions.ensureActiveSession);
-  ensureActiveSessionRef.current = sessionActions.ensureActiveSession;
 
   const prompt = usePromptLifecycle({
     ...state,
@@ -274,26 +276,35 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const { phase: conversationPhase, sessionId: conversationSessionId } = conversation;
 
   const eventActionsRef = useRef<ProviderEventActions | null>(null);
-  eventActionsRef.current = {
-    refreshSessions: workspace.refreshSessions,
-    refreshArchivedSessions: sessionActions.refreshArchivedSessions,
-    scheduleSessionRefresh: workspace.scheduleSessionRefresh,
-    refreshPendingInteractions: workspace.refreshPendingInteractions,
-    refreshServerFeatures: workspace.refreshServerFeatures,
-    refreshChatCapabilities: capabilities.refreshChatCapabilities,
-    refreshWorkspaceCatalog: workspace.refreshWorkspaceCatalog,
-    refreshTerminals: terminal.refreshTerminals,
-    refreshWorktrees: worktree.refreshWorktrees,
-    refreshMcpServers: mcp.refreshMcpServers,
-    refreshDiagnostics: workspace.refreshDiagnostics,
-    setSessionStatuses: state.setSessionStatuses,
-    setPromptError: prompt.setPromptError,
-    setDiffsBySession: state.setDiffsBySession,
-    setTodosBySession: state.setTodosBySession,
-    setPendingPermissionsBySession: state.setPendingPermissionsBySession,
-    setPendingQuestionsBySession: state.setPendingQuestionsBySession,
-    selectedDiffMessageBySessionRef: state.selectedDiffMessageBySessionRef,
-  };
+
+  // Latest-ref bridges for callbacks defined before the actions they forward to.
+  // Written in a layout effect so no ref is touched during render; all readers
+  // are event handlers, realtime callbacks, or passive effects that run later.
+  useLayoutEffect(() => {
+    refreshWorkspaceCatalogRef.current = workspace.refreshWorkspaceCatalog;
+    refreshChatCapabilitiesRef.current = capabilities.refreshChatCapabilities;
+    ensureActiveSessionRef.current = sessionActions.ensureActiveSession;
+    eventActionsRef.current = {
+      refreshSessions: workspace.refreshSessions,
+      refreshArchivedSessions: sessionActions.refreshArchivedSessions,
+      scheduleSessionRefresh: workspace.scheduleSessionRefresh,
+      refreshPendingInteractions: workspace.refreshPendingInteractions,
+      refreshServerFeatures: workspace.refreshServerFeatures,
+      refreshChatCapabilities: capabilities.refreshChatCapabilities,
+      refreshWorkspaceCatalog: workspace.refreshWorkspaceCatalog,
+      refreshTerminals: terminal.refreshTerminals,
+      refreshWorktrees: worktree.refreshWorktrees,
+      refreshMcpServers: mcp.refreshMcpServers,
+      refreshDiagnostics: workspace.refreshDiagnostics,
+      setSessionStatuses: state.setSessionStatuses,
+      setPromptError: prompt.setPromptError,
+      setDiffsBySession: state.setDiffsBySession,
+      setTodosBySession: state.setTodosBySession,
+      setPendingPermissionsBySession: state.setPendingPermissionsBySession,
+      setPendingQuestionsBySession: state.setPendingQuestionsBySession,
+      selectedDiffMessageBySessionRef: state.selectedDiffMessageBySessionRef,
+    };
+  });
   const handleEvent = useCallback((event: GlobalEvent['payload']) => {
     if (eventActionsRef.current) {
       handleProviderEvent(event, eventActionsRef.current);

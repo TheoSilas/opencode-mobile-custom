@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import {
   hasTodoWritePart,
@@ -47,11 +47,13 @@ export function useTranscriptState({
   const [todoRecordsBySession, setTodoRecordsBySession] = useState<Record<string, SessionMessageRecord[]>>({});
 
   const messagesBySessionRef = useRef(messagesBySession);
-  messagesBySessionRef.current = messagesBySession;
   const messageWindowsRef = useRef(messageWindows);
-  messageWindowsRef.current = messageWindows;
   const loadingOlderBySessionRef = useRef(loadingOlderBySession);
-  loadingOlderBySessionRef.current = loadingOlderBySession;
+  useLayoutEffect(() => {
+    messagesBySessionRef.current = messagesBySession;
+    messageWindowsRef.current = messageWindows;
+    loadingOlderBySessionRef.current = loadingOlderBySession;
+  });
 
   const recordUsageAndTodos = useCallback((sessionId: string, records: SessionMessageRecord[]) => {
     if (records.length === 0) {

@@ -38,14 +38,11 @@ Release automation in the same workflow:
 
 From `TESTING.md`, those gates include:
 
-- `npm run test:ci:static`, which chains lint, typecheck, and the transpiled static suites:
+- `npm run test:ci:static`, which chains lint, typecheck, and the static suites:
   - `npm run test:usage`
   - `npm run test:chat-appearance`
-  - `npm run test:v2-mappers`
-  - `npm run test:format`
+  - `npm run test:vitest` (Vitest: format, transcript turns, record preservation, session reads/pagination, V2 mappers)
   - `npm run test:i18n`
-  - `npm run test:record-preservation`
-  - `npm run test:session-reads`
   - `npm run test:provider-runtime`
   - `npm run test:provider-utils`
   - `npm run test:workspace-patch`
@@ -76,6 +73,14 @@ values that fail safe instead of being guessed.
 The `test:chat-appearance` suite checks that the chat font-size preference
 defaults safely and stays within the supported 12–24 px range, and that the
 flat-transcript and slim-interface preferences default to off.
+
+The `test:vitest` suite is the standard TypeScript runner (Vitest) for module
+behavior that benefits from real imports and module mocking: format/transcript
+shaping, bounded-window record preservation, session reads/pagination/coalescing,
+and the V2 response/event mappers and provider-auth mapping. These suites import
+the real `@/` modules and replace platform/protocol boundaries with `vi.mock`,
+instead of transpiling sources through the legacy `loadTs` VM helper (still used
+by `test:provider-runtime`, which drives hook source through a custom renderer).
 
 The `test:i18n` suite guards translations: it checks that every language defines
 exactly the English key set, that interpolation variables match per key, that
@@ -223,7 +228,7 @@ The SSE endpoint intentionally fails, forcing the app to complete the workflow t
 V2 regression coverage also connects OpenCode Go and OpenRouter from an `auto`
 catalog using API keys, checks their model lists, and reloads to verify server
 credential discovery. The fake V2 catalog includes environment and key methods
-so environment methods cannot masquerade as a key form. `test:v2-mappers`
+so environment methods cannot masquerade as a key form. the Vitest suite (`test:vitest`)
 exercises the real adapter's discovery, key submission, and OAuth method indices.
 A V1 flow verifies manual key entry remains available alongside OAuth metadata.
 These fake-server and E2E changes require explicit human validation under
@@ -264,10 +269,10 @@ AGENTS.md, including adding a provider against a real V2 server.
   `disconnect` for deterministic transport control; these controls do not change
   production endpoints
 
-`test:session-reads` exercises 4,300-record histories in both protocols,
+the Vitest `session-reads` suite exercises 4,300-record histories in both protocols,
 newest-page (20-record) retrieval, backward cursor paging, shared message/diff
 reads, V2 shared listing/status, and failure retry/client isolation.
-`test:record-preservation` covers the bounded-window merge: unchanged record and
+the Vitest `record-preservation` suite covers the bounded-window merge: unchanged record and
 array references are preserved, changed records are replaced, new tail records
 are appended, and scrolled-up history is prepended without duplicates.
 `test:provider-runtime` runs actual provider callbacks and extracted hooks with
@@ -279,7 +284,7 @@ serialized profile saves with credential rollback and callback stability.
 hydration, ordered/deduplicated writes, and preserving unread records.
 `test:notifications-background` covers concurrent changes, transient reads/writes,
 malformed data, and a re-sent task during background completion checks.
-`test:record-preservation` is now part of the static CI gate.
+the Vitest `record-preservation` suite is now part of the static CI gate.
 
 ### Workspace Mutation And Management Flows
 

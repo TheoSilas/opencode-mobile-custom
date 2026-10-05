@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import {
@@ -265,7 +265,9 @@ export function useConnectionConnectActions({
   }, [setFavoriteSessions, setLastSessionByConnection]);
 
   const connectSetup = useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchConnection, disconnect: disconnectConnectProfile, isHydrated, activeMachineId: settings.connect?.machineId, beforeProfileRefresh: captureActiveProfilePreferences, onProfileRefreshed: onConnectProfileRefreshed });
-  prepareConnectSettingsRef.current = connectSetup.prepareSettings;
+  useLayoutEffect(() => {
+    prepareConnectSettingsRef.current = connectSetup.prepareSettings;
+  });
 
   const connectAccessRefreshRef = useRef('');
   useEffect(() => {
