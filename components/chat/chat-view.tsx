@@ -48,9 +48,10 @@ export function ChatView() {
   const {
     abortSession, clearPromptError, commands, currentDiffs, currentDiffScope, currentMessages,
     currentPendingPermissions, currentPendingQuestions, currentTodos, currentTranscript, currentUsage,
-    diffTurns, executeCommand, isRefreshingDiffs, isRefreshingMessages, latestAssistantTurnUsage,
-    promptError, refreshCurrentSession, refreshDiffs, rejectQuestion, replyToPermission, replyToQuestion,
-    selectDiffMessage, selectedDiffMessageId, sendPrompt, sendingState, setAutoApprove, setDiffScope,
+    diffTurns, executeCommand, isRefreshingDiffs, isRefreshingMessages,
+    latestAssistantTurnUsage, promptError, refreshCurrentSession, refreshDiffs, rejectQuestion,
+    replyToPermission, replyToQuestion, selectDiffMessage, selectedDiffMessageId, sendPrompt,
+    sendingState, setAutoApprove, setDiffScope, transcriptPaging,
   } = useChat();
 
   const [draft, setDraft] = useState('');
@@ -551,6 +552,12 @@ export function ChatView() {
           slim={slim}
           transcriptFontSize={normalizeTranscriptFontSize(chatPreferences.transcriptFontSize)}
           expandedDiffId={expandedDiffId}
+          hasOlderMessages={transcriptPaging.hasOlder}
+          isLoadingOlderMessages={transcriptPaging.isLoadingOlder}
+          onLoadOlderMessages={() => {
+            if (!currentSessionId || transcriptPaging.isLoadingOlder || !transcriptPaging.hasOlder) return;
+            void transcriptPaging.loadOlder(currentSessionId);
+          }}
           isRefreshingDiffs={isRefreshingDiffs}
           isRefreshingMessages={isRefreshingMessages}
           onCopyMessage={(entry) => void handleCopyMessage(entry)}

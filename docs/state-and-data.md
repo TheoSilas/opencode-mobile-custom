@@ -78,9 +78,10 @@ Diff scope state:
 Important behavior:
 
 - data is fetched lazily when a session is opened or refreshed
+- the transcript window is paginated (newest 20 on open, older 20 per scroll-up, bounded at 200); see Message And Transcript Transformation
 - message/diff/todo caches are updated by explicit refreshes, SSE events, and polling fallback
 - an incoming `session.diff` event only overwrites the turn diff when the surface is not pinned to an earlier turn
-- on V2 the server has no todo endpoint, so `currentTodos` falls back to the plan derived from the transcript's `todowrite` tool parts (`deriveTodosFromMessages`); V1 stays server-authoritative
+- on V2 the server has no todo endpoint, so `currentTodos` derives from the accumulated `todowrite` tool records (`deriveTodosFromMessages`), not just the loaded window; V1 stays server-authoritative
 - permission and question entries are updated by SSE events, replies, and server list refreshes
 - current-session selectors only read the active or relevant session from these maps
 
@@ -324,7 +325,14 @@ Derived by converting `currentMessages` with `toTranscriptEntry()`.
 
 ### Current Usage
 
-Derived from persisted assistant `step-finish` parts in `currentMessages`. Stable step IDs prevent replayed SSE events and reloads from being double counted; streaming parts are excluded. OpenCode step cost is preferred, with exact OpenCode model metadata used only as a USD fallback when reported cost is zero or absent and tokens are nonzero.
+Derived from the session's accumulated assistant `step-finish` parts. The
+provider keeps a per-session map of completed model calls keyed by stable step
+ID (`session:message:part`) as fetched pages merge, so the transcript window can
+stay bounded without undercounting session cost or tokens. Stable step IDs
+prevent replayed SSE events and reloads from being double counted; streaming
+parts are excluded. OpenCode step cost is preferred, with exact OpenCode model
+metadata used only as a USD fallback when reported cost is zero or absent and
+tokens are nonzero.
 
 Context utilization is derived separately by `getLatestContextTokens()`: it walks back to the newest completed `step-finish` and reports that call's prompt (`input + cache.read + cache.write`) plus its reply (`output`). Cumulative session totals are intentionally not used, because every call re-sends the history. All-zero placeholder steps, which the V2 adapter emits for in-flight assistant messages, are skipped so the last completed call stays visible until usage arrives.
 
@@ -351,10 +359,10 @@ group from it:
 
 The Chat Library removes these session IDs from the current-workspace Chat list so
 a session never appears in both places. The snapshot seeds on connect and on every
-catalog-client change, refreshes when the library opens, and polls every 5
-seconds only while a session is running. A transient fetch failure keeps the
-previous snapshot. The snapshot is in-memory only and does not share the
-per-connection+project session cache.
+catalog-client change, refreshes when the library opens, and polls every 20
+seconds only while the library is open and a session is running. A transient
+fetch failure keeps the previous snapshot. The snapshot is in-memory only and
+does not share the per-connection+project session cache.
 
 ### Current Pending Requests
 
@@ -371,15 +379,23 @@ Derived from phase plus latest non-display transcript activity.
 
 ## Message And Transcript Transformation
 
-Session history loads the newest five pages of 100 raw records in both
-protocols and returns them chronologically (up to 500 records). V2 translates
-descending API pages and opaque cursors into the existing `before`/
-`x-next-cursor` contract, omitting `order` on cursor requests. Histories beyond
-4,000 records retain the latest messages rather than stopping at the oldest.
-Concurrent equivalent message, diff, todo, and session-list reads share only
-outstanding requests within a client identity; settled results are not cached.
-Message and diff refreshes share the history used to locate the latest user turn;
-V2 session status and listing share their session-list request.
+Session history is paginated. Opening a session loads only the newest 20 raw
+records; scrolling to the top of the transcript pulls the previous 20 through
+the server's backward cursor, and the loaded window is bounded at 200 records
+with the oldest records dropped on overflow. Tail activity (SSE part/message
+updates, the safety poll, idle completion) fetches only the newest page and
+union-merges new records into the window, bridging backwards a bounded number of
+pages if a burst of messages arrived, so older loaded records are never
+re-downloaded. Removal, revert/unrevert, compaction, and reconnect reconciliation
+rebuild the window authoritatively instead of merging.
+
+V1 pages backwards with `limit`/`before` and an `x-next-cursor` header; V2
+translates descending API pages and opaque cursors into the same contract,
+omitting `order` on cursor requests. Concurrent equivalent message, diff, todo,
+and session-list reads share only outstanding requests within a client identity;
+settled results are not cached. Diff refreshes reuse the loaded transcript (or
+one newest page on a cold cache) to locate the latest user turn; V2 session
+status and listing share their session-list request.
 
 The server returns message records shaped as:
 
@@ -541,11 +557,15 @@ A rewrite that only mirrors persisted values would still miss important runtime 
 `use-opencode-realtime.ts`, composed by the provider, reconciles session/status,
 pending permission/question lists, and selected/conversation message, diff, and
 todo snapshots on the first envelope of every subscription, including reconnects.
-Only one reconciliation runs at a time. SSE remains primary; a five-second safety
-poll runs during active work even when SSE is connected, and while disconnected.
-Idle connected sessions do not poll. Stable latest-action bridges prevent provider
-renders from reopening the stream. Cleanup aborts subscriptions and cancels
-poll/retry timers. Domain responses retain the provider's client-scope guards.
+Only one reconciliation runs at a time. SSE remains primary; a safety poll runs
+during active work even when SSE is connected, every 10 seconds while connected
+and every 5 seconds while disconnected. A submitted prompt also schedules a
+one-off transcript refresh after 5 seconds so a missed completion still lands.
+The first envelope of a subscription reconciles authoritatively (rebuilding the
+transcript window); later ticks tail-merge. Idle connected sessions do not poll.
+Stable latest-action bridges prevent provider renders from reopening the stream.
+Cleanup aborts subscriptions and cancels poll/retry timers. Domain responses
+retain the provider's client-scope guards.
 
 ### Chat options and review presentation
 

@@ -11,7 +11,7 @@ const history = Array.from({ length: 4300 }, (_, i) => ({ id: `m-${i}`, type: 'u
 let messageCalls = 0, listCalls = 0;
 const api = {
   message: { async list({ sessionID, limit, cursor, order }) {
-    assert.equal(sessionID, 's'); assert.equal(limit, 100);
+    assert.equal(sessionID, 's'); assert.equal(limit, 20, 'transcript pages are 20 records');
     if (cursor) assert.equal(order, undefined, 'cursor pages cannot repeat order');
     else assert.equal(order, 'desc', 'fetch newest records before applying any cap');
     messageCalls++;
@@ -31,24 +31,36 @@ const adapter = await loadTs('lib/opencode/v2-client.ts', {
   './client': { getServerBase: () => ({ origin: 'http://test', pathPrefix: '' }), getRequestHeaders: () => ({}), createPrefixFetch: () => () => {} },
 });
 const client = adapter.buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' });
-const [messages] = await Promise.all([services.getSessionMessages(client, 's'), services.getSessionDiff(client, 's')]);
-assert.equal(messageCalls, 5, 'combined refresh reads five pages once, not twice');
-assert.equal(messages.length, 500);
-assert.equal(messages[0].info.id, 'm-3800');
-assert.equal(messages.at(-1).info.id, 'm-4299', 'latest message remains visible beyond the former 4,000 cap');
+// A cold transcript read and the diff fallback share one outstanding newest page.
+const [page] = await Promise.all([services.getSessionMessages(client, 's'), services.getSessionDiff(client, 's')]);
+assert.equal(messageCalls, 1, 'combined refresh reads the newest page once, not twice');
+assert.equal(page.records.length, 20, 'only the newest page is loaded initially');
+assert.equal(page.records[0].info.id, 'm-4280');
+assert.equal(page.records.at(-1).info.id, 'm-4299', 'latest message remains visible');
+assert.equal(page.hasMore, true);
+assert.equal(page.nextBefore, '20', 'cursor pages toward older history');
 await services.listSessions(client);
 assert.equal(listCalls, 1, 'V2 list and status share their outstanding session-list read');
 await services.getSessionMessages(client, 's');
-assert.equal(messageCalls, 10, 'settled reads are not cached');
+assert.equal(messageCalls, 2, 'settled reads are not cached');
+
+// Paging back with the cursor yields the next older page without refetching.
+const olderPage = await services.getSessionMessages(client, 's', { before: page.nextBefore });
+assert.equal(messageCalls, 3);
+assert.equal(olderPage.records.length, 20);
+assert.equal(olderPage.records[0].info.id, 'm-4260');
+assert.equal(olderPage.records.at(-1).info.id, 'm-4279');
 
 // V1 returns chronological pages backwards through its header cursor.
 const v1Client = { session: { async messages({ limit, before }) {
+  assert.equal(limit, 20);
   const end = before ? Number(before) : history.length;
   const start = Math.max(0, end - limit);
   return { data: history.slice(start, end).map((m) => ({ info: { id: m.id, role: 'user' }, parts: [] })), response: { headers: new Headers(start ? { 'x-next-cursor': String(start) } : {}) } };
 } } };
 const v1 = await services.getSessionMessages(v1Client, 's');
-assert.equal(v1.length, 500); assert.equal(v1[0].info.id, 'm-3800'); assert.equal(v1.at(-1).info.id, 'm-4299');
+assert.equal(v1.records.length, 20); assert.equal(v1.records[0].info.id, 'm-4280'); assert.equal(v1.records.at(-1).info.id, 'm-4299');
+assert.equal(v1.nextBefore, '4280');
 
 const old = {}, next = {}, slow = deferred();
 let reads = 0;

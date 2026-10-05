@@ -255,9 +255,12 @@ The SSE endpoint intentionally fails, forcing the app to complete the workflow t
   `disconnect` for deterministic transport control; these controls do not change
   production endpoints
 
-`test:session-reads` exercises 4,300-record histories in both protocols, newest
-500-record chronological retrieval, cursor translation, shared message/diff
+`test:session-reads` exercises 4,300-record histories in both protocols,
+newest-page (20-record) retrieval, backward cursor paging, shared message/diff
 reads, V2 shared listing/status, and failure retry/client isolation.
+`test:record-preservation` covers the bounded-window merge: unchanged record and
+array references are preserved, changed records are replaced, new tail records
+are appended, and scrolled-up history is prepended without duplicates.
 `test:provider-runtime` runs actual provider callbacks and extracted hooks with
 deterministic platform/timer boundaries: out-of-order workspace results, stale
 same-directory server responses, safety-poll overlap, reconnect snapshots,

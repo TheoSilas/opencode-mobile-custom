@@ -1,6 +1,7 @@
 import type { OpencodeClient, PermissionRuleset } from '@opencode-ai/sdk/v2/client';
 
 import type { GlobalSession, Project } from '@/lib/opencode/types';
+import type { SessionMessageRecord } from '@/lib/opencode/format';
 import { requireData } from '@/providers/services/require-data';
 import { coalesceRead } from '@/lib/opencode/in-flight';
 
@@ -75,41 +76,47 @@ export async function listArchivedSessions(client: OpencodeClient) {
   return sessions.filter((session) => Boolean(session.time.archived));
 }
 
-const MESSAGE_PAGE_SIZE = 100;
-const MAX_MESSAGE_PAGES = 5;
+export const INITIAL_MESSAGE_LIMIT = 20;
+export const HISTORY_PAGE_LIMIT = 20;
 
-export async function getSessionMessages(client: OpencodeClient, sessionId: string) {
-  return coalesceRead(client, `messages:${sessionId}`, () => fetchSessionMessages(client, sessionId));
+export type SessionMessagePage = {
+  records: SessionMessageRecord[];
+  hasMore: boolean;
+  nextBefore?: string;
+};
+
+// A single backwards page of transcript. The server returns the newest page
+// first and pages toward older records through an opaque cursor (V1 exposes it
+// as `x-next-cursor`; the V2 adapter maps its cursor onto the same header).
+// Callers request the newest page with no `before`, then page back with the
+// returned `nextBefore` while scrolling up.
+export async function getSessionMessages(
+  client: OpencodeClient,
+  sessionId: string,
+  options: { limit?: number; before?: string } = {},
+): Promise<SessionMessagePage> {
+  const limit = options.limit ?? HISTORY_PAGE_LIMIT;
+  const before = options.before;
+  return coalesceRead(client, `messages:${sessionId}:${before ?? 'newest'}:${limit}`, () =>
+    fetchSessionMessagePage(client, sessionId, limit, before));
 }
 
-async function fetchSessionMessages(client: OpencodeClient, sessionId: string) {
-  // ponytail: paginate to avoid OOM in RN's OkHttp layer which buffers full responses.
-  // The server returns the newest page first and pages backwards via an opaque
-  // x-next-cursor; older pages are prepended to keep the transcript chronological.
-  const allMessages: NonNullable<Awaited<ReturnType<typeof client.session.messages>>['data']> = [];
-  let before: string | undefined;
-  let pages = 0;
-
-  while (pages < MAX_MESSAGE_PAGES) {
-    const response = await client.session.messages({ sessionID: sessionId, limit: MESSAGE_PAGE_SIZE, before });
-    const page = requireData(response.data, 'session messages request');
-    allMessages.unshift(...page);
-    const next = response.response?.headers.get('x-next-cursor') ?? undefined;
-    if (!next || next === before) break;
-    before = next;
-    pages += 1;
-  }
-
-  return allMessages;
+async function fetchSessionMessagePage(client: OpencodeClient, sessionId: string, limit: number, before?: string): Promise<SessionMessagePage> {
+  const response = await client.session.messages({ sessionID: sessionId, limit, before });
+  const records = requireData(response.data, 'session messages request') as SessionMessageRecord[];
+  const header = response.response?.headers.get('x-next-cursor') ?? undefined;
+  const nextBefore = header && header !== before ? header : undefined;
+  return { records, hasMore: Boolean(nextBefore), nextBefore };
 }
 
-export async function getSessionDiff(client: OpencodeClient, sessionId: string, messageId?: string) {
+export async function getSessionDiff(client: OpencodeClient, sessionId: string, messageId?: string, messages?: SessionMessageRecord[]) {
   // Callers that already know which turn they want pass its id and skip the
-  // transcript scan; otherwise fall back to the latest user message.
+  // transcript scan. Otherwise prefer the transcript already held in memory;
+  // only a cold cache pays for a newest-page read.
   let targetMessageId = messageId;
   if (!targetMessageId) {
-    const messages = await getSessionMessages(client, sessionId);
-    const latestUserMessage = messages.slice().reverse().find(({ info }) => info.role === 'user');
+    const source = messages ?? (await getSessionMessages(client, sessionId, { limit: INITIAL_MESSAGE_LIMIT })).records;
+    const latestUserMessage = source.slice().reverse().find(({ info }) => info.role === 'user');
     if (!latestUserMessage) {
       return [];
     }

@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import { fetch as expoFetch } from 'expo/fetch';
 
 import { buildV2Client } from './v2-client';
+import { recordBytes, recordRequest } from './data-usage';
 import { getConnectCredentialError, type ConnectMetadata } from '@/lib/connect';
 
 export type ServerContract = 'v1' | 'v2';
@@ -126,8 +127,31 @@ async function fetchConnection(input: RequestInfo | URL, init?: RequestInit, set
   // Expo's native fetch supports streams and redirect rejection; RN's XHR
   // polyfill ignores redirect mode. Manual connections retain their transport.
   const response = settings?.connect ? await expoFetch(input, { ...init, redirect: 'error' }) : await fetch(input, init);
+  recordRequest();
+  measureResponseBytes(response);
   if (settings?.connect && response.status === 401) throw new Error('Cloud Link credentials were rejected. Pair this device again.');
   return response;
+}
+
+// Best-effort response size accounting for the data-usage diagnostic. SSE bodies
+// are streamed and never end, so they are intentionally not buffered to count.
+function measureResponseBytes(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('text/event-stream')) {
+    return;
+  }
+  const lengthHeader = response.headers.get('content-length');
+  const length = lengthHeader ? Number(lengthHeader) : NaN;
+  if (Number.isFinite(length) && length >= 0) {
+    recordBytes(length);
+    return;
+  }
+  try {
+    const clone = response.clone();
+    void clone.arrayBuffer().then((buffer) => recordBytes(buffer.byteLength)).catch(() => undefined);
+  } catch {
+    // Body was already consumed or is not cloneable; skip measurement.
+  }
 }
 
 function createScopedFetch(baseUrl: string, pathPrefix: string, directory?: string, settings?: OpencodeConnectionSettings) {

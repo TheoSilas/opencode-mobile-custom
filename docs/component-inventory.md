@@ -60,6 +60,7 @@ The goal is to make it possible to rebuild the UI tree without having to redisco
 - render transcript area and changes area
 - render empty states, connection issues, running indicators, and pending interactions
 - render server-owned tasks in a compact progress view that opens the shared overlay
+- load older transcript history when the user scrolls to the top of the list
 
 ### Prop contract
 
@@ -86,6 +87,9 @@ type ChatContentProps = {
   diffTurns: DiffTurn[]
   displayTranscript: TranscriptEntry[]
   expandedDiffId?: string
+  hasOlderMessages: boolean
+  isLoadingOlderMessages: boolean
+  onLoadOlderMessages: () => void
   isRefreshingDiffs: boolean
   isRefreshingMessages: boolean
   onCopyMessage: (entry: TranscriptEntry) => void

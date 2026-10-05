@@ -218,8 +218,13 @@ export type SessionContextValue = {
   isRefreshingSessions: boolean;
   refreshSessions: (silent?: boolean) => Promise<void>;
   openSession: (sessionId: string) => Promise<void>;
-  activeSessions: ActiveSessionItem[];
-  refreshActiveSessions: () => Promise<void>;
+  // Grouped so the connection-wide snapshot, its refresh, and the
+  // library-visibility signal for polling share one context member.
+  activeSessions: {
+    list: ActiveSessionItem[];
+    refresh: () => Promise<void>;
+    setVisible: (visible: boolean) => void;
+  };
   ensureActiveSession: () => Promise<string | undefined>;
   openDeepLinkSession: (target: SessionDeepLinkTarget, signal?: AbortSignal) => Promise<{ ok: boolean; error?: string }>;
   createSession: (title?: string) => Promise<Session>;
@@ -254,6 +259,13 @@ export type ChatContextValue = {
   isRefreshingMessages: boolean;
   isRefreshingDiffs: boolean;
   isBootstrappingChat: boolean;
+  // Grouped so the domain context surface does not grow one member per paging
+  // concern.
+  transcriptPaging: {
+    loadOlder: (sessionId: string) => Promise<void>;
+    hasOlder: boolean;
+    isLoadingOlder: boolean;
+  };
   refreshCurrentSession: (silent?: boolean) => Promise<void>;
   refreshCurrentTodos: (silent?: boolean) => Promise<void>;
   replyToPermission: (requestId: string, reply: 'once' | 'always' | 'reject') => Promise<void>;

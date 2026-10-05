@@ -231,7 +231,10 @@
     "subsystemsLsp": "LSP {{value}}",
     "subsystemsFormatters": "フォーマッター {{value}}",
     "notAvailable": "該当なし",
-    "refresh": "診断を更新"
+    "refresh": "診断を更新",
+    "networkUsage": "ネットワーク使用量",
+    "networkUsageValue": "本日 {{requests}} 件のリクエスト · {{size}}",
+    "networkUsageReset": "リセット"
   },
   "mcp": {
     "title": "MCP サーバー",

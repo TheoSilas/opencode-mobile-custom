@@ -12,6 +12,9 @@ export const ONBOARDING_VERSION_STORAGE_KEY = 'opencode-mobile.onboarding-versio
 export const LAST_SESSION_BY_PROJECT_STORAGE_KEY = 'opencode-mobile.last-session-by-project';
 export const PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY = 'opencode-mobile.pending-notification-sessions';
 export const FAVORITE_SESSIONS_STORAGE_KEY = 'opencode-mobile.favorite-sessions';
+// Per-day network usage diagnostic (requests + bytes). See
+// lib/opencode/data-usage.ts.
+export const DATA_USAGE_STORAGE_KEY = 'opencode-mobile.data-usage';
 
 // Diagnostic file written synchronously by the global JS error handler; it
 // cannot use AsyncStorage because the process may die before a write flushes.

@@ -48,18 +48,45 @@ function getStepTotals(part: Extract<Part, { type: 'step-finish' }>, pricing?: U
   return totals;
 }
 
-export function aggregateSessionUsage(messages: SessionMessageRecord[], pricingByModel: Record<string, UsagePricing> = {}): SessionUsage {
+// A single completed model call. A paginated transcript window no longer holds
+// every message, so the provider accumulates these steps independently of the
+// loaded window to keep session cost/token totals exact.
+export type SessionUsageStep = {
+  key: string;
+  providerId: string;
+  modelId: string;
+  part: Extract<Part, { type: 'step-finish' }>;
+};
+
+export function usageStepKey(part: Extract<Part, { type: 'step-finish' }>) {
+  return `${part.sessionID}:${part.messageID}:${part.id}`;
+}
+
+// Append every step-finish in `messages` to `steps`, keeping one entry per step
+// key so a replayed fetch or SSE event cannot double count.
+export function addUsageSteps(steps: Map<string, SessionUsageStep>, messages: SessionMessageRecord[]) {
+  for (const { info, parts } of messages) {
+    if (info.role !== 'assistant') continue;
+    for (const part of parts) {
+      if (part.type !== 'step-finish') continue;
+      const key = usageStepKey(part);
+      if (!steps.has(key)) {
+        steps.set(key, { key, providerId: info.providerID, modelId: info.modelID, part });
+      }
+    }
+  }
+}
+
+export function aggregateUsageSteps(steps: Iterable<SessionUsageStep>, pricingByModel: Record<string, UsagePricing> = {}): SessionUsage {
   const providers = new Map<string, ProviderUsage>();
-  const seenSteps = new Set<string>();
   const totals = { ...EMPTY_TOTALS };
   let hasRecordedCost = false;
   let hasEstimatedCost = false;
   let hasUnavailablePricing = false;
 
-  for (const { info, parts } of messages) {
-    if (info.role !== 'assistant') continue;
-    const providerId = info.providerID;
-    const modelId = info.modelID;
+  for (const step of steps) {
+    const providerId = step.providerId;
+    const modelId = step.modelId;
     const pricing = pricingByModel[`${providerId}/${modelId}`];
     let provider = providers.get(providerId);
     if (!provider) {
@@ -71,24 +98,25 @@ export function aggregateSessionUsage(messages: SessionMessageRecord[], pricingB
       model = { ...EMPTY_TOTALS, costStatus: 'free', modelId, providerId };
       provider.models.push(model);
     }
-    for (const part of parts) {
-      if (part.type !== 'step-finish') continue;
-      const stepKey = `${part.sessionID}:${part.messageID}:${part.id}`;
-      if (seenSteps.has(stepKey)) continue;
-      seenSteps.add(stepKey);
-      const stepTotals = getStepTotals(part, pricing);
-      const status = getCostStatus(stepTotals, part.cost, hasUsablePricing(pricing));
-      hasRecordedCost ||= status === 'recorded';
-      hasEstimatedCost ||= status === 'estimated';
-      hasUnavailablePricing ||= status === 'pricing-unavailable';
-      addTotals(totals, stepTotals);
-      addTotals(provider, stepTotals);
-      addTotals(model, stepTotals);
-      model.costStatus = getCostStatus(model, model.cost, hasUsablePricing(pricing));
-    }
+    const stepTotals = getStepTotals(step.part, pricing);
+    const status = getCostStatus(stepTotals, step.part.cost, hasUsablePricing(pricing));
+    hasRecordedCost ||= status === 'recorded';
+    hasEstimatedCost ||= status === 'estimated';
+    hasUnavailablePricing ||= status === 'pricing-unavailable';
+    addTotals(totals, stepTotals);
+    addTotals(provider, stepTotals);
+    addTotals(model, stepTotals);
+    model.costStatus = getCostStatus(model, model.cost, hasUsablePricing(pricing));
   }
+
   const costStatus: CostStatus = hasRecordedCost ? 'recorded' : hasEstimatedCost ? 'estimated' : hasUnavailablePricing ? 'pricing-unavailable' : 'free';
   return { ...totals, costStatus, providers: [...providers.values()].sort((a, b) => b.cost - a.cost) };
+}
+
+export function aggregateSessionUsage(messages: SessionMessageRecord[], pricingByModel: Record<string, UsagePricing> = {}): SessionUsage {
+  const steps = new Map<string, SessionUsageStep>();
+  addUsageSteps(steps, messages);
+  return aggregateUsageSteps(steps.values(), pricingByModel);
 }
 
 export function getLatestAssistantTurnUsage(messages: SessionMessageRecord[], pricingByModel?: Record<string, UsagePricing>) {

@@ -12,7 +12,7 @@ module.exports = defineConfig([
     // (latest-ref pattern) so realtime callbacks never capture stale closures.
     // React Compiler cannot verify that pattern; migrate it in a dedicated,
     // well-tested change rather than under a dependency bump.
-    files: ['providers/opencode-provider.tsx'],
+    files: ['providers/opencode-provider.tsx', 'providers/use-transcript-state.ts'],
     rules: {
       'react-hooks/refs': 'off',
       'react-hooks/set-state-in-effect': 'off',

@@ -229,10 +229,11 @@ Glide image loading.
 
 ### Memory Profiling Targets
 
-The chat fetches at most 500 messages per session. Provider caches are pruned
-to the current/conversation sessions, non-idle sessions, and one spare session;
-the active transcript still keeps its raw records and derived transcript in
-memory. FlashList virtualizes rendered rows, but does not reduce those data
+The chat loads the newest 20 messages per session and lazily pages older history
+as the user scrolls up, keeping at most 200 raw records in memory. Provider caches
+are pruned to the current/conversation sessions, non-idle sessions, and one spare
+session; the active transcript still keeps its raw records and derived transcript
+in memory. FlashList virtualizes rendered rows, but does not reduce those data
 caches. The tab layout sets no unmount-on-blur policy, so include returning to
 Chat after opening other tabs in device profiling.
 

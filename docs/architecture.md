@@ -177,7 +177,7 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
   Conversation phases, speech submission, reply playback, timers, and cleanup.
 - `providers/use-opencode-realtime.ts`
   SSE transport/backoff, first-connect and reconnect reconciliation, and the
-  five-second busy-work safety poll. Domain event handling stays in the provider.
+  safety poll (5s disconnected, 10s while SSE is connected). Domain event handling stays in the provider.
 - `providers/session-cache.ts`
   Per connection + project session/status cache DTO, validation, and hydration.
 - `providers/favorites-storage.ts`
@@ -195,13 +195,18 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
   Experimental worktree list plus its lifecycle actions.
 - `providers/use-active-sessions.ts`
   Connection-wide running/recent session snapshot for the Chat Library. Reads the
-  unscoped catalog client, seeds on connect and on library open, polls while a
-  session is running, and tags the snapshot with its connection scope so a server
-  switch hides the previous server's sessions.
+  unscoped catalog client, seeds on connect and on library open, polls every 20
+  seconds only while the Chat Library is open and a session is running, and tags
+  the snapshot with its connection scope so a server switch hides the previous
+  server's sessions.
 - `providers/active-sessions.ts`
   Pure selection of the active-session group (running-first ordering, recent tail
   capped at four, subagent/archived filtering). The Chat Library de-duplicates
   these IDs out of the current-workspace Chat list.
+- `providers/use-transcript-state.ts`
+  Paginated transcript window state machine: newest-page load on open, scroll-up
+  history paging, bounded-window tail merge, and accumulation of session usage
+  steps and V2 `todowrite` records so a bounded window keeps exact totals.
 
 MCP and worktree callback bridges use stable callbacks backed by the provider's
 latest refs. Conversation submission similarly uses the latest send action
@@ -401,7 +406,7 @@ The provider fetches and caches:
 - providers, models, and agents
 - commands, workspace file status/search/read data, VCS information, and diagnostics
 - archived sessions, worktrees, MCP statuses, PTYs, terminal connection state, and terminal output
-- a connection-wide session snapshot (all sessions + statuses) from the unscoped catalog client, used by the Chat Library "Active" group. The global SSE stream still filters events to the active project, so this snapshot is refreshed on connect, when the library opens, and by a short poll while a session is running.
+- a connection-wide session snapshot (all sessions + statuses) from the unscoped catalog client, used by the Chat Library "Active" group. The global SSE stream still filters events to the active project, so this snapshot is refreshed on connect, when the library opens, and by a 20-second poll while a session is running.
 
 ### Provider -> Derived State
 
@@ -459,14 +464,20 @@ Recognized events update local state or schedule refreshes for:
 
 ### Safety Strategy: Polling Fallback
 
-The provider keeps a 5-second polling loop when any of the following is true:
+The provider keeps a safety polling loop when any of the following is true:
 
 - SSE is not connected
 - any session is non-idle
 - a prompt is currently being submitted
 - conversation mode is active
 
-Polling refreshes sessions, current/conversation session content, and pending interactions as needed. The `/permission` and `/question` list APIs recover requests missed by SSE.
+While SSE is connected the loop runs every 10 seconds; without a stream it is the
+primary transport and runs every 5 seconds. A submitted prompt also schedules a
+one-off transcript refresh 5 seconds after send, so a completion whose event is
+missed (for example from another workspace) still lands even with the slower
+connected cadence. Polling refreshes sessions, current/conversation session
+content, and pending interactions as needed. The `/permission` and `/question`
+list APIs recover requests missed by SSE.
 
 `permission.asked` and `question.asked` insert requests under their `sessionID`; reply and rejection events remove them. Opening or refreshing a session reconciles both maps with the server.
 

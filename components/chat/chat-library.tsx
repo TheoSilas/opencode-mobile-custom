@@ -33,7 +33,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
     favoriteSessions, isFavoriteSession, openSession, openSessionInProject, refreshArchivedSessions,
     renameSession, restoreSession, sessionPreviewById, sessionStatuses, sessions, shareSession,
     toggleFavoriteSession, unshareSession,
-    activeSessions, refreshActiveSessions,
+    activeSessions: activeSessionsValue,
   } = useSessions();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const { serverCapabilities } = useConnection();
@@ -51,7 +51,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
   }, [visible]);
   const needle = query.trim().toLowerCase();
   const matches = (title: string, detail = '') => `${title} ${detail}`.toLowerCase().includes(needle);
-  const activeSessionIds = new Set(activeSessions.map((session) => session.sessionId));
+  const activeSessionIds = new Set(activeSessionsValue.list.map((session) => session.sessionId));
   const visibleSessions = sessions.filter((session) => !chatPreferences.hideSubagentChats || !session.parentID)
     .filter((session) => !activeSessionIds.has(session.id))
     .filter((session) => matches(session.title || t('chat:library.untitledChat'), sessionPreviewById[session.id] || ''))
@@ -60,7 +60,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
       return priority(left) - priority(right) || right.time.updated - left.time.updated;
     });
   const visibleFavorites = favoriteSessions.filter((favorite) => matches(favorite.title || t('chat:library.untitledChat'), favorite.projectPath));
-  const visibleActiveSessions = activeSessions.filter((session) => matches(session.title || t('chat:library.untitledChat'), session.projectPath));
+  const visibleActiveSessions = activeSessionsValue.list.filter((session) => matches(session.title || t('chat:library.untitledChat'), session.projectPath));
   const visibleArchived = archivedSessions.filter((session) => matches(session.title || t('chat:library.untitledChat'), session.directory));
 
   function confirm(title: string, message: string, action: string, run: () => void) {
@@ -117,7 +117,14 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
   };
 
   // Cross-workspace running/recent sessions are connection-scoped, not
-  // workspace-scoped, so they are re-seeded whenever the overlay opens.
+  // workspace-scoped, so they are re-seeded whenever the overlay opens. The
+  // visibility signal also lets the provider stop its snapshot poll when the
+  // library is closed. The two effects read the stable setter/refresh so a
+  // snapshot update cannot retrigger this effect.
+  const { setVisible: setActiveSessionsVisible, refresh: refreshActiveSessions } = activeSessionsValue;
+  useEffect(() => {
+    setActiveSessionsVisible(visible);
+  }, [setActiveSessionsVisible, visible]);
   useEffect(() => {
     if (!visible) return;
     void refreshActiveSessions().catch(() => undefined);

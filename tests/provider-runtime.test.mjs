@@ -86,8 +86,8 @@ runtime.mount(realtime.useOpencodeRealtime, inputs); await runtime.settle();
 wake({ directory: '/repo', payload: { type: 'server.connected', properties: {} } }); await runtime.settle();
 assert.equal(runtime.value.eventStreamStatus, 'connected'); assert.equal(sessionsRefreshed, 1); assert.equal(pendingRefreshed, 1);
 assert.equal(runtime.countTimers(5000), 0, 'idle connected SSE needs no safety poll');
-runtime.update({ busy: true }); runtime.fire(5000); await runtime.settle(); assert.equal(sessionsRefreshed, 2);
-heldRefresh = deferred(); runtime.fire(5000); await runtime.settle(); runtime.fire(5000); await runtime.settle();
+runtime.update({ busy: true }); runtime.fire(10000); await runtime.settle(); assert.equal(sessionsRefreshed, 2);
+heldRefresh = deferred(); runtime.fire(10000); await runtime.settle(); runtime.fire(10000); await runtime.settle();
 assert.equal(sessionsRefreshed, 3, 'slow reconciliation cannot overlap with another tick');
 heldRefresh.resolve(); heldRefresh = undefined; await runtime.settle();
 runtime.update({ refreshMessages: async () => {} }); await runtime.settle(); assert.equal(subscriptions, 1, 'changing action identities must not reopen SSE');
@@ -293,6 +293,7 @@ const pruneContext = {
   setMessagesBySession: (update) => { cachedMessages = update(cachedMessages); },
   setDiffsBySession: (update) => { cachedDiffs = update(cachedDiffs); },
   setTodosBySession: (update) => { cachedTodos = update(cachedTodos); },
+  pruneTranscript: () => {},
 };
 runInNewContext(ts.transpileModule(pruneEffect, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, pruneContext);
 prune();

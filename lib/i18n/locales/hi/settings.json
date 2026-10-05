@@ -231,7 +231,10 @@
     "subsystemsLsp": "LSP {{value}}",
     "subsystemsFormatters": "फ़ॉर्मेटर {{value}}",
     "notAvailable": "लागू नहीं",
-    "refresh": "निदान रीफ़्रेश करें"
+    "refresh": "निदान रीफ़्रेश करें",
+    "networkUsage": "नेटवर्क उपयोग",
+    "networkUsageValue": "आज {{requests}} अनुरोध · {{size}}",
+    "networkUsageReset": "रीसेट"
   },
   "mcp": {
     "title": "MCP सर्वर",

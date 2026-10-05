@@ -97,6 +97,9 @@ type ChatContentProps = {
   diffTurns: DiffTurn[];
   displayTranscript: TranscriptEntry[];
   flatTranscript: boolean;
+  hasOlderMessages: boolean;
+  isLoadingOlderMessages: boolean;
+  onLoadOlderMessages: () => void;
   slim: boolean;
   transcriptFontSize: number;
   expandedDiffId?: string;
@@ -146,6 +149,9 @@ export function ChatContent({
   diffTurns,
   displayTranscript,
   flatTranscript,
+  hasOlderMessages,
+  isLoadingOlderMessages,
+  onLoadOlderMessages,
   slim,
   transcriptFontSize,
   expandedDiffId,
@@ -231,6 +237,8 @@ export function ChatContent({
         keyboardShouldPersistTaps="handled"
         keyExtractor={(entry) => `${entry.id}-${entry.createdAt}`}
         maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION}
+        onStartReached={hasOlderMessages ? onLoadOlderMessages : undefined}
+        onStartReachedThreshold={0.5}
         onContentSizeChange={() => {
           if (!shouldPositionInitialTranscriptRef.current || displayTranscript.length === 0) {
             return;
@@ -261,14 +269,23 @@ export function ChatContent({
             />
           </View>
         )}
-        ListHeaderComponent={connection.status === 'error' ? (
-          <Card mode="contained" style={[styles.noticeCard, styles.transcriptItem, { backgroundColor: palette.surface }]}>
-            <Card.Content>
-              <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:content.connectionIssue')}</Text>
-              <Text variant="bodyMedium" style={{ color: palette.muted }}>{connection.message}</Text>
-            </Card.Content>
-          </Card>
-        ) : null}
+        ListHeaderComponent={(
+          <View>
+            {isLoadingOlderMessages ? (
+              <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <ActivityIndicator color={palette.tint} />
+              </View>
+            ) : null}
+            {connection.status === 'error' ? (
+              <Card mode="contained" style={[styles.noticeCard, styles.transcriptItem, { backgroundColor: palette.surface }]}>
+                <Card.Content>
+                  <Text variant="titleMedium" style={{ color: palette.text }}>{t('chat:content.connectionIssue')}</Text>
+                  <Text variant="bodyMedium" style={{ color: palette.muted }}>{connection.message}</Text>
+                </Card.Content>
+              </Card>
+            ) : null}
+          </View>
+        )}
         ListEmptyComponent={isRefreshingMessages && currentSessionId ? (
           <TranscriptSkeleton palette={palette} />
         ) : (

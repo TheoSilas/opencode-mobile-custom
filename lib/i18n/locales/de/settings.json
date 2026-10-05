@@ -231,7 +231,10 @@
     "subsystemsLsp": "LSP {{value}}",
     "subsystemsFormatters": "Formatierer {{value}}",
     "notAvailable": "k. A.",
-    "refresh": "Diagnose aktualisieren"
+    "refresh": "Diagnose aktualisieren",
+    "networkUsage": "Netzwerknutzung",
+    "networkUsageValue": "{{requests}} Anfragen · {{size}} heute",
+    "networkUsageReset": "Zurücksetzen"
   },
   "mcp": {
     "title": "MCP-Server",

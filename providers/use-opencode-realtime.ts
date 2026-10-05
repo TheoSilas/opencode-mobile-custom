@@ -6,7 +6,7 @@ type RealtimeActions = {
   onEvent: (event: GlobalEvent['payload']) => void;
   refreshSessions: (silent: boolean) => Promise<unknown>;
   refreshPendingInteractions: () => Promise<unknown>;
-  refreshMessages: (sessionId: string, silent: boolean) => Promise<unknown>;
+  refreshMessages: (sessionId: string, silent: boolean, options?: { full?: boolean }) => Promise<unknown>;
   refreshSessionDiff: (sessionId: string, silent: boolean) => Promise<unknown>;
   refreshSessionTodos: (sessionId: string) => Promise<unknown>;
 };
@@ -31,13 +31,13 @@ export function useOpencodeRealtime({ catalogClient, activeProjectPath, connecte
     latest.current = { ...actions, currentSessionId, conversationSessionId };
   });
   const inFlight = useRef<Promise<unknown> | undefined>(undefined);
-  const reconcile = useCallback(() => {
+  const reconcile = useCallback((full = false) => {
     if (inFlight.current) return inFlight.current;
     const next = latest.current;
     const sessions = new Set([next.currentSessionId, next.conversationSessionId].filter((id): id is string => Boolean(id)));
     const result = Promise.allSettled([
       next.refreshSessions(true), next.refreshPendingInteractions(),
-      ...[...sessions].flatMap((id) => [next.refreshMessages(id, true), next.refreshSessionDiff(id, true), next.refreshSessionTodos(id)]),
+      ...[...sessions].flatMap((id) => [next.refreshMessages(id, true, full ? { full: true } : undefined), next.refreshSessionDiff(id, true), next.refreshSessionTodos(id)]),
     ]).finally(() => { if (inFlight.current === result) inFlight.current = undefined; });
     inFlight.current = result;
     return result;
@@ -66,7 +66,7 @@ export function useOpencodeRealtime({ catalogClient, activeProjectPath, connecte
             retryDelay = 1000;
             if (!reconciled) {
               reconciled = true;
-              void reconcile();
+              void reconcile(true);
             }
             if (envelope.directory === activeProjectPath || !envelope.directory) latest.current.onEvent(envelope.payload);
           }
@@ -92,7 +92,12 @@ export function useOpencodeRealtime({ catalogClient, activeProjectPath, connecte
 
   useEffect(() => {
     if (!connected || !activeProjectPath || !shouldPoll(eventStreamStatus === 'connected', busy)) return;
-    const interval = setInterval(() => { void reconcile(); }, 5000);
+    // While SSE is healthy the loop is a safety net and runs slower; without a
+    // stream it is the primary transport. Prompt completion across workspaces is
+    // additionally covered by the post-send transcript refresh, so a slower
+    // connected cadence cannot strand a finished turn.
+    const intervalMs = eventStreamStatus === 'connected' ? 10000 : 5000;
+    const interval = setInterval(() => { void reconcile(); }, intervalMs);
     return () => clearInterval(interval);
   }, [activeProjectPath, busy, connected, eventStreamStatus, reconcile]);
 

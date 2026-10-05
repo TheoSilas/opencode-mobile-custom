@@ -16,6 +16,7 @@ import { TextInput } from '@/components/ui/text-input';
 import { renderProviderIcon } from '@/components/ui/provider-icon';
 import { Colors, Fonts } from '@/constants/theme';
 import { formatTimestamp } from '@/lib/opencode/format';
+import { formatDataUsage, resetDataUsage, useDataUsage } from '@/lib/opencode/data-usage';
 import type { NotificationDebugStatus } from '@/lib/notifications';
 import type { VoiceCapabilities } from '@/lib/voice/capabilities';
 import type { SpeechVoiceOption } from '@/lib/voice/speech-output';
@@ -43,6 +44,7 @@ export function DiagnosticsSection({
   palette: Palette;
 }) {
   const { t } = useTranslation();
+  const dataUsage = useDataUsage();
   const health = diagnostics?.health.available ? diagnostics.health.data : undefined;
   const mcpCount = diagnostics?.mcp.available ? Object.keys(diagnostics.mcp.data).length : undefined;
   const lspCount = lspAvailable && diagnostics?.lsp.available ? diagnostics.lsp.data.length : undefined;
@@ -57,7 +59,14 @@ export function DiagnosticsSection({
         <List.Item title={t('settings:diagnostics.server')} description={health ? t('settings:diagnostics.openCodeVersion', { version: health.version }) : t('settings:diagnostics.healthUnavailable')} right={() => <Chip compact>{health?.healthy ? t('settings:diagnostics.healthy') : t('common:labels.unknown')}</Chip>} />
         <List.Item title={t('settings:diagnostics.realtimeUpdates')} description={eventStreamStatus === 'connected' ? t('settings:diagnostics.eventStreamConnected') : t('settings:diagnostics.pollingFallback')} right={() => <Chip compact>{eventStreamStatus}</Chip>} />
         <List.Item title={t('settings:diagnostics.subsystems')} description={subsystemParts.join(' • ')} />
-        <Button mode="outlined" onPress={onRefresh}>{t('settings:diagnostics.refresh')}</Button>
+        <List.Item
+          title={t('settings:diagnostics.networkUsage')}
+          description={t('settings:diagnostics.networkUsageValue', { requests: dataUsage.requests, size: formatDataUsage(dataUsage.bytes) })}
+        />
+        <View style={styles.diagnosticsActions}>
+          <Button mode="outlined" onPress={onRefresh}>{t('settings:diagnostics.refresh')}</Button>
+          <Button mode="text" onPress={resetDataUsage}>{t('settings:diagnostics.networkUsageReset')}</Button>
+        </View>
     </View>
   );
 }
@@ -647,6 +656,7 @@ export function SettingSelectField<T extends string>({
 const styles = StyleSheet.create({
   card: { borderRadius: 16 },
   section: { gap: 14, paddingBottom: 8 },
+  diagnosticsActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   voiceCheckCard: { borderRadius: 16, borderWidth: 1, gap: 8, padding: 14 },
   voiceCheckRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   title: { fontWeight: '600' },

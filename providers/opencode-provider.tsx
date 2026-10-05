@@ -44,10 +44,9 @@ import {
 } from '@/lib/opencode/client';
 import {
   deriveTodosFromMessages,
-  mergeSessionMessageRecords,
   type SessionMessageRecord,
 } from '@/lib/opencode/format';
-import { aggregateSessionUsage, getLatestAssistantTurnUsage } from '@/lib/opencode/usage';
+import { aggregateUsageSteps, getLatestAssistantTurnUsage } from '@/lib/opencode/usage';
 import { createFullFilePatch } from '@/lib/opencode/workspace-patch';
 import {
   findMatchingProfile,
@@ -138,6 +137,7 @@ import { useConnectionProfiles } from '@/providers/use-connection-profiles';
 import { useOpencodeRealtime } from '@/providers/use-opencode-realtime';
 import { useConversationState } from '@/providers/use-conversation-state';
 import { useActiveSessions } from '@/providers/use-active-sessions';
+import { useTranscriptState } from '@/providers/use-transcript-state';
 import { useMcpState } from '@/providers/use-mcp-state';
 import { useOpencodePersistence } from '@/providers/use-opencode-persistence';
 import { useTerminalState } from '@/providers/use-terminal-state';
@@ -147,7 +147,6 @@ import {
   archiveSession as svcArchiveSession,
   listArchivedSessions as svcListArchivedSessions,
   listSessions as svcListSessions,
-  getSessionMessages as svcGetSessionMessages,
   getSessionDiff as svcGetSessionDiff,
   getSessionTodos as svcGetSessionTodos,
   deleteSession as svcDeleteSession,
@@ -236,6 +235,9 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const [isRefreshingWorkspaceCatalog, setIsRefreshingWorkspaceCatalog] = useState(false);
   // browsing removed
   const [isBootstrappingChat, setIsBootstrappingChat] = useState(false);
+  // The Chat Library signals visibility so the cross-workspace snapshot poll
+  // stays idle while the library is closed.
+  const [activeSessionsVisible, setActiveSessionsVisible] = useState(false);
   const [sendingState, setSendingState] = useState<{ sessionId?: string; active: boolean }>({ active: false });
   const [promptError, setPromptError] = useState<{ message: string; occurredAt: number; sessionId?: string }>();
   const pendingNotificationsRef = useRef<Map<string, TrackedPendingNotification>>(new Map());
@@ -285,9 +287,10 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const bootstrapPromiseRef = useRef<Promise<string | undefined> | null>(null);
   const bootstrapTokenRef = useRef<object | undefined>(undefined);
   const sessionRefreshTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const sessionRefreshOptionsRef = useRef<Record<string, { messages?: boolean; diff?: boolean; todos?: boolean; sessions?: boolean }>>({});
+  const sessionRefreshOptionsRef = useRef<Record<string, { messages?: boolean; fullMessages?: boolean; diff?: boolean; todos?: boolean; sessions?: boolean }>>({});
   const diffScopeBySessionRef = useRef<Record<string, DiffScope>>({});
   const selectedDiffMessageBySessionRef = useRef<Record<string, string | undefined>>({});
+  const messagesBySessionRef = useRef(messagesBySession);
   // Latest-ref holders for callbacks that are defined after the domain hooks
   // below. The hooks only read them from event handlers, never during render.
   const refreshWorkspaceCatalogRef = useRef<(silent?: boolean) => Promise<void>>(async () => undefined);
@@ -304,6 +307,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   currentSessionIdRef.current = currentSessionId;
   diffScopeBySessionRef.current = diffScopeBySession;
   selectedDiffMessageBySessionRef.current = selectedDiffMessageBySession;
+  messagesBySessionRef.current = messagesBySession;
 
   const { isHydrated } = useOpencodePersistence({
     defaultChatPreferences,
@@ -401,6 +405,17 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   );
 
   const {
+    messageWindows,
+    loadingOlderBySession,
+    usageStepsBySession,
+    todoRecordsBySession,
+    refreshMessages,
+    loadOlderMessages,
+    reset: resetTranscript,
+    prune: pruneTranscript,
+  } = useTranscriptState({ client, isCurrentClient, messagesBySession, setMessagesBySession, setIsRefreshingMessages });
+
+  const {
     terminals,
     terminalShells,
     activeTerminalId,
@@ -460,6 +475,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     connected: connection.status === 'connected',
     currentSessionId,
     hideSubagentChats: chatPreferences.hideSubagentChats === true,
+    visible: activeSessionsVisible,
   });
 
   // Seed the cross-workspace active-session snapshot on connect and after a
@@ -488,6 +504,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     setSessions([]);
     setArchivedSessions([]);
     setSessionStatuses({});
+    resetTranscript();
     setCommands([]);
     setCurrentConfig(undefined);
     setAvailableProviders([]);
@@ -503,7 +520,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     resetMcpState();
     resetTerminal();
     resetWorktrees();
-  }, [resetMcpState, resetTerminal, resetWorktrees]);
+  }, [resetMcpState, resetTerminal, resetTranscript, resetWorktrees]);
 
   // browseServerPath stub removed
 
@@ -617,38 +634,6 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     [fetchSessions],
   );
 
-  const refreshMessages = useCallback(
-    async (sessionId: string, silent = false) => {
-      if (!silent) {
-        setIsRefreshingMessages(true);
-      }
-
-      try {
-        const data = await svcGetSessionMessages(client, sessionId);
-        if (!isCurrentClient(client)) {
-          return data;
-        }
-        setMessagesBySession((current) => {
-          const previous = current[sessionId] ?? [];
-          const merged = mergeSessionMessageRecords(previous, data);
-          // Returning the same state reference when nothing changed lets React
-          // skip the re-render that downstream useMemos key off this array for.
-          if (merged === previous) {
-            return current;
-          }
-          return { ...current, [sessionId]: merged };
-        });
-
-        return data;
-      } finally {
-        if (!silent) {
-          setIsRefreshingMessages(false);
-        }
-      }
-    },
-    [client, isCurrentClient],
-  );
-
   const refreshSessionDiff = useCallback(
     async (sessionId: string, silent = false, messageId?: string) => {
       if (!silent) {
@@ -657,7 +642,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
 
       try {
         const targetMessageId = messageId ?? selectedDiffMessageBySessionRef.current[sessionId];
-        const data = await svcGetSessionDiff(client, sessionId, targetMessageId);
+        const data = await svcGetSessionDiff(client, sessionId, targetMessageId, messagesBySessionRef.current[sessionId]);
         if (!isCurrentClient(client)) {
           return data;
         }
@@ -771,7 +756,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   }, [client, isCurrentClient]);
 
   const scheduleSessionRefresh = useCallback(
-    (sessionId: string, options?: { messages?: boolean; diff?: boolean; todos?: boolean; sessions?: boolean; delayMs?: number }) => {
+    (sessionId: string, options?: { messages?: boolean; fullMessages?: boolean; diff?: boolean; todos?: boolean; sessions?: boolean; delayMs?: number }) => {
       if (!sessionId) {
         return;
       }
@@ -784,6 +769,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       const pending = sessionRefreshOptionsRef.current[sessionId] || {};
       sessionRefreshOptionsRef.current[sessionId] = {
         messages: pending.messages || options?.messages,
+        fullMessages: pending.fullMessages || options?.fullMessages,
         diff: pending.diff || options?.diff,
         todos: pending.todos || options?.todos,
         sessions: pending.sessions || options?.sessions,
@@ -798,7 +784,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
           void refreshSessions(true).catch(() => undefined);
         }
         if (mergedOptions.messages) {
-          void refreshMessages(sessionId, true).catch(() => undefined);
+          void refreshMessages(sessionId, true, mergedOptions.fullMessages ? { full: true } : undefined).catch(() => undefined);
         }
         if (mergedOptions.diff) {
           void refreshSessionDiff(sessionId, true).catch(() => undefined);
@@ -1039,12 +1025,14 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
 
   const revertSession = useCallback(async (sessionId: string, messageId: string) => {
     await svcRevertSession(client, sessionId, messageId);
-    await Promise.all([refreshSessions(true), refreshMessages(sessionId, true), refreshSessionDiff(sessionId, true)]);
+    // Revert removes messages server-side, so the transcript must be rebuilt
+    // authoritatively rather than tail-merged.
+    await Promise.all([refreshSessions(true), refreshMessages(sessionId, true, { full: true }), refreshSessionDiff(sessionId, true)]);
   }, [client, refreshMessages, refreshSessionDiff, refreshSessions]);
 
   const unrevertSession = useCallback(async (sessionId: string) => {
     await svcUnrevertSession(client, sessionId);
-    await Promise.all([refreshSessions(true), refreshMessages(sessionId, true), refreshSessionDiff(sessionId, true)]);
+    await Promise.all([refreshSessions(true), refreshMessages(sessionId, true, { full: true }), refreshSessionDiff(sessionId, true)]);
   }, [client, refreshMessages, refreshSessionDiff, refreshSessions]);
 
   const refreshServerFeatures = useCallback(async () => {
@@ -2105,7 +2093,12 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
         if (!isCurrentClient(client)) {
           return true;
         }
-        setTimeout(() => void refreshSessions(true).catch(() => undefined), 5000);
+        // Delayed safety refresh. The server may finish after promptAsync
+        // returns, and a completion across workspaces can be missed when the
+        // event directory does not match the active project. Re-read the
+        // transcript once after the typical completion window so the busy
+        // safety poll can run at a slower, lower-data cadence.
+        scheduleSessionRefresh(sessionId, { sessions: true, messages: true, fullMessages: true, diff: true, todos: true, delayMs: 5000 });
 
         setCurrentSessionId(sessionId);
         // A new user turn supersedes any earlier turn the diff surface was pinned to.
@@ -2153,7 +2146,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
         ));
       }
     },
-    [activeProjectPath, availableModels, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, refreshMessages, refreshSessionDiff, refreshSessionTodos, refreshSessions, scheduleSessionRefresh, sessions, summarizeSessionTitle],
+    [activeProjectPath, availableModels, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, summarizeSessionTitle],
   );
 
   const abortSession = useCallback(
@@ -2252,14 +2245,18 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
         scheduleSessionRefresh(event.properties.sessionID, { messages: true });
         return;
       }
-      case 'message.removed':
+      case 'message.removed': {
+        // Removal is destructive: rebuild the transcript rather than tail-merge.
+        scheduleSessionRefresh(event.properties.sessionID, { messages: true, fullMessages: true });
+        return;
+      }
       case 'message.part.updated':
       case 'message.part.removed': {
         scheduleSessionRefresh(event.properties.sessionID, { messages: true });
         return;
       }
       case 'session.compacted': {
-        scheduleSessionRefresh(event.properties.sessionID, { sessions: true, messages: true, diff: true, todos: true });
+        scheduleSessionRefresh(event.properties.sessionID, { sessions: true, messages: true, fullMessages: true, diff: true, todos: true });
         return;
       }
       case 'catalog.updated':
@@ -2487,7 +2484,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       }
       return next;
     });
-  }, [currentSessionId, conversationSessionId, isBootstrappingChat, sessionStatuses]);
+    pruneTranscript(keepIds, keepIds.size + 1);
+  }, [currentSessionId, conversationSessionId, isBootstrappingChat, pruneTranscript, sessionStatuses]);
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === currentSessionId),
@@ -2547,9 +2545,11 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       return serverTodos;
     }
 
-    const messages = messagesBySession[currentSessionId];
-    return messages ? deriveTodosFromMessages(messages) : [];
-  }, [currentSessionId, messagesBySession, serverContract, todosBySession]);
+    // The transcript window is bounded, so derive from the accumulated todo
+    // records rather than the currently loaded messages.
+    const todoRecords = todoRecordsBySession[currentSessionId];
+    return todoRecords ? deriveTodosFromMessages(todoRecords) : [];
+  }, [currentSessionId, serverContract, todoRecordsBySession, todosBySession]);
   const currentPendingPermissions = useMemo(
     () => getCurrentPendingRequests(currentSessionId, sendingState.sessionId, pendingPermissionsBySession),
     [currentSessionId, pendingPermissionsBySession, sendingState.sessionId],
@@ -2563,7 +2563,10 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     () => Object.fromEntries(availableModels.flatMap((model) => model.pricing ? [[`${model.providerID}/${model.modelID}`, model.pricing] as const] : [])),
     [availableModels],
   );
-  const currentUsage = useMemo(() => aggregateSessionUsage(currentMessages, usagePricingByModel), [currentMessages, usagePricingByModel]);
+  const currentUsage = useMemo(
+    () => aggregateUsageSteps(usageStepsBySession[currentSessionId ?? ''] ?? [], usagePricingByModel),
+    [currentSessionId, usageStepsBySession, usagePricingByModel],
+  );
   const latestAssistantTurnUsage = useMemo(
     () => getLatestAssistantTurnUsage(currentMessages, usagePricingByModel),
     [currentMessages, usagePricingByModel],
@@ -2597,14 +2600,24 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     [projects, activeProjectPath, activeProject, selectProject, addWorkspace, serverProjects, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshServerFeatures, workspaceFiles, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, searchWorkspaceFiles, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree],
   );
 
+  const activeSessionsValue = useMemo(
+    () => ({ list: activeSessions, refresh: refreshActiveSessions, setVisible: setActiveSessionsVisible }),
+    [activeSessions, refreshActiveSessions],
+  );
   const sessionValue = useMemo<SessionContextValue>(
-    () => ({ sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, activeSessions, refreshActiveSessions, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject }),
-    [sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, activeSessions, refreshActiveSessions, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject],
+    () => ({ sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, activeSessions: activeSessionsValue, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject }),
+    [sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, activeSessionsValue, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject],
   );
 
+  const hasOlderMessages = currentSessionId ? messageWindows[currentSessionId]?.hasMore === true : false;
+  const isLoadingOlderMessages = currentSessionId ? loadingOlderBySession[currentSessionId] === true : false;
+  const transcriptPaging = useMemo(
+    () => ({ loadOlder: loadOlderMessages, hasOlder: hasOlderMessages, isLoadingOlder: isLoadingOlderMessages }),
+    [hasOlderMessages, isLoadingOlderMessages, loadOlderMessages],
+  );
   const chatValue = useMemo<ChatContextValue>(
-    () => ({ currentMessages, currentTranscript, currentUsage, latestAssistantTurnUsage, currentDiffs, currentDiffScope, setDiffScope, diffTurns, selectedDiffMessageId, selectDiffMessage, refreshDiffs, currentTodos, currentPendingPermissions, currentPendingQuestions, isRefreshingMessages, isRefreshingDiffs, isBootstrappingChat, refreshCurrentSession, refreshCurrentTodos, replyToPermission, replyToQuestion, rejectQuestion, commands, executeCommand, sendPrompt, abortSession, setAutoApprove, sendingState, promptError, clearPromptError }),
-    [currentMessages, currentTranscript, currentUsage, latestAssistantTurnUsage, currentDiffs, currentDiffScope, setDiffScope, diffTurns, selectedDiffMessageId, selectDiffMessage, refreshDiffs, currentTodos, currentPendingPermissions, currentPendingQuestions, isRefreshingMessages, isRefreshingDiffs, isBootstrappingChat, refreshCurrentSession, refreshCurrentTodos, replyToPermission, replyToQuestion, rejectQuestion, commands, executeCommand, sendPrompt, abortSession, setAutoApprove, sendingState, promptError, clearPromptError],
+    () => ({ currentMessages, currentTranscript, currentUsage, latestAssistantTurnUsage, currentDiffs, currentDiffScope, setDiffScope, diffTurns, selectedDiffMessageId, selectDiffMessage, refreshDiffs, currentTodos, currentPendingPermissions, currentPendingQuestions, isRefreshingMessages, isRefreshingDiffs, isBootstrappingChat, refreshCurrentSession, refreshCurrentTodos, replyToPermission, replyToQuestion, rejectQuestion, commands, executeCommand, sendPrompt, abortSession, setAutoApprove, sendingState, promptError, clearPromptError, transcriptPaging }),
+    [currentMessages, currentTranscript, currentUsage, latestAssistantTurnUsage, currentDiffs, currentDiffScope, setDiffScope, diffTurns, selectedDiffMessageId, selectDiffMessage, refreshDiffs, currentTodos, currentPendingPermissions, currentPendingQuestions, isRefreshingMessages, isRefreshingDiffs, isBootstrappingChat, refreshCurrentSession, refreshCurrentTodos, replyToPermission, replyToQuestion, rejectQuestion, commands, executeCommand, sendPrompt, abortSession, setAutoApprove, sendingState, promptError, clearPromptError, transcriptPaging],
   );
 
   const conversationValue = useMemo<ConversationContextValue>(
