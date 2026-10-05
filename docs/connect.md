@@ -29,6 +29,13 @@ profiles remain stored but cannot reconnect through an old control plane. Use
 Restore on the new service or pair with a fresh connector QR to recover access.
 Machine URLs continue to come directly from backend responses.
 
+The public catalog is cached in memory for five minutes per trusted environment;
+concurrent reads share a request and callers receive independent copies. Failed
+refreshes are not cached. Concurrent claims of the same native proof in the same
+environment share verification, but completed grants are never cached. Existing
+secure-session expiry, explicit Restore and server-rejection recovery remain
+authoritative; this does not change tunnel traffic or realtime behavior.
+
 Release the updated app only after both new endpoints are available with the
 existing subscription and pairing contracts. DNS, Worker publishing and store
 notification configuration are managed in the separate Cloud Link service repo.

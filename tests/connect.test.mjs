@@ -143,12 +143,44 @@ try {
   assert.equal(calls.at(-1).init.headers.Authorization, undefined);
   assert.deepEqual(JSON.parse(calls.at(-1).init.body), { store: 'apple', signedTransaction: 'native.jws.proof' });
   assert.ok(!calls.at(-1).address.includes('native.jws.proof'));
+  const beforeClaims = calls.length;
+  const sharedClaims = await Promise.all([1, 2, 3].map(() => connect.claimConnectSubscription(pairing.controlPlaneUrl, { store: 'apple', signedTransaction: 'native.jws.proof' })));
+  assert.equal(calls.length, beforeClaims + 1, 'Concurrent recovery shares one verification request.');
+  sharedClaims[0].entitlements.length = 0;
+  assert.deepEqual(sharedClaims[1].entitlements, ['connect'], 'Consumers do not share mutable session arrays.');
+  await connect.claimConnectSubscription(pairing.controlPlaneUrl, { store: 'apple', signedTransaction: 'native.jws.proof' });
+  assert.equal(calls.length, beforeClaims + 2, 'Completed claims are not cached.');
+  status = 403;
+  response = { error: 'no active subscription' };
+  const beforeFailedClaims = calls.length;
+  const denied = await Promise.allSettled([1, 2].map(() => connect.claimConnectSubscription(pairing.controlPlaneUrl, { store: 'apple', signedTransaction: 'native.jws.proof' })));
+  assert.ok(denied.every((result) => result.status === 'rejected'));
+  assert.equal(calls.length, beforeFailedClaims + 1);
+  status = 200;
+  response = session;
+  await connect.claimConnectSubscription(pairing.controlPlaneUrl, { store: 'apple', signedTransaction: 'native.jws.proof' });
+  assert.equal(calls.length, beforeFailedClaims + 2, 'Rejected shared claims remain retryable.');
   const catalog = { plans: [{ id: 'connect', entitlements: ['connect'], products: [{ store: 'apple', productId: 'test.apple' }, { store: 'google', productId: 'test.google', basePlanId: 'monthly', offerIds: ['trial'] }] }] };
   response = catalog;
+  const beforeCatalog = calls.length;
+  const catalogs = await Promise.all([1, 2].map(() => connect.getConnectCatalog(pairing.controlPlaneUrl)));
+  assert.deepEqual(catalogs[0], catalog);
+  assert.equal(calls.length, beforeCatalog + 1, 'Concurrent catalog reads share one request.');
+  catalogs[0].plans.length = 0;
   assert.deepEqual(await connect.getConnectCatalog(pairing.controlPlaneUrl), catalog);
+  assert.equal(calls.length, beforeCatalog + 1, 'Cached catalog is protected from consumer mutation.');
+  await connect.getConnectCatalog(customControlPlane);
+  assert.equal(calls.length, beforeCatalog + 2, 'Production and staging catalogs are separate.');
   assert.equal(calls.at(-1).init.headers.Authorization, undefined);
   response = { plans: [catalog.plans[0], catalog.plans[0]] };
-  await assert.rejects(connect.getConnectCatalog(pairing.controlPlaneUrl), /Ambiguous/);
+  const originalNow = Date.now;
+  try {
+    const expired = originalNow() + 5 * 60_000 + 1;
+    Date.now = () => expired;
+    await assert.rejects(connect.getConnectCatalog(pairing.controlPlaneUrl), /Ambiguous/);
+    response = catalog;
+    assert.deepEqual(await connect.getConnectCatalog(pairing.controlPlaneUrl), catalog, 'Failed refreshes can be retried.');
+  } finally { Date.now = originalNow; }
   assert.equal(new connect.ConnectApiError(409, { machine_id: 'machine-1' }).machineId, 'machine-1');
   assert.equal(new connect.ConnectApiError(503, { machine_id: 'machine-1' }).machineId, 'machine-1');
   status = 204;
@@ -327,6 +359,13 @@ console.log('Subscription catalog, native proof, DEFERRED replacement, secure gr
 // once verified, secure-save/finalization checkpoints must stay in their scope.
 for (const platform of ['apple', 'google']) {
   for (const scenario of ['routing', 'claim', 'restore', 'secure', 'finish']) {
+    // Each scenario represents a fresh app process, including its catalog cache.
+    const freshConnectUri = `${connectUri}#${platform}-${scenario}`;
+    const connect = await import(freshConnectUri);
+    const subscriptionService = await import(await moduleUri('../providers/services/connect-subscription-service.ts', [
+      [/from '@\/lib\/connect'/g, `from "${freshConnectUri}"`],
+      [/from '@\/lib\/connect-store'/g, `from "${storeUri}"`],
+    ]));
     const failure = scenario === 'restore' ? 'claim' : scenario;
     globalThis.__connectPlatform = platform === 'apple' ? 'ios' : 'android';
     globalThis.__connectSecrets.clear();
@@ -447,6 +486,12 @@ console.log('Apple/Google provider environment correction, checkpoint isolation,
 // Exercise the real QR continuation and Google's production -> staging routing.
 for (const platform of ['apple', 'google']) {
   for (const scenario of ['renewed', 'expired', 'missing', 'rejected-again', 'unrelated-403', 'invalid-qr']) {
+    const freshConnectUri = `${connectUri}#${platform}-${scenario}`;
+    const connect = await import(freshConnectUri);
+    const subscriptionService = await import(await moduleUri('../providers/services/connect-subscription-service.ts', [
+      [/from '@\/lib\/connect'/g, `from "${freshConnectUri}"`],
+      [/from '@\/lib\/connect-store'/g, `from "${storeUri}"`],
+    ]));
     globalThis.__connectPlatform = platform === 'apple' ? 'ios' : 'android';
     globalThis.__connectSecrets.clear();
     const staging = connect.CONNECT_STAGING_URL;

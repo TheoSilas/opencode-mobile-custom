@@ -211,7 +211,26 @@ async function connectRequest(controlPlaneUrl: string, path: string, token?: str
   } finally { clearTimeout(timer); }
 }
 
+const catalogCache = new Map<string, { expiresAt: number; value: ConnectCatalog }>();
+const catalogRequests = new Map<string, Promise<ConnectCatalog>>();
+const subscriptionClaims = new Map<string, Promise<ConnectSession>>();
+
 export async function getConnectCatalog(controlPlaneUrl: string): Promise<ConnectCatalog> {
+  const base = requireControlPlane(controlPlaneUrl);
+  const cached = catalogCache.get(base);
+  if (cached && cached.expiresAt > Date.now()) return JSON.parse(JSON.stringify(cached.value)) as ConnectCatalog;
+  let pending = catalogRequests.get(base);
+  if (!pending) {
+    pending = fetchConnectCatalog(base).then((value) => {
+      catalogCache.set(base, { value, expiresAt: Date.now() + 5 * 60_000 });
+      return value;
+    }).finally(() => catalogRequests.delete(base));
+    catalogRequests.set(base, pending);
+  }
+  return JSON.parse(JSON.stringify(await pending)) as ConnectCatalog;
+}
+
+async function fetchConnectCatalog(controlPlaneUrl: string): Promise<ConnectCatalog> {
   const value = await connectRequest(controlPlaneUrl, '/v1/subscriptions/catalog') as ConnectCatalog | undefined;
   if (!value || !Array.isArray(value.plans) || !value.plans.length) throw new Error('Cloud Link subscription catalog is unavailable.');
   const identities = new Set<string>();
@@ -228,6 +247,19 @@ export async function getConnectCatalog(controlPlaneUrl: string): Promise<Connec
   }) };
 }
 export async function claimConnectSubscription(controlPlaneUrl: string, proof: ConnectProof) {
+  const base = requireControlPlane(controlPlaneUrl);
+  // Share only concurrent verification. Never cache a granted session or failed proof.
+  const key = JSON.stringify([base, proof.store, proof.store === 'apple' ? proof.signedTransaction : proof.purchaseToken]);
+  let pending = subscriptionClaims.get(key);
+  if (!pending) {
+    pending = verifyConnectSubscription(base, proof).finally(() => subscriptionClaims.delete(key));
+    subscriptionClaims.set(key, pending);
+  }
+  const session = await pending;
+  return { ...session, entitlements: [...session.entitlements] };
+}
+
+async function verifyConnectSubscription(controlPlaneUrl: string, proof: ConnectProof) {
   const response = parseConnectSession(await connectRequest(controlPlaneUrl, '/v1/subscriptions/claim', undefined, 'POST', proof));
   if (!hasConnectEntitlement(response)) throw new Error('The store purchase has no active Cloud Link entitlement.');
   return response;
