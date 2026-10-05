@@ -2,7 +2,14 @@ import { agentToV1, configToV1, findIntegration, providerAuthToV1, providersToV1
 
 const oauthAttempts = new Map<string, { integrationID: string; attemptID: string }>();
 
-export function buildCapabilitiesApi({ api, vcsLocation, ok }: V2Adapter): Record<string, unknown> {
+export function buildCapabilitiesApi({ api, ctx, vcsLocation, ok }: V2Adapter): Record<string, unknown> {
+  const accountAnswers = (values: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(values)
+        .filter(([name, value]) => name !== 'key' && name !== 'token' && value.trim())
+        .map(([name, value]) => [name, value.trim()]),
+    );
+
   return {
     config: {
       get: async () => {
@@ -60,10 +67,45 @@ export function buildCapabilitiesApi({ api, vcsLocation, ok }: V2Adapter): Recor
         if (!integration?.connections.some((connection) => connection.type === 'credential')) {
           integration = await findIntegration(api, parameters.providerID, vcsLocation);
         }
-        const credential = integration?.connections.find((connection) => connection.type === 'credential');
-        if (credential && credential.type === 'credential') {
-          await api.credential.remove({ credentialID: credential.id });
-        }
+        // A provider may hold several credentials (for example a direct key and
+        // a Console OAuth account). Removing credentials must clear all of the
+        // resolved integration's credentials, not just the first.
+        const credentials = integration?.connections.filter((connection) => connection.type === 'credential') ?? [];
+        await Promise.all(credentials.map((credential) => api.credential.remove({ credentialID: credential.id })));
+        return ok(undefined);
+      },
+    },
+    accounts: {
+      list: async () => {
+        const credentials = await ctx.listCredentials();
+        return credentials.map((credential) => ({
+          id: credential.id,
+          providerId: credential.integrationID,
+          label: credential.label,
+          method: credential.value?.type === 'oauth' ? 'oauth' as const : 'key' as const,
+          active: Boolean(credential.active),
+        }));
+      },
+      add: async (providerId: string, values: Record<string, string>, label?: string) => {
+        const integration = await findIntegration(api, providerId, vcsLocation, true);
+        if (!integration) throw new Error('This provider is not available on OpenCode 2.');
+        const key = values.key || values.token || '';
+        const answer = accountAnswers(values);
+        await api.integration.connect.key({
+          ...vcsLocation,
+          integrationID: integration.id,
+          key,
+          ...(label?.trim() ? { label: label.trim() } : {}),
+          ...(Object.keys(answer).length > 0 ? { answer } : {}),
+        });
+        return ok(undefined);
+      },
+      activate: async (credentialId: string) => {
+        await api.credential.activate({ ...vcsLocation, credentialID: credentialId });
+        return ok(undefined);
+      },
+      remove: async (credentialId: string) => {
+        await api.credential.remove({ ...vcsLocation, credentialID: credentialId });
         return ok(undefined);
       },
     },

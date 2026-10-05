@@ -1,6 +1,7 @@
-import type { OpencodeClient, ProviderListResponse } from '@opencode-ai/sdk/v2/client';
+import type { ProviderListResponse } from '@opencode-ai/sdk/v2/client';
 
 import { compareLabels } from '@/lib/compare-labels';
+import type { ProviderAccountInfo, ScopedOpencodeClient } from '@/lib/opencode/client';
 import { getConfiguredProviderIds, toAgentOption, type ModelOption } from '@/providers/opencode-model-selection';
 import { requireData } from '@/providers/services/require-data';
 
@@ -20,7 +21,7 @@ function uniqueById<T extends { id: string }>(items: T[]) {
   });
 }
 
-export async function discoverChatCapabilities(client: OpencodeClient, activeProjectPath?: string) {
+export async function discoverChatCapabilities(client: ScopedOpencodeClient, activeProjectPath?: string) {
   if (!activeProjectPath) {
     return {
       config: undefined,
@@ -33,11 +34,12 @@ export async function discoverChatCapabilities(client: OpencodeClient, activePro
     };
   }
 
-  const [configResponse, providersResponse, providerAuthResponse, agentsResponse] = await Promise.all([
+  const [configResponse, providersResponse, providerAuthResponse, agentsResponse, accounts] = await Promise.all([
     client.config.get(),
     client.provider.list(),
     client.provider.auth(),
     client.app.agents(),
+    client.accounts ? client.accounts.list().catch(() => [] as ProviderAccountInfo[]) : Promise.resolve([] as ProviderAccountInfo[]),
   ]);
 
   const nextConfig = requireData(configResponse.data, 'config request');
@@ -70,13 +72,25 @@ export async function discoverChatCapabilities(client: OpencodeClient, activePro
 
   const configuredProviderIds = getConfiguredProviderIds(nextConfig, providerData.connected, nextModels);
   const configuredModels = nextModels.filter((model) => configuredProviderIds.has(model.providerID));
+  const accountsByProvider = new Map<string, ProviderAccountInfo[]>();
+  accounts.forEach((account) => {
+    const list = accountsByProvider.get(account.providerId) ?? [];
+    list.push(account);
+    accountsByProvider.set(account.providerId, list);
+  });
   const nextProviders = uniqueById(providerData.all
-    .map((provider) => ({
-      id: provider.id,
-      label: provider.name,
-      modelCount: Object.keys(provider.models).length,
-      configured: configuredProviderIds.has(provider.id),
-    }))
+    .map((provider) => {
+      const providerAccounts = accountsByProvider.get(provider.id);
+      return {
+        id: provider.id,
+        label: provider.name,
+        modelCount: Object.keys(provider.models).length,
+        configured: configuredProviderIds.has(provider.id) || Boolean(providerAccounts?.length),
+        ...(providerAccounts?.length
+          ? { accounts: providerAccounts.map(({ id, label, method, active }) => ({ id, label, method, active })) }
+          : {}),
+      };
+    })
     .sort((left, right) => compareLabels(left.label, right.label)));
   const nextAgents = uniqueById(agentData.map(toAgentOption));
 

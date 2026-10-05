@@ -44,6 +44,9 @@
     }
   },
   "providers": {
+    "accounts": "Accounts",
+    "addAccount": "Add account",
+    "removeAccount": "Remove account",
     "apiKey": "Chave de API",
     "pasteApiKey": "Cole sua chave de API",
     "chooseModels": "Escolha quais modelos configurados aparecem no chat. O último modelo que você escolher no chat continua selecionado para novos chats.",

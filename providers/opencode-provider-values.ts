@@ -53,6 +53,9 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     removeProvider,
     startProviderOAuth,
     completeProviderOAuth,
+    addProviderAccount,
+    activateProviderAccount,
+    removeProviderAccount,
     setAutoApprove,
     chatPreferences,
     updateChatPreferences,
@@ -257,8 +260,8 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const capabilitiesValue = useMemo<CapabilitiesContextValue>(
-    () => ({ currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, completeAutomaticProviderOAuth, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth }),
-    [currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, completeAutomaticProviderOAuth, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth],
+    () => ({ currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, completeAutomaticProviderOAuth, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, providerAccounts: { add: addProviderAccount, activate: activateProviderAccount, remove: removeProviderAccount } }),
+    [currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, completeAutomaticProviderOAuth, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, addProviderAccount, activateProviderAccount, removeProviderAccount],
   );
 
   const preferencesValue = useMemo<PreferencesContextValue>(

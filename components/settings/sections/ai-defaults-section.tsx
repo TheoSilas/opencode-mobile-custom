@@ -5,8 +5,9 @@ import { Checkbox, Chip, HelperText, List, Text } from 'react-native-paper';
 import { NativeSelect } from '@/components/ui/native-select';
 import { renderProviderIcon } from '@/components/ui/provider-icon';
 import { Fonts } from '@/constants/theme';
-import { getProviderCopy } from '@/components/settings/settings-utils';
-import type { ChatPreferences, ModelOption, ProviderOption } from '@/providers/opencode-provider';
+import { getAddableProviders, getProviderCopy } from '@/components/settings/settings-utils';
+import type { ServerContract } from '@/lib/opencode/client';
+import type { ChatPreferences, ModelOption, ProviderAuthMethod, ProviderOption } from '@/providers/opencode-provider';
 import type { Palette } from './setting-rows';
 
 type AiDefaultsSectionProps = {
@@ -14,13 +15,17 @@ type AiDefaultsSectionProps = {
   availableProviders: ProviderOption[];
   chatPreferences: ChatPreferences;
   configuredProviders: ProviderOption[];
+  contract: ServerContract;
   enabledModelIds: Set<string>;
   expandedProviderId?: string;
+  onActivateProviderAccount: (credentialId: string) => void;
   onExpandedProviderChange: (providerId?: string) => void;
   onModelToggle: (modelId: string, checked: boolean) => void;
   onRemoveProvider: (providerId: string) => void;
+  onRemoveProviderAccount: (credentialId: string) => void;
   onStartProviderConfiguration: (providerId: string) => void;
   palette: Palette;
+  providerAuthMethodsById: Record<string, ProviderAuthMethod[]>;
 };
 
 export function AiDefaultsSection({
@@ -28,13 +33,17 @@ export function AiDefaultsSection({
   availableProviders,
   chatPreferences,
   configuredProviders,
+  contract,
   enabledModelIds,
   expandedProviderId,
+  onActivateProviderAccount,
   onExpandedProviderChange,
   onModelToggle,
   onRemoveProvider,
+  onRemoveProviderAccount,
   onStartProviderConfiguration,
   palette,
+  providerAuthMethodsById,
 }: AiDefaultsSectionProps) {
   const { t } = useTranslation();
   const configuredModels = availableModels.filter((model) => configuredProviders.some((provider) => provider.id === model.providerID));
@@ -44,7 +53,7 @@ export function AiDefaultsSection({
       models: configuredModels.filter((model) => model.providerID === provider.id),
     }))
     .filter((entry) => entry.models.length > 0);
-  const unconfiguredProviders = availableProviders.filter((provider) => !provider.configured);
+  const unconfiguredProviders = getAddableProviders(availableProviders, providerAuthMethodsById, contract);
 
   return (
     <View style={styles.section}>
@@ -55,6 +64,7 @@ export function AiDefaultsSection({
           <Text variant="labelLarge" style={{ color: palette.text }}>{t('settings:providers.configuredProviders')}</Text>
           {unconfiguredProviders.length > 0 ? (
             <NativeSelect
+              searchable
               onValueChange={onStartProviderConfiguration}
               options={unconfiguredProviders.map((provider) => ({
                 label: getProviderCopy(provider.id, provider.label, t).label,
@@ -90,6 +100,34 @@ export function AiDefaultsSection({
             </Chip>
           ))}
         </View>
+        {configuredProviders.some((provider) => provider.accounts && provider.accounts.length > 0) ? (
+          <View style={styles.accountsGroup}>
+            <Text variant="labelLarge" style={{ color: palette.text }}>{t('settings:providers.accounts')}</Text>
+            {configuredProviders.filter((provider) => provider.accounts && provider.accounts.length > 0).map((provider) => (
+              <View key={provider.id} style={styles.accountProviderGroup}>
+                <Text variant="bodySmall" style={{ color: palette.muted }}>{getProviderCopy(provider.id, provider.label, t).label}</Text>
+                <View style={styles.chipWrap}>
+                  {(provider.accounts || []).map((account) => (
+                    <Chip
+                      key={account.id}
+                      icon={account.active ? 'check' : account.method === 'oauth' ? 'account-key' : 'key-variant'}
+                      selected={account.active}
+                      onPress={() => {
+                        if (!account.active) onActivateProviderAccount(account.id);
+                      }}
+                      closeIconAccessibilityLabel={t('settings:providers.removeAccount')}
+                      onClose={() => onRemoveProviderAccount(account.id)}>
+                      {account.label}
+                    </Chip>
+                  ))}
+                  <Chip icon="plus" onPress={() => onStartProviderConfiguration(provider.id)}>
+                    {t('settings:providers.addAccount')}
+                  </Chip>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
         {availableProviders.length === 0 ? <HelperText type="info">{t('settings:providers.connectFirst')}</HelperText> : null}
         {availableProviders.length > 0 && configuredProviders.length === 0 ? (
           <HelperText type="info">{t('settings:providers.configureAtLeastOne')}</HelperText>
@@ -145,6 +183,8 @@ const styles = StyleSheet.create({
   inlineSelectButton: { minHeight: 36, borderWidth: 1, borderRadius: 999, justifyContent: 'center', paddingHorizontal: 12 },
   inlineSelectButtonLabel: { fontFamily: Fonts.sans, fontSize: 14, fontWeight: '600' },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  accountsGroup: { gap: 10 },
+  accountProviderGroup: { gap: 6 },
   modelListSection: { gap: 10 },
   providerAccordion: { borderRadius: 14, borderWidth: 1, overflow: 'hidden', marginBottom: 10 },
   providerAccordionIconWrap: {

@@ -14,6 +14,7 @@ import {
 
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { TextInput } from '@/components/ui/text-input';
 
 export type NativeSelectOption<T extends string = string> = {
   value: T;
@@ -32,6 +33,7 @@ type NativeSelectProps<T extends string> = {
     openState: boolean;
     selectedOption?: NativeSelectOption<T>;
   }) => ReactNode;
+  searchable?: boolean;
   selectedValue?: T;
   title?: string;
 };
@@ -41,6 +43,7 @@ export function NativeSelect<T extends string>({
   onValueChange,
   options,
   renderTrigger,
+  searchable = false,
   selectedValue,
   title,
 }: NativeSelectProps<T>) {
@@ -48,17 +51,26 @@ export function NativeSelect<T extends string>({
   const palette = Colors[colorScheme];
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
+  const [query, setQuery] = useState('');
 
   const selectedOption = useMemo(
     () => options.find((option) => option.value === selectedValue),
     [options, selectedValue],
   );
+  const visibleOptions = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle ? options.filter((option) => option.label.toLowerCase().includes(needle)) : options;
+  }, [options, query]);
 
-  const close = useCallback(() => setVisible(false), []);
+  const close = useCallback(() => {
+    setVisible(false);
+    setQuery('');
+  }, []);
 
   const handleSelect = useCallback(
     (value: T) => {
       setVisible(false);
+      setQuery('');
       onValueChange(value);
     },
     [onValueChange],
@@ -69,7 +81,7 @@ export function NativeSelect<T extends string>({
       return;
     }
 
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'ios' && !searchable) {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           cancelButtonIndex: options.length,
@@ -87,7 +99,7 @@ export function NativeSelect<T extends string>({
     }
 
     setVisible(true);
-  }, [colorScheme, disabled, onValueChange, options, t, title]);
+  }, [colorScheme, disabled, onValueChange, options, searchable, t, title]);
 
   return (
     <>
@@ -97,7 +109,7 @@ export function NativeSelect<T extends string>({
         openState: visible,
         selectedOption,
       })}
-      {Platform.OS === 'ios' ? null : (
+      {Platform.OS === 'ios' && !searchable ? null : (
         <Modal animationType="fade" transparent visible={visible} onRequestClose={close}>
           <View style={styles.overlay}>
             <Pressable style={styles.backdrop} onPress={close} />
@@ -110,8 +122,21 @@ export function NativeSelect<T extends string>({
                   <Text style={[styles.closeButtonLabel, { color: palette.tint }]}>{t('common:actions.close')}</Text>
                 </Pressable>
               </View>
+              {searchable ? (
+                <View style={styles.searchWrap}>
+                  <TextInput
+                    mode="outlined"
+                    dense
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder={title}
+                  />
+                </View>
+              ) : null}
               <ScrollView contentContainerStyle={styles.optionList} keyboardShouldPersistTaps="handled">
-                {options.map((option) => {
+                {visibleOptions.map((option) => {
                   const selected = option.value === selectedValue;
                   const color = selected ? palette.tint : palette.muted;
 
@@ -194,6 +219,10 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 15,
     fontWeight: '600',
+  },
+  searchWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
   },
   optionList: {
     gap: 8,

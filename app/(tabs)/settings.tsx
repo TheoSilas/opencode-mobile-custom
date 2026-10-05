@@ -54,7 +54,7 @@ export default function SettingsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
   const { t } = useTranslation();
-  const { availableModels, availableProviders, configuredProviders, currentConfig, removeProvider } = useCapabilities();
+  const { availableModels, availableProviders, configuredProviders, currentConfig, providerAccounts, providerAuthMethodsById, removeProvider } = useCapabilities();
   const { addMcpServer, completeMcpOAuth, connectMcpServer, disconnectMcpServer, mcpStatuses, refreshMcpServers, setMcpServerEnabled, startMcpOAuth } = useMcp();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const { connect, connection, diagnostics, eventStreamStatus, refreshDiagnostics, serverCapabilities, connectSetup } = useConnection();
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
       title: t('settings:screen.categories.ai'),
       summary: t('settings:screen.summaries.configuredCount', { value: configuredProviders.length }),
       onPress: () => setOpenSection('ai'),
-      render: () => <AiDefaultsSection availableModels={availableModels} availableProviders={availableProviders} chatPreferences={chatPreferences} configuredProviders={configuredProviders} enabledModelIds={enabledModelIds} expandedProviderId={expandedProviderId} onExpandedProviderChange={setExpandedProviderId} onModelToggle={handleModelToggle} onRemoveProvider={handleRemoveProvider} onStartProviderConfiguration={providerConfig.startProviderConfiguration} palette={palette} />,
+      render: () => <AiDefaultsSection availableModels={availableModels} availableProviders={availableProviders} chatPreferences={chatPreferences} configuredProviders={configuredProviders} contract={serverCapabilities.contract} enabledModelIds={enabledModelIds} expandedProviderId={expandedProviderId} onActivateProviderAccount={(credentialId) => void providerAccounts.activate(credentialId)} onExpandedProviderChange={setExpandedProviderId} onModelToggle={handleModelToggle} onRemoveProvider={handleRemoveProvider} onRemoveProviderAccount={(credentialId) => void providerAccounts.remove(credentialId)} onStartProviderConfiguration={providerConfig.startProviderConfiguration} palette={palette} providerAuthMethodsById={providerAuthMethodsById} />,
     },
     {
       id: 'notifications',

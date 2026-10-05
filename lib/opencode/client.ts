@@ -15,6 +15,8 @@ export type {
   NormalizedServerUrl,
   ClientMetadata,
   ScopedOpencodeClient,
+  ProviderAccountInfo,
+  ProviderAccountsApi,
 } from './client/types';
 export { defaultConnectionSettings } from './client/types';
 export {

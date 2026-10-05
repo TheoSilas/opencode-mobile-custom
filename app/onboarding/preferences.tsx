@@ -6,6 +6,7 @@ import { Button, HelperText, Text } from 'react-native-paper';
 import { ModelPicker } from '@/components/chat/model-picker';
 import { LanguageSection, SettingSelectField, SettingSwitchRow } from '@/components/settings/settings-sections';
 import {
+  getAddableProviders,
   getProviderCopy,
   RESPONSE_SCOPE_OPTIONS,
 } from '@/components/settings/settings-utils';
@@ -15,14 +16,15 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { renderProviderIcon } from '@/components/ui/provider-icon';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useCapabilities, usePreferences } from '@/providers/opencode-contexts';
+import { useCapabilities, useConnection, usePreferences } from '@/providers/opencode-contexts';
 import type { ResponseScope } from '@/providers/opencode-provider-types';
 
 export default function OnboardingPreferencesScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const palette = Colors[useColorScheme() ?? 'light'];
-  const { availableModels, availableProviders, configuredProviders } = useCapabilities();
+  const { availableModels, availableProviders, configuredProviders, providerAuthMethodsById } = useCapabilities();
+  const { serverCapabilities } = useConnection();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const providerConfig = useProviderConfiguration();
 
@@ -31,7 +33,7 @@ export default function OnboardingPreferencesScreen() {
     value: option.value,
   }));
   const selectedScope = RESPONSE_SCOPE_OPTIONS.find((option) => option.value === chatPreferences.responseScope) || RESPONSE_SCOPE_OPTIONS[0];
-  const unconfiguredProviders = availableProviders.filter((provider) => !provider.configured);
+  const unconfiguredProviders = getAddableProviders(availableProviders, providerAuthMethodsById, serverCapabilities.contract);
 
   return (
     <OnboardingStep
@@ -77,6 +79,7 @@ export default function OnboardingPreferencesScreen() {
           <Text variant="bodySmall" style={{ color: palette.muted }}>{t('onboarding:preferences.provider.body')}</Text>
           {unconfiguredProviders.length > 0 ? (
             <NativeSelect
+              searchable
               onValueChange={providerConfig.startProviderConfiguration}
               options={unconfiguredProviders.map((provider) => ({
                 label: getProviderCopy(provider.id, provider.label, t).label,

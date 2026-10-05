@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +9,7 @@ import { getProviderCopy, supportsGenericApiKey } from '@/components/settings/se
 import { TextInput } from '@/components/ui/text-input';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { parseProviderOAuthRedirect } from '@/lib/opencode/oauth';
 import { useCapabilities, useConnection } from '@/providers/opencode-contexts';
 
 type ProviderFeedback = { type: 'success' | 'info' | 'error'; message: string };
@@ -26,7 +28,7 @@ type PendingOAuth = { providerId: string; methodIndex: number; instructions?: st
 export function useProviderConfiguration() {
   const { t } = useTranslation();
   const palette = Colors[useColorScheme() ?? 'light'];
-  const { availableProviders, providerAuthMethodsById, setProviderAuth, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth } = useCapabilities();
+  const { availableProviders, providerAuthMethodsById, providerAccounts, setProviderAuth, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth } = useCapabilities();
   const { connect, serverCapabilities } = useConnection();
 
   const [selectedProviderId, setSelectedProviderId] = useState<string>();
@@ -129,19 +131,42 @@ export function useProviderConfiguration() {
     try {
       if (selectedMethod.type === 'oauth') {
         const authorization = await startProviderOAuth(selectedProviderId, selectedMethodIndex, authValues);
-        await WebBrowser.openBrowserAsync(authorization.url);
-        if (authorization.method === 'code') {
+        const url = authorization.url?.trim();
+        const result = url
+          ? await WebBrowser.openAuthSessionAsync(url, Linking.createURL(''))
+          : { type: 'dismiss' as const };
+
+        if (result.type === 'success') {
+          const { code, error } = parseProviderOAuthRedirect(result.url);
+          if (error) throw new Error(error);
+          if (code) {
+            await completeProviderOAuth(selectedProviderId, selectedMethodIndex, code);
+            setFeedback({ type: 'success', message: t('settings:providers.signInFinished', { provider: providerLabel }) });
+            resetProviderDialog();
+            return;
+          }
+        }
+
+        // Headless/device-code flows either return no browser URL or hand the
+        // pairing code back through `instructions`; surface the code dialog
+        // instead of waiting for a browser that will never return.
+        if (authorization.method === 'code' || !url || authorization.instructions) {
           setPendingOAuth({ providerId: selectedProviderId, methodIndex: selectedMethodIndex, instructions: authorization.instructions });
           setSelectedProviderId(undefined);
           return;
         }
+
         await completeAutomaticProviderOAuth(selectedProviderId);
         await connect();
-        setFeedback(
-          authorization.instructions
-            ? { type: 'info', message: authorization.instructions }
-            : { type: 'success', message: t('settings:providers.signInFinished', { provider: providerLabel }) },
-        );
+        setFeedback({ type: 'success', message: t('settings:providers.signInFinished', { provider: providerLabel }) });
+      } else if (serverCapabilities.contract === 'v2') {
+        // V2 stores credentials as accounts, so a key sign-in adds (or updates)
+        // a credential rather than overwriting a single per-provider secret.
+        await providerAccounts.add(selectedProviderId, authValues);
+        setFeedback({
+          type: 'success',
+          message: t('settings:providers.configuredSuccess', { provider: providerLabel }),
+        });
       } else {
         await setProviderAuth(selectedProviderId, authValues);
         setFeedback({
@@ -159,12 +184,15 @@ export function useProviderConfiguration() {
   }, [
     authValues,
     completeAutomaticProviderOAuth,
+    completeProviderOAuth,
     connect,
     resetProviderDialog,
     selectedMethod,
     selectedMethodIndex,
+    providerAccounts,
     selectedProviderCopy?.label,
     selectedProviderId,
+    serverCapabilities.contract,
     setProviderAuth,
     startProviderOAuth,
     t,

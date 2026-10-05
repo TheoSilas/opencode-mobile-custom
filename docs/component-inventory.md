@@ -385,8 +385,10 @@ This is important to parity because the chat layout is intentionally dense and h
 ### Responsibility
 
 - wire connection, diagnostics, provider, notification, and voice sections to the provider
-- open provider OAuth URLs
-- collect and submit authorization codes for code-based OAuth callbacks
+- open provider OAuth URLs through an app-returnable auth session and capture a
+  redirect code back into the app
+- poll for automatic OAuth completion and show headless/device-code pairing
+  instructions, then submit code-based OAuth callbacks
 - wire MCP add/connect/disconnect/enable/disable and OAuth actions to `McpSection`
 - declare every category once in a `SettingsSection` registry (`icon`, `title`,
   `summary`, `onPress`, `render`); the row list and the overlay both derive from
@@ -481,6 +483,7 @@ Responsibility:
 - tap a configured provider chip to reopen login or replace its API key
 - allow adding unconfigured providers
 - allow removing configured provider credentials
+- on OpenCode 2, list a provider's labeled accounts, mark the active account, switch accounts, remove an account, or add another account
 - show models grouped by provider
 - allow toggling enabled model IDs
 
@@ -614,6 +617,8 @@ Behavior:
 
 - iOS uses `ActionSheetIOS`
 - Android/web use a custom modal sheet
+- `searchable` forces the modal sheet on every platform and adds a text
+  filter over the option labels (used by the Add provider pickers)
 
 ### Prop contract
 
@@ -628,6 +633,7 @@ type NativeSelectProps<T extends string> = {
     openState: boolean
     selectedOption?: NativeSelectOption<T>
   }) => ReactNode
+  searchable?: boolean
   selectedValue?: T
   title?: string
 }

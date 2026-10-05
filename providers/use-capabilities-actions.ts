@@ -174,12 +174,23 @@ export function useCapabilitiesActions({
   );
 
   const completeAutomaticProviderOAuth = useCallback(async (providerId: string) => {
-    const providers = (await client.provider.list()).data;
-    if (!providers?.connected.includes(providerId)) {
-      throw new Error('Provider sign-in was not completed. Finish authentication in the browser and try again.');
+    // Automatic OAuth completes on the server after the browser redirects to
+    // the server's callback, which can lag the browser closing by a few seconds.
+    // Poll until the provider reports connected, bounded so a cancelled sign-in
+    // still surfaces an actionable error.
+    const deadline = Date.now() + 90_000;
+    for (;;) {
+      const providers = (await client.provider.list()).data;
+      if (providers?.connected.includes(providerId)) {
+        await configureProvider(providerId);
+        return;
+      }
+      if (!isCurrentClient(client) || Date.now() >= deadline) {
+        throw new Error('Provider sign-in was not completed. Finish authentication in the browser and try again.');
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
     }
-    await configureProvider(providerId);
-  }, [client, configureProvider]);
+  }, [client, configureProvider, isCurrentClient]);
 
   const completeProviderOAuth = useCallback(async (providerId: string, methodIndex: number, code: string) => {
     await client.provider.oauth.callback({
@@ -190,6 +201,24 @@ export function useCapabilitiesActions({
     await configureProvider(providerId);
     await refreshChatCapabilities();
   }, [client, configureProvider, refreshChatCapabilities]);
+
+  const addProviderAccount = useCallback(async (providerId: string, values: Record<string, string>, label?: string) => {
+    if (!client.accounts) throw new Error('Managing multiple provider accounts requires OpenCode 2.');
+    await client.accounts.add(providerId, values, label);
+    await configureProvider(providerId);
+  }, [client, configureProvider]);
+
+  const activateProviderAccount = useCallback(async (credentialId: string) => {
+    if (!client.accounts) throw new Error('Managing multiple provider accounts requires OpenCode 2.');
+    await client.accounts.activate(credentialId);
+    await refreshChatCapabilities();
+  }, [client, refreshChatCapabilities]);
+
+  const removeProviderAccount = useCallback(async (credentialId: string) => {
+    if (!client.accounts) throw new Error('Managing multiple provider accounts requires OpenCode 2.');
+    await client.accounts.remove(credentialId);
+    await refreshChatCapabilities();
+  }, [client, refreshChatCapabilities]);
 
   const updateChatPreferences = useCallback((patch: Partial<ChatPreferences>) => {
     setChatPreferences((current) => {
@@ -259,6 +288,9 @@ export function useCapabilitiesActions({
     startProviderOAuth,
     completeAutomaticProviderOAuth,
     completeProviderOAuth,
+    addProviderAccount,
+    activateProviderAccount,
+    removeProviderAccount,
     updateChatPreferences,
     setAutoApprove,
   };

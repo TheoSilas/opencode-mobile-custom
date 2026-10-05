@@ -35,11 +35,21 @@ import type { ServerCapabilities } from '@/providers/opencode-capabilities';
 export type { AgentOption, ChatPreferences, ModelOption, ReasoningLevel, ResponseScope, ServerCapabilities };
 export type { ProviderAuthMethod } from '@/lib/opencode/types';
 
+// A stored provider credential. V2 integrations can hold several labeled
+// accounts (exactly one active); V1 providers have no account list.
+export type ProviderAccount = {
+  id: string;
+  label: string;
+  method: 'key' | 'oauth';
+  active: boolean;
+};
+
 export type ProviderOption = {
   id: string;
   label: string;
   modelCount: number;
   configured: boolean;
+  accounts?: ProviderAccount[];
 };
 
 export type ConversationPhase = 'off' | 'listening' | 'submitting' | 'waiting' | 'speaking';
@@ -171,6 +181,12 @@ export type CapabilitiesContextValue = {
   removeProvider: (providerId: string) => Promise<void>;
   startProviderOAuth: (providerId: string, methodIndex: number, inputs?: Record<string, string>) => Promise<{ url: string; instructions?: string; method: 'auto' | 'code' }>;
   completeProviderOAuth: (providerId: string, methodIndex: number, code: string) => Promise<void>;
+  // Grouped so the capabilities context grows one member, not one per action.
+  providerAccounts: {
+    add: (providerId: string, values: Record<string, string>, label?: string) => Promise<void>;
+    activate: (credentialId: string) => Promise<void>;
+    remove: (credentialId: string) => Promise<void>;
+  };
 };
 
 export type PreferencesContextValue = {

@@ -30,9 +30,18 @@ export type V1Envelope = {
   payload: { id: string; type: string; properties: Record<string, unknown> };
 };
 
+export type RawCredential = {
+  id: string;
+  integrationID: string;
+  label: string;
+  active: boolean;
+  value?: { type?: string };
+};
+
 export type AdapterContext = {
   api: V2Api;
   directory?: string;
+  listCredentials: () => Promise<RawCredential[]>;
   permissionSession: Map<string, string>;
   formSession: Map<string, V2Form>;
 };

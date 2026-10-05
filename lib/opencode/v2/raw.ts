@@ -10,7 +10,7 @@ import { buildMcpApi } from './mcp';
 import { buildProjectApi } from './project';
 import { buildPtyApi } from './pty';
 import { buildSessionApi } from './session';
-import { resolveV2Base, type AdapterContext, type LocationOptions, type RawResult, type V2Adapter } from './shared';
+import { resolveV2Base, type AdapterContext, type LocationOptions, type RawCredential, type RawResult, type V2Adapter } from './shared';
 import { buildVcsApi } from './vcs';
 import { buildWorktreeApi } from './worktree';
 
@@ -22,15 +22,28 @@ export function buildV2Raw(settings: OpencodeConnectionSettings): { client: Reco
   // `location[directory]` the server falls back to its own working directory
   // and reports another repository's VCS state (usually an empty diff).
   const vcsLocation: LocationOptions = directory ? { location: { directory } } : {};
+  const prefixedFetch = createPrefixFetch(base.origin, pathPrefix, settings);
   const api = OpenCode.make({
     baseUrl: base.origin,
     headers,
-    fetch: createPrefixFetch(base.origin, pathPrefix, settings),
+    fetch: prefixedFetch,
   });
+
+  // Credential management is a newer V2 surface that the pinned client does not
+  // type. Read it through the same prefixed/authenticated transport and degrade
+  // to "no accounts" on servers that do not expose it.
+  const listCredentials = async (): Promise<RawCredential[]> => {
+    const response = await prefixedFetch(new URL('/api/credential', base.origin).toString(), { method: 'GET', headers });
+    if (response.status === 404 || response.status === 405) return [];
+    if (!response.ok) throw new Error(`Could not load provider accounts (${response.status}).`);
+    const body = (await response.json()) as { data?: RawCredential[] };
+    return Array.isArray(body?.data) ? body.data : [];
+  };
 
   const ctx: AdapterContext = {
     api,
     directory,
+    listCredentials,
     permissionSession: new Map(),
     formSession: new Map(),
   };

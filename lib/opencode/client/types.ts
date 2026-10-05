@@ -76,6 +76,26 @@ export type ClientMetadata = {
   directory?: string;
 };
 
+// A stored provider credential (V2 only). One integration can hold several
+// labeled accounts; exactly one is `active` and used for requests.
+export type ProviderAccountInfo = {
+  id: string;
+  providerId: string;
+  label: string;
+  method: 'key' | 'oauth';
+  active: boolean;
+};
+
+// Provider account management. Present only on the V2 contract; undefined on V1,
+// whose auth model is a single credential per provider.
+export type ProviderAccountsApi = {
+  list: () => Promise<ProviderAccountInfo[]>;
+  add: (providerId: string, values: Record<string, string>, label?: string) => Promise<void>;
+  activate: (credentialId: string) => Promise<void>;
+  remove: (credentialId: string) => Promise<void>;
+};
+
 export type ScopedOpencodeClient = OpencodeClient & {
   __opencode: ClientMetadata;
+  accounts?: ProviderAccountsApi;
 };
