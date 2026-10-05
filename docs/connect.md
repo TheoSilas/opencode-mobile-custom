@@ -145,7 +145,20 @@ The desktop connector's QR must use that same environment.
 Finalization retries reuse the saved session without buying again. After app
 termination, the unfinished native transaction can be rediscovered, exchanged
 again through the idempotent claim and finalized. Store proofs are not stored
-permanently. Session validity and paid-through entitlement are separate.
+permanently. Session validity and paid-through entitlement are separate. When pairing or machine
+access returns the exact `403` / `no active subscription` response, the provider
+clears the cached Connect entitlement while preserving the identity and pending QR,
+then silently reverifies an available native purchase and retries once. Google
+test-purchase routing still resolves through production and back to staging. If
+verification fails or the retry is rejected, the UI shows recovery instead of a
+stale active-subscription banner. Other `403` errors and invalid QR tokens never
+trigger this subscription recovery.
+
+Pairing `403` responses with `code=capacity_reached` show machine provisioning/
+cleanup guidance. Only the exact `no active subscription` response is displayed
+as a rejected entitlement; other access denials use a generic denial message.
+An unfinished backend allocation can cause capacity rejection on a repeated QR
+claim even while the subscription remains valid.
 
 Scan the connector QR or open its version-1 link:
 
@@ -240,6 +253,13 @@ self-tests and all 82 Chromium flows passed. Actual provider-hook checks cover
 both stores. The Android development build reached Gradle configuration but
 stopped because no Android SDK is configured on this machine. Live Google
 license-test Purchase/Restore and explicit human E2E validation remain pending.
+
+Stale-entitlement recovery validation on 2026-10-04: static checks, both
+fake-server self-tests and all 89 Chromium flows passed. Provider-hook regressions
+cover both stores, renewed/expired/missing purchases, repeated rejection, exact
+QR preservation and Google test routing across environments. Android development
+prebuild passed; Gradle with the installed JDK 17 stopped because the Android SDK
+location is not configured. Live Android purchase/QR recovery remains unverified.
 
 Validation recorded on 2026-10-02:
 

@@ -165,19 +165,23 @@ export class ConnectApiError extends Error {
   public invalidPairingToken: boolean;
   public pairingExpired: boolean;
   public testPurchase: boolean;
+  public noActiveSubscription: boolean;
   constructor(public status: number, value?: unknown) {
     super({
       400: 'Invalid subscription proof or request. Restore to recover your purchase.',
       401: 'Cloud Link session is invalid. Recover or restore access and try again.',
-      403: 'No active Cloud Link entitlement. Purchase or restore to recover access.',
+      403: 'Cloud Link access was denied. Try again or check your subscription.',
       404: 'Unknown pairing or machine. Open a fresh link from the connector.',
       409: 'This pairing expired, was already claimed, or is being provisioned. Retry or scan a fresh QR.',
       429: 'Too many requests. Wait before trying again.',
       502: 'Store or machine provisioning is temporarily unavailable. Retry without purchasing again.',
       503: 'Cloud Link configuration or access reconciliation is unavailable. Try again later.',
     }[status] ?? 'The control plane could not complete the request. Try again.');
-    const record = value as { machine_id?: unknown; error?: unknown } | undefined;
+    const record = value as { machine_id?: unknown; error?: unknown; code?: unknown } | undefined;
     this.testPurchase = status === 403 && record?.error === 'Google test purchases are disabled in this environment';
+    this.noActiveSubscription = status === 403 && record?.error === 'no active subscription';
+    if (this.noActiveSubscription) this.message = 'No active Cloud Link entitlement. Purchase or restore to recover access.';
+    if (status === 403 && record?.code === 'capacity_reached') this.message = 'Cloud Link machine provisioning is pending or capacity has been reached. Wait for cleanup, then scan a fresh desktop QR. Your subscription has not been rejected.';
     if ((status === 409 || status === 503) && typeof record?.machine_id === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(record.machine_id)) this.machineId = record.machine_id;
     this.pairingExpired = status === 409 && record?.error === 'pairing expired';
     this.invalidPairingToken = status === 401 && record?.error === 'invalid pairing token';

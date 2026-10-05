@@ -6,7 +6,7 @@ import {
   accessConnectMachine, claimConnectPairing, ConnectApiError,
   getConnectCatalog, getConnectCredentialError, getConnectSession, getConnectStore,
   getPendingConnectPairing, hasConnectEntitlement, hasConnectSession, isConnectEnabled, listConnectMachines,
-  normalizeTrustedControlPlaneUrl, parseConnectPairing, revokeConnectMachine, savePendingConnectPairing,
+  normalizeTrustedControlPlaneUrl, parseConnectPairing, revokeConnectMachine, saveConnectSession, savePendingConnectPairing,
   type ConnectCatalog, type ConnectClaim, type ConnectMachine, type ConnectPairing, type ConnectSession,
 } from '@/lib/connect';
 import { AVAILABLE_CONNECT_PURCHASES, connectPurchaseRequest, isConnectPurchase, loadConnectStore, selectConnectOffers, type ConnectOffer, type ConnectStoreApi } from '@/lib/connect-store';
@@ -48,6 +48,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   const [canRetry, setCanRetry] = useState(false);
   const [purchaseRecovery, setPurchaseRecovery] = useState<'unverified' | 'verified'>();
   const sessionRef = useRef<ConnectSession | undefined>(undefined);
+  const entitlementRecovery = useRef(false);
   const pairingRef = useRef<ConnectPairing | undefined>(undefined);
   const apiRef = useRef<ConnectStoreApi | undefined>(undefined);
   const catalogRef = useRef<ConnectCatalog | undefined>(undefined);
@@ -86,7 +87,7 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
     try { return (await action()) !== false; }
     catch (reason) {
       if (reason instanceof ConnectPurchaseEnvironmentChange) nextControlPlane = reason.controlPlaneUrl;
-      else { setError(reason instanceof Error ? reason.message : 'Cloud Link setup failed. Try again.'); setCanRetry(true); }
+      else { entitlementRecovery.current = false; setError(reason instanceof Error ? reason.message : 'Cloud Link setup failed. Try again.'); setCanRetry(true); }
       return false;
     }
     finally {
@@ -140,16 +141,49 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   }, [availablePurchases, finishPurchase]);
 
   const authenticated = useCallback(async <T,>(request: (token: string) => Promise<T>): Promise<T> => {
+    const invalidateEntitlement = async () => {
+      const saved = sessionRef.current;
+      if (!saved) return;
+      const inactive = { ...saved, entitlements: saved.entitlements.filter((entry) => entry !== 'connect') };
+      sessionRef.current = inactive;
+      setSession(inactive);
+      await saveConnectSession(controlPlaneUrl, store, inactive);
+    };
     if (pendingPurchase.current) await finishPurchase(pendingPurchase.current.purchase);
     let current = sessionRef.current ?? await getConnectSession(controlPlaneUrl, store);
     if (!hasConnectSession(current)) current = await recoverSession();
     sessionRef.current = current;
     setSession(current);
-    try { return await request(current!.user_token); }
+    try {
+      const result = await request(current!.user_token);
+      entitlementRecovery.current = false;
+      return result;
+    }
     catch (reason) {
-      if (!(reason instanceof ConnectApiError) || reason.status !== 401 || reason.invalidPairingToken) throw reason;
-      const recovered = await recoverSession();
-      return request(recovered.user_token);
+      if (!(reason instanceof ConnectApiError) || reason.invalidPairingToken || (reason.status !== 401 && !reason.noActiveSubscription)) throw reason;
+      // The API is authoritative even while the saved paid-through date is future.
+      // Keep identity and the QR, but stop advertising rejected access.
+      if (reason.noActiveSubscription) await invalidateEntitlement();
+      if (reason.noActiveSubscription && entitlementRecovery.current) {
+        entitlementRecovery.current = false;
+        throw reason;
+      }
+      entitlementRecovery.current = reason.noActiveSubscription;
+      let changingEnvironment = false;
+      try {
+        const recovered = await recoverSession();
+        return await request(recovered.user_token);
+      }
+      catch (retryReason) {
+        changingEnvironment = retryReason instanceof ConnectPurchaseEnvironmentChange;
+        if (retryReason instanceof ConnectApiError && retryReason.noActiveSubscription) await invalidateEntitlement();
+        throw retryReason;
+      }
+      finally {
+        // Google test recovery crosses environments before resuming the QR.
+        // Keep its one-retry budget until that continuation completes.
+        if (!changingEnvironment) entitlementRecovery.current = false;
+      }
     }
   }, [controlPlaneUrl, finishPurchase, recoverSession, store]);
 

@@ -28,6 +28,12 @@ const connect = await import(await moduleUri('../lib/connect.ts', [
 assert.equal(new connect.ConnectApiError(403, { error: 'Google test purchases are disabled in this environment' }).testPurchase, true);
 assert.equal(new connect.ConnectApiError(403, { error: 'no active subscription' }).testPurchase, false);
 assert.equal(new connect.ConnectApiError(502, { error: 'Google test purchases are disabled in this environment' }).testPurchase, false);
+assert.equal(new connect.ConnectApiError(403, { error: 'no active subscription' }).noActiveSubscription, true);
+assert.equal(new connect.ConnectApiError(403, { error: 'another denial' }).noActiveSubscription, false);
+assert.equal(new connect.ConnectApiError(502, { error: 'no active subscription' }).noActiveSubscription, false);
+assert.match(new connect.ConnectApiError(403, { code: 'capacity_reached' }).message, /provisioning is pending/);
+assert.equal(new connect.ConnectApiError(403, { code: 'capacity_reached' }).noActiveSubscription, false);
+assert.doesNotMatch(new connect.ConnectApiError(403, { error: 'another denial' }).message, /No active Cloud Link entitlement/);
 const url = new URL('opencodemobile://pair');
 for (const [key, value] of Object.entries({ v: '1', cp: 'https://api.opencodecloud.link', id: 'pair-1', t: 'temporary-token', n: 'Mac & Studio' })) url.searchParams.set(key, value);
 const pairing = connect.parseConnectPairing(url.toString());
@@ -436,3 +442,96 @@ for (const platform of ['apple', 'google']) {
   }
 }
 console.log('Apple/Google provider environment correction, checkpoint isolation, and duplicate-purchase recovery checks passed');
+
+// A cached active session must yield to an authoritative subscription rejection.
+// Exercise the real QR continuation and Google's production -> staging routing.
+for (const platform of ['apple', 'google']) {
+  for (const scenario of ['renewed', 'expired', 'missing', 'rejected-again', 'unrelated-403', 'invalid-qr']) {
+    globalThis.__connectPlatform = platform === 'apple' ? 'ios' : 'android';
+    globalThis.__connectSecrets.clear();
+    const staging = connect.CONNECT_STAGING_URL;
+    const stale = { ...session, user_token: 'stale-session' };
+    await connect.saveConnectSession(staging, platform, stale);
+    const runtime = hookRuntime();
+    const requests = [], events = [];
+    const purchase = { id: 'renewal', productId: `fixture.${platform}`, store: platform, purchaseState: 'purchased', purchaseToken: 'native-renewal-proof', transactionDate: Date.now() };
+    if (platform === 'apple') purchase.environmentIOS = 'Sandbox';
+    const nativeApi = {
+      initConnection: async () => true, endConnection: async () => true,
+      fetchProducts: async () => platform === 'apple' ? [appleProduct] : [googleProduct],
+      getAvailablePurchases: async () => scenario === 'missing' ? [] : [purchase],
+      getPendingTransactionsIOS: async () => [],
+      requestPurchase: async () => { throw new Error('Must not buy again'); },
+      restorePurchases: async () => { throw new Error('Must not restore interactively'); },
+      finishTransaction: async () => { events.push('finish'); },
+      purchaseUpdatedListener: () => ({ remove() {} }), purchaseErrorListener: () => ({ remove() {} }),
+    };
+    const hook = await loadTs('providers/use-connect-state.ts', {
+      react: runtime.react,
+      'react-native': { Platform: { OS: globalThis.__connectPlatform }, AppState: { addEventListener: () => ({ remove() {} }) } },
+      '@/lib/connect': connect,
+      '@/lib/connect-store': { ...storeApi, loadConnectStore: async () => nativeApi },
+      '@/lib/connection-profiles': { loadConnectionProfiles: async () => [], saveConnectProfile: async (cp, response) => {
+        events.push('save-profile'); assert.equal(cp, staging);
+        return { id: 'saved', serverUrl: response.server_url, connect: { machineId: response.machine_id } };
+      }, getProfilePassword: async () => 'device-secret' },
+      '@/providers/connection-refresh': {},
+      '@/providers/services/connect-subscription-service': subscriptionService,
+    });
+    globalThis.fetch = async (address, init) => {
+      requests.push({ address, token: init.headers.Authorization });
+      let status = 200, body = { machines: [] };
+      if (address.endsWith('/catalog')) body = fixtureCatalog;
+      else if (address.endsWith('/subscriptions/claim')) {
+        if (address.startsWith(connect.CONNECT_PRODUCTION_URL) && platform === 'google') {
+          status = 403; body = { error: 'Google test purchases are disabled in this environment' };
+        } else if (scenario === 'expired') { status = 403; body = { error: 'no active subscription' }; }
+        else body = session;
+      } else if (address.endsWith('/pairings/renewal-qr/claim')) {
+        if (scenario === 'invalid-qr') { status = 401; body = { error: 'invalid pairing token' }; }
+        else if (scenario === 'unrelated-403') { status = 403; body = { error: 'unrelated denial' }; }
+        else if (init.headers.Authorization === 'Bearer stale-session' || scenario === 'rejected-again') {
+          status = 403; body = { error: 'no active subscription' };
+        } else body = claim;
+      }
+      return new Response(JSON.stringify(body), { status });
+    };
+    try {
+      runtime.mount(() => {
+        const [controlPlaneUrl, setControlPlaneUrl] = runtime.react.useState(staging);
+        return hook.useConnectState({ controlPlaneUrl, setControlPlaneUrl, isHydrated: true,
+          switchConnection: async () => { events.push('connect'); return { status: 'connected' }; },
+          disconnect: async () => {}, beforeProfileRefresh: async () => {}, onProfileRefreshed: () => {},
+        });
+      }, {});
+      await runtime.settle();
+      assert.equal(runtime.value.entitled, true);
+      await runtime.value.pairLink({ v: '1', cp: staging, id: 'renewal-qr', t: 'qr-proof', n: 'Mac' });
+      await runtime.settle();
+      await runtime.settle();
+      const pairRequests = requests.filter(({ address }) => address.includes('/pairings/'));
+      const proofRequests = requests.filter(({ address }) => address.endsWith('/subscriptions/claim'));
+      if (scenario === 'renewed') {
+        assert.equal(runtime.value.error, undefined);
+        assert.equal(runtime.value.phase, 'paired');
+        assert.equal(runtime.value.controlPlaneUrl, staging);
+        assert.deepEqual(pairRequests.map(({ token }) => token), ['Bearer stale-session', 'Bearer user-token']);
+        assert.deepEqual(events, ['finish', 'save-profile', 'connect']);
+        assert.equal(await connect.getPendingConnectPairing(staging, platform), undefined);
+      } else if (scenario === 'unrelated-403' || scenario === 'invalid-qr') {
+        assert.equal(proofRequests.length, 0, 'Other denials must not reverify store proofs');
+        assert.equal(runtime.value.entitled, true);
+        assert.equal(pairRequests.length, 1);
+      } else {
+        assert.equal(runtime.value.entitled, false, 'A rejected entitlement must not keep the active banner');
+        assert.equal(connect.hasConnectEntitlement(await connect.getConnectSession(staging, platform)), false);
+        assert.equal(runtime.value.hasToken, true, `Keep the identity for machine listing: ${platform}/${scenario} (${runtime.value.controlPlaneUrl}, ${runtime.value.error})`);
+        assert.equal((await connect.getPendingConnectPairing(staging, platform)).pairingId, 'renewal-qr');
+        assert.ok(runtime.value.error);
+        assert.equal(pairRequests.length, scenario === 'rejected-again' ? 2 : 1, 'Recovery must be bounded');
+        assert.equal(events.includes('save-profile'), false);
+      }
+    } finally { runtime.unmount(); globalThis.fetch = originalFetch; }
+  }
+}
+console.log('Apple/Android stale entitlement recovery, QR preservation, and bounded retries passed');
