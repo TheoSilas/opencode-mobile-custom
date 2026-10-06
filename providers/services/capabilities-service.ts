@@ -2,8 +2,68 @@ import type { ProviderListResponse } from '@opencode-ai/sdk/v2/client';
 
 import { compareLabels } from '@/lib/compare-labels';
 import type { ProviderAccountInfo, ScopedOpencodeClient } from '@/lib/opencode/client';
+import type { ProviderAuthMethod, ProviderAuthPrompt } from '@/lib/opencode/types';
 import { getConfiguredProviderIds, toAgentOption, type ModelOption } from '@/providers/opencode-model-selection';
 import { requireData } from '@/providers/services/require-data';
+
+const PROMPT_TYPES: ProviderAuthPrompt['type'][] = ['text', 'select', 'number', 'integer', 'boolean', 'multiselect', 'external'];
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+// V1 auth metadata and the V2-normalized methods share one prompt model. V1
+// carries a single `when` condition; V2 carries an array.
+function normalizePrompt(prompt: unknown): ProviderAuthPrompt {
+  const value = asRecord(prompt);
+  const type = PROMPT_TYPES.includes(value.type as ProviderAuthPrompt['type'])
+    ? (value.type as ProviderAuthPrompt['type'])
+    : 'text';
+  const rawWhen = Array.isArray(value.when) ? value.when : value.when ? [value.when] : undefined;
+  return {
+    type,
+    key: typeof value.key === 'string' ? value.key : '',
+    message: typeof value.message === 'string' ? value.message : typeof value.key === 'string' ? value.key : '',
+    placeholder: typeof value.placeholder === 'string' ? value.placeholder : undefined,
+    options: Array.isArray(value.options)
+      ? value.options.map((option) => {
+        const entry = asRecord(option);
+        return { label: String(entry.label ?? entry.value ?? ''), value: String(entry.value ?? '') };
+      })
+      : undefined,
+    defaultValue: value.defaultValue as ProviderAuthPrompt['defaultValue'],
+    required: typeof value.required === 'boolean' ? value.required : undefined,
+    min: typeof value.min === 'number' ? value.min : undefined,
+    max: typeof value.max === 'number' ? value.max : undefined,
+    url: typeof value.url === 'string' ? value.url : undefined,
+    when: rawWhen?.map((condition) => {
+      const entry = asRecord(condition);
+      return {
+        key: String(entry.key ?? ''),
+        op: entry.op === 'neq' ? 'neq' as const : 'eq' as const,
+        value: entry.value as string | number | boolean,
+      };
+    }),
+  };
+}
+
+function normalizeProviderAuthMethods(authData: unknown): Record<string, ProviderAuthMethod[]> {
+  return Object.fromEntries(
+    Object.entries(asRecord(authData)).map(([providerId, methods]) => [
+      providerId,
+      Array.isArray(methods)
+        ? methods.map((method): ProviderAuthMethod => {
+          const value = asRecord(method);
+          return {
+            type: value.type === 'oauth' ? 'oauth' : 'api',
+            label: typeof value.label === 'string' ? value.label : '',
+            prompts: Array.isArray(value.prompts) ? value.prompts.map(normalizePrompt) : undefined,
+          };
+        })
+        : [],
+    ]),
+  );
+}
 
 type DiscoveredModel = ProviderListResponse['all'][number]['models'][string];
 const INPUT_MODALITIES: ModelOption['inputModalities'] = ['text', 'audio', 'image', 'video', 'pdf'];
@@ -72,21 +132,25 @@ export async function discoverChatCapabilities(client: ScopedOpencodeClient, act
 
   const configuredProviderIds = getConfiguredProviderIds(nextConfig, providerData.connected, nextModels);
   const configuredModels = nextModels.filter((model) => configuredProviderIds.has(model.providerID));
-  const accountsByProvider = new Map<string, ProviderAccountInfo[]>();
+  const accountsByIntegration = new Map<string, ProviderAccountInfo[]>();
   accounts.forEach((account) => {
-    const list = accountsByProvider.get(account.providerId) ?? [];
+    const list = accountsByIntegration.get(account.providerId) ?? [];
     list.push(account);
-    accountsByProvider.set(account.providerId, list);
+    accountsByIntegration.set(account.providerId, list);
   });
   const nextProviders = uniqueById(providerData.all
     .map((provider) => {
-      const providerAccounts = accountsByProvider.get(provider.id);
+      // The catalog entry carries the integrations that serve the provider's
+      // login methods; fall back to the provider id for V1 and legacy shapes.
+      const integrationIds = (provider as { integrationIds?: string[] }).integrationIds ?? [provider.id];
+      const providerAccounts = [...new Set(integrationIds)].flatMap((id) => accountsByIntegration.get(id) ?? []);
       return {
         id: provider.id,
         label: provider.name,
         modelCount: Object.keys(provider.models).length,
-        configured: configuredProviderIds.has(provider.id) || Boolean(providerAccounts?.length),
-        ...(providerAccounts?.length
+        configured: configuredProviderIds.has(provider.id) || providerAccounts.length > 0,
+        integrationIds,
+        ...(providerAccounts.length
           ? { accounts: providerAccounts.map(({ id, label, method, active }) => ({ id, label, method, active })) }
           : {}),
       };
@@ -98,7 +162,7 @@ export async function discoverChatCapabilities(client: ScopedOpencodeClient, act
     config: nextConfig,
     providers: nextProviders,
     connected: providerData.connected,
-    providerAuthMethodsById: authData,
+    providerAuthMethodsById: normalizeProviderAuthMethods(authData),
     models: nextModels,
     agents: nextAgents,
     configuredModels,

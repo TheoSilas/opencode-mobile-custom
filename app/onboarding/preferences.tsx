@@ -33,7 +33,7 @@ export default function OnboardingPreferencesScreen() {
     value: option.value,
   }));
   const selectedScope = RESPONSE_SCOPE_OPTIONS.find((option) => option.value === chatPreferences.responseScope) || RESPONSE_SCOPE_OPTIONS[0];
-  const unconfiguredProviders = getAddableProviders(availableProviders, providerAuthMethodsById, serverCapabilities.contract);
+  const addableProviders = getAddableProviders(availableProviders, providerAuthMethodsById, serverCapabilities.contract);
 
   return (
     <OnboardingStep
@@ -77,11 +77,11 @@ export default function OnboardingPreferencesScreen() {
         <View style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}>
           <Text variant="titleSmall" style={{ color: palette.text }}>{t('onboarding:preferences.provider.title')}</Text>
           <Text variant="bodySmall" style={{ color: palette.muted }}>{t('onboarding:preferences.provider.body')}</Text>
-          {unconfiguredProviders.length > 0 ? (
+          {addableProviders.length > 0 ? (
             <NativeSelect
               searchable
               onValueChange={providerConfig.startProviderConfiguration}
-              options={unconfiguredProviders.map((provider) => ({
+              options={addableProviders.map((provider) => ({
                 label: getProviderCopy(provider.id, provider.label, t).label,
                 leadingIcon: (props) => renderProviderIcon(provider.id, props.size, props.color),
                 value: provider.id,

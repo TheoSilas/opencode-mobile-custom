@@ -144,6 +144,7 @@ export function NativeSelect<T extends string>({
                     <Pressable
                       key={option.value}
                       accessibilityRole="button"
+                      accessibilityLabel={option.label}
                       onPress={() => handleSelect(option.value)}
                       style={({ pressed }) => [
                         styles.option,

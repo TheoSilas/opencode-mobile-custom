@@ -1,13 +1,16 @@
+import type { ProviderAuthValues } from '../types';
 import { agentToV1, configToV1, findIntegration, providerAuthToV1, providersToV1, type V2Adapter } from './shared';
 
 const oauthAttempts = new Map<string, { integrationID: string; attemptID: string }>();
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export function buildCapabilitiesApi({ api, ctx, vcsLocation, ok }: V2Adapter): Record<string, unknown> {
-  const accountAnswers = (values: Record<string, string>) =>
+  const accountAnswers = (values: ProviderAuthValues) =>
     Object.fromEntries(
       Object.entries(values)
-        .filter(([name, value]) => name !== 'key' && name !== 'token' && value.trim())
-        .map(([name, value]) => [name, value.trim()]),
+        .filter(([name]) => name !== 'key' && name !== 'token')
+        .map(([name, value]) => [name, typeof value === 'string' ? value.trim() : value]),
     );
 
   return {
@@ -23,7 +26,7 @@ export function buildCapabilitiesApi({ api, ctx, vcsLocation, ok }: V2Adapter): 
       list: async () => ok(await providersToV1(api, vcsLocation)),
       auth: async () => ok(await providerAuthToV1(api, vcsLocation)),
       oauth: {
-        authorize: async (parameters: { providerID: string; method: number; inputs?: Record<string, string> }) => {
+        authorize: async (parameters: { providerID: string; method: number; inputs?: ProviderAuthValues }) => {
           const integration = await findIntegration(api, parameters.providerID, vcsLocation);
           const method = integration?.methods.filter((method) => method.type === 'key' || method.type === 'oauth')[parameters.method];
           if (!integration || !method || method.type !== 'oauth') {
@@ -86,10 +89,10 @@ export function buildCapabilitiesApi({ api, ctx, vcsLocation, ok }: V2Adapter): 
           active: Boolean(credential.active),
         }));
       },
-      add: async (providerId: string, values: Record<string, string>, label?: string) => {
+      add: async (providerId: string, values: ProviderAuthValues, label?: string) => {
         const integration = await findIntegration(api, providerId, vcsLocation, true);
         if (!integration) throw new Error('This provider is not available on OpenCode 2.');
-        const key = values.key || values.token || '';
+        const key = typeof values.key === 'string' ? values.key : typeof values.token === 'string' ? values.token : '';
         const answer = accountAnswers(values);
         await api.integration.connect.key({
           ...vcsLocation,
@@ -106,6 +109,34 @@ export function buildCapabilitiesApi({ api, ctx, vcsLocation, ok }: V2Adapter): 
       },
       remove: async (credentialId: string) => {
         await api.credential.remove({ ...vcsLocation, credentialID: credentialId });
+        return ok(undefined);
+      },
+    },
+    providerOAuth: {
+      // `auto` OAuth completes on the server after the browser hits the
+      // server's callback; poll the attempt until it settles.
+      wait: async (providerId: string, timeoutMs = 300_000) => {
+        const attempt = oauthAttempts.get(providerId);
+        if (!attempt) throw new Error('Start provider sign-in again to complete it.');
+        const deadline = Date.now() + timeoutMs;
+        for (;;) {
+          const status = (await api.integration.oauth.status({ ...vcsLocation, integrationID: attempt.integrationID, attemptID: attempt.attemptID })).data;
+          if (status.status === 'complete') {
+            oauthAttempts.delete(providerId);
+            return ok(undefined);
+          }
+          if (status.status === 'failed') throw new Error(status.message || 'Provider sign-in failed.');
+          if (status.status === 'expired') throw new Error('This sign-in attempt expired. Start again.');
+          if (Date.now() >= deadline) throw new Error('Provider sign-in was not completed. Finish authentication in the browser and try again.');
+          await delay(1_500);
+        }
+      },
+      cancel: async (providerId: string) => {
+        const attempt = oauthAttempts.get(providerId);
+        if (attempt) {
+          await api.integration.oauth.cancel({ ...vcsLocation, integrationID: attempt.integrationID, attemptID: attempt.attemptID }).catch(() => undefined);
+          oauthAttempts.delete(providerId);
+        }
         return ok(undefined);
       },
     },

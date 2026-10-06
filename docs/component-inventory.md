@@ -525,24 +525,25 @@ Responsibility:
 
 ### Responsibility
 
-- render provider configuration modal
-- support multi-method auth selection
-- render prompt fields from auth metadata
-- support OAuth and API/manual flows
-- hand code-based OAuth completion back to Settings for callback submission
+- render the full-screen provider setup flow as two steps: pick a login method, then configure it
+- select the method from a dropdown; selecting dismisses the dropdown and advances to the configure step
+- render type-specific controls from the normalized prompt model (text/select/number/integer/boolean/multiselect/external) with `when` conditions
+- run the OAuth states on the configure step (idle, waiting for automatic completion, pairing/authorization code) without nested overlay dialogs
+- hand code/automatic OAuth completion back to Settings for submission
 
 ### Prop contract
 
 Main relevant props:
 
 - `authValues`
-- `effectiveAuthMethods`
+- `methods`
+- `oauthStage`, `oauthInstructions`, `oauthCode`
 - `onAuthValueChange`
-- `onMethodChange`
-- `onSubmit`
+- `onBack`, `onSelectMethod`
+- `onSubmit`, `onCompleteOAuth`, `onCancelOAuth`
 - `selectedMethod`
 - `selectedMethodIndex`
-- `selectedProviderLabel`
+- `step`
 - `visiblePrompts`
 
 ## `components/settings/mcp-section.tsx`

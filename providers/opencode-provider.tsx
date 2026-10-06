@@ -51,6 +51,8 @@ export type {
   OpencodeContextValue,
   OpencodeProject,
   ProviderAuthMethod,
+  ProviderAuthPrompt,
+  ProviderAuthValues,
   ProviderOption,
   ReasoningLevel,
   ResponseScope,

@@ -65,15 +65,16 @@ export function hasConfigurableAuth(
   return contract !== 'v2' && supportsGenericApiKey(providerId);
 }
 
-// The "Add provider" list: unconfigured providers the user can actually log in
-// to. Keeps out server-catalog entries whose dialog would only report that
-// setup is unavailable.
+// The "Add provider" list: every provider the user can log in to, whether or
+// not it already has an account. Configured providers stay selectable so a
+// second account (another login) can be added for any provider that exposes an
+// interactive login method.
 export function getAddableProviders(
   availableProviders: ProviderOption[],
   providerAuthMethodsById: Record<string, ProviderAuthMethod[]>,
   contract: ServerContract,
 ) {
   return availableProviders.filter(
-    (provider) => !provider.configured && hasConfigurableAuth(provider.id, providerAuthMethodsById[provider.id], contract),
+    (provider) => hasConfigurableAuth(provider.id, providerAuthMethodsById[provider.id], contract),
   );
 }

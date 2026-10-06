@@ -101,10 +101,15 @@ except known OAuth-only providers. Credentials are written through the existing
 provider action and V2 integration key endpoint, then capabilities are refreshed.
 Catalog and login requests carry the active workspace location. Go keys prefer
 the direct Go integration even when the active provider uses Console for OAuth.
-On V2, stored credentials are surfaced per provider as `accounts`
-(`{id,label,method,active}`), read from `/api/credential`; exactly one account is
-active per integration and the provider is configured when it has at least one
-account. V1 providers expose no account list.
+A catalog entry carries `integrationIds` (the provider id plus any linked Console
+integration) so credentials can be associated with every provider whose login
+method that integration serves. On V2, stored credentials are surfaced per
+provider as `accounts` (`{id,label,method,active}`), read from `/api/credential`;
+exactly one account is active per integration and the provider is configured when
+it has at least one account. V1 providers expose no account list.
+Provider auth methods are normalized into one prompt model (text/select/number/
+integer/boolean/multiselect/external with `when` conditions); V2 integration
+`form` fields and V1 auth metadata both map into it.
 
 Primary fields:
 

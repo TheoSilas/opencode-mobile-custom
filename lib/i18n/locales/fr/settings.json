@@ -45,8 +45,9 @@
   },
   "providers": {
     "accounts": "Accounts",
-    "addAccount": "Add account",
+    "addAnotherAccount": "Add another account",
     "removeAccount": "Remove account",
+    "selectMethod": "Select login method",
     "apiKey": "Clé API",
     "pasteApiKey": "Colle ta clé API",
     "chooseModels": "Choisis les modèles configurés à afficher dans le chat. Le dernier modèle choisi dans le chat reste sélectionné pour les nouveaux chats.",

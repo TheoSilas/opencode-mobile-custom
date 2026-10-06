@@ -31,15 +31,18 @@ describe('provider addability', () => {
     expect(hasConfigurableAuth('openrouter', undefined, 'v2')).toBe(false);
   });
 
-  it('excludes configured providers and providers with no usable method', () => {
+  it('keeps configured providers so another account can be added, and only providers with a login method', () => {
     const providers = [
-      { id: 'openai', label: 'OpenAI', modelCount: 3, configured: false },
+      { id: 'openai', label: 'OpenAI', modelCount: 3, configured: true },
       { id: 'no-auth', label: 'No auth', modelCount: 0, configured: false },
-      { id: 'done', label: 'Done', modelCount: 1, configured: true },
+      { id: 'openrouter', label: 'OpenRouter', modelCount: 1, configured: false },
     ];
     const methods = { openai: [{ type: 'oauth' as const, label: 'Sign in' }] };
 
+    // V2: a configured provider stays listed (add another account); providers
+    // with no interactive method are excluded.
     expect(getAddableProviders(providers, methods, 'v2').map((provider) => provider.id)).toEqual(['openai']);
-    expect(getAddableProviders(providers, methods, 'v1').map((provider) => provider.id)).toEqual(['openai', 'no-auth']);
+    // V1: the generic API-key fallback makes every provider addable.
+    expect(getAddableProviders(providers, methods, 'v1').map((provider) => provider.id)).toEqual(['openai', 'no-auth', 'openrouter']);
   });
 });

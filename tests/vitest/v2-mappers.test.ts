@@ -152,4 +152,26 @@ describe('v2 provider discovery and API-key auth', () => {
     await client.auth.remove({ providerID: 'opencode-go' });
     expect(removedCredential).toBe('credential-go');
   });
+
+  it('maps V2 integration form fields into normalized auth prompts', async () => {
+    h.api = {
+      provider: { list: async () => ({ data: [{ id: 'openai', name: 'OpenAI', integrationID: 'openai' }] }) },
+      integration: {
+        list: async () => ({ data: [{
+          id: 'openai', name: 'OpenAI', connections: [],
+          methods: [{ id: 'browser', type: 'oauth', label: 'Sign in', form: [
+            { key: 'account', type: 'string', title: 'Account', options: [{ value: 'a', label: 'A' }] },
+            { key: 'device', type: 'boolean', title: 'Device', default: true },
+            { key: 'limit', type: 'integer', title: 'Limit', minimum: 1, maximum: 9 },
+          ] }],
+        }] }),
+      },
+    };
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    const methods = (await client.provider.auth()).data as Record<string, Array<{ prompts?: Array<Record<string, unknown>> }>>;
+    expect(methods.openai[0].prompts?.map((prompt) => prompt.type)).toEqual(['select', 'boolean', 'integer']);
+    expect(methods.openai[0].prompts?.[0].options).toEqual([{ label: 'A', value: 'a' }]);
+    expect(methods.openai[0].prompts?.[1].defaultValue).toBe(true);
+    expect(methods.openai[0].prompts?.[2]).toMatchObject({ min: 1, max: 9 });
+  });
 });

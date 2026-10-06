@@ -387,8 +387,9 @@ const server = http.createServer(async (req, res) => {
         data: providerCatalog.map((provider) => ({
           id: provider.integrationID, name: provider.name,
           methods: [{ type: 'env', names: ['PROVIDER_API_KEY'] }, { type: 'key', label: 'API key' }],
-          connections: state.configuredProviderIds.has(provider.id)
-            ? [{ type: 'credential', id: `credential-${provider.id}`, label: 'API key', method: 'key' }] : [],
+          connections: state.credentials
+            .filter((credential) => credential.integrationID === provider.integrationID)
+            .map((credential) => ({ type: 'credential', id: credential.id, label: credential.label, method: 'key' })),
         })),
       });
       return;
@@ -397,7 +398,8 @@ const server = http.createServer(async (req, res) => {
     const keyConnect = pathname.match(/^\/api\/integration\/([^/]+)\/connect\/key$/);
     if (req.method === 'POST' && keyConnect) {
       if (!requireLocation(requestUrl, res)) return;
-      const provider = providerCatalog.find((item) => item.integrationID === decodeURIComponent(keyConnect[1]));
+      const integrationID = decodeURIComponent(keyConnect[1]);
+      const provider = providerCatalog.find((item) => item.integrationID === integrationID);
       const body = await readJson(req);
       if (!provider || !body?.key?.trim()) {
         sendJson(res, 400, { error: 'A known integration and API key are required' });
@@ -405,7 +407,67 @@ const server = http.createServer(async (req, res) => {
       }
       state.configuredProviderIds.add(provider.id);
       state.authByProvider[provider.id] = { type: 'api', key: body.key };
+      const label = typeof body?.label === 'string' && body.label.trim() ? body.label.trim() : 'API key';
+      const existing = state.credentials.find((credential) => credential.integrationID === integrationID && credential.label === label);
+      state.credentials.forEach((credential) => { if (credential.integrationID === integrationID) credential.active = false; });
+      if (existing) {
+        existing.active = true;
+        existing.value = { type: 'key', key: body.key };
+      } else {
+        state.credentials.push({ id: `credential-${integrationID}-${state.credentials.length + 1}`, integrationID, label, active: true, value: { type: 'key', key: body.key } });
+      }
       sendJson(res, 204);
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/credential') {
+      sendJson(res, 200, { data: state.credentials });
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/credential') {
+      const body = await readJson(req);
+      if (!body?.integrationID || !body?.value) {
+        sendJson(res, 400, { error: 'integrationID and value are required' });
+        return;
+      }
+      const activate = body.activate === true || (body.activate !== false && !state.credentials.some((credential) => credential.integrationID === body.integrationID && credential.active));
+      if (activate) state.credentials.forEach((credential) => { if (credential.integrationID === body.integrationID) credential.active = false; });
+      const credential = { id: body.id || `credential-${body.integrationID}-${state.credentials.length + 1}`, integrationID: body.integrationID, label: body.label || 'API key', active: activate, value: body.value };
+      state.credentials.push(credential);
+      sendJson(res, 200, { data: credential });
+      return;
+    }
+
+    const activateMatch = pathname.match(/^\/api\/credential\/([^/]+)\/activate$/);
+    if (req.method === 'POST' && activateMatch) {
+      const credentialID = decodeURIComponent(activateMatch[1]);
+      const target = state.credentials.find((credential) => credential.id === credentialID);
+      if (target) {
+        state.credentials.forEach((credential) => {
+          if (credential.integrationID === target.integrationID) credential.active = credential.id === credentialID;
+        });
+      }
+      res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
+      res.end();
+      return;
+    }
+
+    const credentialMatch = pathname.match(/^\/api\/credential\/([^/]+)$/);
+    if (req.method === 'PATCH' && credentialMatch) {
+      const body = await readJson(req);
+      const target = state.credentials.find((credential) => credential.id === decodeURIComponent(credentialMatch[1]));
+      if (target && typeof body?.label === 'string') target.label = body.label;
+      res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
+      res.end();
+      return;
+    }
+
+    if (req.method === 'DELETE' && credentialMatch) {
+      const credentialID = decodeURIComponent(credentialMatch[1]);
+      state.credentials = state.credentials.filter((credential) => credential.id !== credentialID);
+      res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
+      res.end();
       return;
     }
 

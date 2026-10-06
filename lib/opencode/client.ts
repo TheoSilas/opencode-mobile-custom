@@ -17,6 +17,7 @@ export type {
   ScopedOpencodeClient,
   ProviderAccountInfo,
   ProviderAccountsApi,
+  ProviderOAuthApi,
 } from './client/types';
 export { defaultConnectionSettings } from './client/types';
 export {

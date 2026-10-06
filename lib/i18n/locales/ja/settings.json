@@ -45,8 +45,9 @@
   },
   "providers": {
     "accounts": "Accounts",
-    "addAccount": "Add account",
+    "addAnotherAccount": "Add another account",
     "removeAccount": "Remove account",
+    "selectMethod": "Select login method",
     "apiKey": "API キー",
     "pasteApiKey": "API キーを貼り付け",
     "chooseModels": "チャットに表示する設定済みモデルを選択します。チャットで最後に選んだモデルが新しいチャットでも選択されたままになります。",

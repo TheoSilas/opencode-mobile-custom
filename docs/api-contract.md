@@ -138,11 +138,17 @@ The URL is opened with `WebBrowser.openAuthSessionAsync` against the app scheme 
 { "method": 0, "code": "returned-code" }
 ```
 
-An empty trimmed code is sent as `undefined`, although the current dialog disables completion until text is present. A successful callback enables the provider and refreshes capabilities. For `auto`, the app polls `provider.list()` (bounded) until the provider reports connected, then enables it and reconnects.
+An empty trimmed code is sent as `undefined`, although the current dialog disables completion until text is present. A successful callback enables the provider and refreshes capabilities.
+
+On V2, `auto` OAuth completes on the server after the browser hits the server's callback. Rather than guessing from the provider list, the adapter polls `integration.oauth.status` (`pending`/`complete`/`failed`/`expired`) through a `providerOAuth.wait(providerId, timeoutMs)` facade (default five minutes) and only then enables the provider. V1 has no attempt status and keeps bounded `provider.list()` polling.
+
+### Provider Auth Methods And Forms
+
+`provider.auth()` returns the login methods per provider. V2 integration methods carry a rich `form` (string/select/number/integer/boolean/multiselect/external with `when` conditions) that the adapter normalizes into the app's prompt model, so the setup UI renders type-specific controls. V1 auth metadata (text/select with a single `when`) maps into the same model.
 
 ### Provider Accounts
 
-OpenCode 2 stores credentials as first-class, labeled accounts. `GET /api/credential` returns `{id, integrationID, label, active, value}` for every stored credential and is the authoritative source for the active account; exactly one credential is `active` per integration. `integration.connect.key` and `integration.connect.oauth` accept an optional `label` and create a new credential, activating it unless one already exists. `POST /api/credential/:id/activate` switches the active account, `PATCH /api/credential/:id` renames it, and `DELETE /api/credential/:id` removes it. The provider layer surfaces these per provider as `ProviderOption.accounts`. The endpoint is newer than the pinned client; the adapter reads it through its own authenticated transport and treats a missing endpoint as "no accounts". V1 has a single credential per provider and no account list.
+OpenCode 2 stores credentials as first-class, labeled accounts. `GET /api/credential` returns `{id, integrationID, label, active, value}` for every stored credential and is the authoritative source for the active account; exactly one credential is `active` per integration. `integration.connect.key` and `integration.connect.oauth` accept an optional `label` and create a new credential, activating it unless one already exists. `POST /api/credential/:id/activate` switches the active account, `PATCH /api/credential/:id` renames it, and `DELETE /api/credential/:id` removes it. The provider layer surfaces these per provider as `ProviderOption.accounts`, associating a credential with every provider whose integration (its own id or a linked Console integration) serves one of the provider's login methods. The endpoint is newer than the pinned client; the adapter reads it through its own authenticated transport and treats a missing endpoint as "no accounts". V1 has a single credential per provider and no account list.
 
 ## Session Contract
 

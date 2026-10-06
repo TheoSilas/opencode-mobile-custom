@@ -45,8 +45,9 @@
   },
   "providers": {
     "accounts": "Accounts",
-    "addAccount": "Add account",
+    "addAnotherAccount": "Add another account",
     "removeAccount": "Remove account",
+    "selectMethod": "Select login method",
     "apiKey": "API 密钥",
     "pasteApiKey": "粘贴你的 API 密钥",
     "chooseModels": "选择在聊天中显示哪些已配置的模型。你在聊天中最后选择的模型会保留用于新聊天。",

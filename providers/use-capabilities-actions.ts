@@ -14,7 +14,7 @@ import {
 } from '@/providers/opencode-model-selection';
 import type { ChatPreferences } from '@/providers/opencode-preferences';
 import type { AgentOption, ModelOption } from '@/providers/opencode-model-selection';
-import type { ProviderAuthMethod, ProviderOption } from '@/providers/opencode-provider-types';
+import type { ProviderAuthMethod, ProviderAuthValues, ProviderOption } from '@/providers/opencode-provider-types';
 
 type CapabilitiesActionsInput = {
   client: ScopedOpencodeClient;
@@ -114,17 +114,17 @@ export function useCapabilitiesActions({
   );
 
   const setProviderAuth = useCallback(
-    async (providerId: string, values: Record<string, string>) => {
-      const key = values.key?.trim();
-      const token = values.token?.trim();
+    async (providerId: string, values: ProviderAuthValues) => {
+      const key = typeof values.key === 'string' ? values.key.trim() : '';
+      const token = typeof values.token === 'string' ? values.token.trim() : '';
       if (!key) {
         throw new Error('Enter a provider credential first.');
       }
 
       const metadata = Object.fromEntries(
         Object.entries(values)
-          .filter(([name, value]) => name !== 'key' && name !== 'token' && value.trim())
-          .map(([name, value]) => [name, value.trim()]),
+          .filter(([name, value]) => name !== 'key' && name !== 'token' && typeof value === 'string' && value.trim())
+          .map(([name, value]) => [name, (value as string).trim()]),
       );
       const auth = token
         ? { type: 'wellknown' as const, key, token }
@@ -154,11 +154,11 @@ export function useCapabilitiesActions({
   }, [client, currentConfig, refreshChatCapabilities, setCurrentConfig]);
 
   const startProviderOAuth = useCallback(
-    async (providerId: string, methodIndex: number, inputs?: Record<string, string>) => {
+    async (providerId: string, methodIndex: number, inputs?: ProviderAuthValues) => {
       const authorization = (await client.provider.oauth.authorize({
         providerID: providerId,
         method: methodIndex,
-        inputs,
+        inputs: inputs as Record<string, string> | undefined,
       })).data;
       if (!authorization) {
         throw new Error('OpenCode did not return OAuth authorization details.');
@@ -174,10 +174,14 @@ export function useCapabilitiesActions({
   );
 
   const completeAutomaticProviderOAuth = useCallback(async (providerId: string) => {
-    // Automatic OAuth completes on the server after the browser redirects to
-    // the server's callback, which can lag the browser closing by a few seconds.
-    // Poll until the provider reports connected, bounded so a cancelled sign-in
-    // still surfaces an actionable error.
+    // On V2 the server owns the automatic OAuth callback, so wait on the attempt
+    // status it records. V1 only exposes the connected provider list.
+    if (client.providerOAuth) {
+      await client.providerOAuth.wait(providerId);
+      if (!isCurrentClient(client)) throw new Error('The connection changed before sign-in completed.');
+      await configureProvider(providerId);
+      return;
+    }
     const deadline = Date.now() + 90_000;
     for (;;) {
       const providers = (await client.provider.list()).data;
@@ -202,7 +206,7 @@ export function useCapabilitiesActions({
     await refreshChatCapabilities();
   }, [client, configureProvider, refreshChatCapabilities]);
 
-  const addProviderAccount = useCallback(async (providerId: string, values: Record<string, string>, label?: string) => {
+  const addProviderAccount = useCallback(async (providerId: string, values: ProviderAuthValues, label?: string) => {
     if (!client.accounts) throw new Error('Managing multiple provider accounts requires OpenCode 2.');
     await client.accounts.add(providerId, values, label);
     await configureProvider(providerId);

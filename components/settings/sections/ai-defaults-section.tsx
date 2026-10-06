@@ -53,7 +53,7 @@ export function AiDefaultsSection({
       models: configuredModels.filter((model) => model.providerID === provider.id),
     }))
     .filter((entry) => entry.models.length > 0);
-  const unconfiguredProviders = getAddableProviders(availableProviders, providerAuthMethodsById, contract);
+  const addableProviders = getAddableProviders(availableProviders, providerAuthMethodsById, contract);
 
   return (
     <View style={styles.section}>
@@ -62,12 +62,13 @@ export function AiDefaultsSection({
         </Text>
         <View style={styles.providerHeader}>
           <Text variant="labelLarge" style={{ color: palette.text }}>{t('settings:providers.configuredProviders')}</Text>
-          {unconfiguredProviders.length > 0 ? (
+          {addableProviders.length > 0 ? (
             <NativeSelect
               searchable
               onValueChange={onStartProviderConfiguration}
-              options={unconfiguredProviders.map((provider) => ({
+              options={addableProviders.map((provider) => ({
                 label: getProviderCopy(provider.id, provider.label, t).label,
+                description: provider.configured ? t('settings:providers.addAnotherAccount') : undefined,
                 leadingIcon: (props) => renderProviderIcon(provider.id, props.size, props.color),
                 value: provider.id,
               }))}
@@ -120,9 +121,6 @@ export function AiDefaultsSection({
                       {account.label}
                     </Chip>
                   ))}
-                  <Chip icon="plus" onPress={() => onStartProviderConfiguration(provider.id)}>
-                    {t('settings:providers.addAccount')}
-                  </Chip>
                 </View>
               </View>
             ))}

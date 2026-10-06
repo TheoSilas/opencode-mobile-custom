@@ -794,8 +794,11 @@ test('V1 providers retain API-key login alongside OAuth metadata', async ({ page
   await ensureAiSection(page);
   await page.getByTestId('settings-add-provider-button').click();
   await page.getByRole('button', { name: 'OpenRouter', exact: true }).click();
-  await expect(page.getByRole('radio', { name: 'Sign in with account' })).toBeVisible();
-  await page.getByRole('radio', { name: 'API key', exact: true }).click();
+  await expect(page.getByText('Configure OpenRouter')).toBeVisible();
+  // The login-method picker offers both the server OAuth method and the generic API key.
+  await page.getByTestId('provider-method-select').click();
+  await expect(page.getByRole('button', { name: 'Sign in with account', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'API key', exact: true }).click();
   await page.getByPlaceholder('Paste your API key').fill('sk-test-manual-key');
   await page.getByTestId('settings-provider-save-button').click();
   await expect(page.getByText('Configure OpenRouter')).not.toBeVisible({ timeout: 15_000 });
@@ -1075,6 +1078,36 @@ for (const providerName of ['OpenCode Go', 'OpenRouter']) {
     }
   });
 }
+
+test('OpenCode 2 lists provider accounts and switches the active one', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port);
+  try {
+    await waitForServer(request, `http://127.0.0.1:${port}/api/info`);
+    await openReadyChat(page);
+    await connectToServer(page, `http://127.0.0.1:${port}`);
+    await goToTab(page, 'Settings');
+    await ensureAiSection(page);
+
+    await expect(page.getByText('Accounts', { exact: true })).toBeVisible();
+    const work = page.getByRole('button', { name: 'Work', exact: true });
+    const personal = page.getByRole('button', { name: 'Personal', exact: true });
+    await expect(work).toBeVisible();
+    await expect(personal).toBeVisible();
+
+    await personal.click();
+    await expect(personal).toBeVisible();
+
+    const removeButtons = page.getByRole('button', { name: 'Remove account', exact: true });
+    await expect(removeButtons).toHaveCount(2);
+    await removeButtons.last().click();
+    await expect(personal).not.toBeVisible();
+    await expect(work).toBeVisible();
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
 
 test('OpenCode 2 adds a server workspace from the shared picker', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');

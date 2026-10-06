@@ -228,11 +228,15 @@ The SSE endpoint intentionally fails, forcing the app to complete the workflow t
 V2 regression coverage also connects OpenCode Go and OpenRouter from an `auto`
 catalog using API keys, checks their model lists, and reloads to verify server
 credential discovery. The fake V2 catalog includes environment and key methods
-so environment methods cannot masquerade as a key form. the Vitest suite (`test:vitest`)
-exercises the real adapter's discovery, key submission, and OAuth method indices.
-A V1 flow verifies manual key entry remains available alongside OAuth metadata.
-These fake-server and E2E changes require explicit human validation under
-AGENTS.md, including adding a provider against a real V2 server.
+so environment methods cannot masquerade as a key form. The fake V2 server also
+emulates labeled credentials (`/api/credential` list/create/activate/remove); an
+E2E flow verifies a provider's accounts are listed and the active account can be
+switched and removed. The Vitest suite (`test:vitest`) exercises the real
+adapter's discovery, key submission, OAuth method indices, and V2 form-to-prompt
+mapping. A V1 flow verifies manual key entry remains available alongside OAuth
+metadata through the login-method dropdown. These fake-server and E2E changes
+require explicit human validation under AGENTS.md, including adding a provider
+against a real V2 server and real code/automatic OAuth completion.
 
 ### Connection API Base Flow
 

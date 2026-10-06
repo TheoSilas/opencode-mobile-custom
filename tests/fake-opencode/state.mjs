@@ -66,6 +66,12 @@ export function createState(scenario) {
     mcpRuntimeConfigs: { filesystem: { type: 'local', command: ['fake-filesystem'], enabled: true } },
     mcpOauth: {},
     configuredProviderIds: new Set(['openai']),
+    // V2 stores credentials as labeled accounts; openai starts with two so
+    // account switching/removal is exercised.
+    credentials: [
+      { id: 'credential-openai', integrationID: 'openai', label: 'Work', active: true, value: { type: 'key', key: 'sk-openai-work' } },
+      { id: 'credential-openai-2', integrationID: 'openai', label: 'Personal', active: false, value: { type: 'key', key: 'sk-openai-personal' } },
+    ],
     config: {
       model: 'openai/gpt-4.1-mini',
       enabled_providers: ['openai'],

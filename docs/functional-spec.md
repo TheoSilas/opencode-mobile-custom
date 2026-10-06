@@ -337,7 +337,8 @@ Purpose:
 
 Behavior:
 
-- unconfigured providers that expose a key/OAuth login method (or a V1 generic API-key fallback) appear in a searchable `Add provider` selector; providers with no interactive method are omitted
+- providers that expose a key/OAuth login method (or a V1 generic API-key fallback) appear in a searchable `Add provider` selector; providers with no interactive method are omitted. Already-configured providers stay listed (marked "add another account") so another account can be added for any provider
+- configured providers display as chips, and OpenCode 2 providers with stored credentials show their labeled accounts with the active one marked; tapping an inactive account switches to it and the close action removes it
 - configured providers display as chips
 - models are grouped by provider in accordions
 - each model can be toggled on/off from the enabled list
@@ -352,17 +353,17 @@ The app supports two auth styles:
 
 Behavior:
 
-- provider auth metadata comes from the server
+- provider auth metadata comes from the server; V2 integration forms map into the same prompt model (text/select/number/integer/boolean/multiselect/external with `when` conditions)
 - if the server returns no auth methods for a non-known-OAuth provider, the app falls back to a generic API-key flow
-- if OAuth is selected, the app requests authorization details and opens the URL in an auth session that can return to the app scheme; a code captured from the redirect completes sign-in directly
-- headless/device-code OAuth (no browser URL or provider-supplied instructions) shows the pairing/authorization code and completes through the callback
-- automatic OAuth polls the provider list, bounded, until the server reports the provider connected
-- provider setup uses a scrollable full-screen form with a keyboard-safe action footer
-- code-based OAuth displays a callback dialog and submits the entered authorization code before enabling the provider
-- if API auth is selected, auth values are normalized and sent to `client.auth.set`
+- provider setup is a full-screen two-step flow: pick a login method from a dropdown, then configure it; the dropdown dismisses on selection and the step advances
+- if OAuth is selected, the app requests authorization details, opens the URL in an auth session that can return to the app scheme, and completes directly when a code is captured from the redirect
+- headless/device-code OAuth (no browser URL or provider-supplied instructions) renders the pairing/authorization code on the setup step with an authorization-code field
+- automatic OAuth waits on the server's OAuth attempt status (bounded, five minutes) while the browser is open, then refreshes capabilities
+- if API auth is selected, auth values are normalized and sent to `client.auth.set` (V1) or the V2 credential endpoint
 - after successful auth, the provider is enabled in server config and capabilities are refreshed
 - configured providers can be removed, deleting stored credentials and disabling the provider in config
-- on OpenCode 2 a provider's stored credentials are listed as labeled accounts; one is active, and the user can switch the active account, remove an account, or add another account through the provider setup form
+- on OpenCode 2 a provider's stored credentials are listed as labeled accounts; one is active, and the user can switch the active account or remove an account. A provider's accounts are those credentials whose integration serves one of the provider's login methods
+- the Add provider picker lists every provider with an interactive login method, including already-configured providers (with an "add another account" hint), so a second account can be added for any provider
 
 ### Notifications Section
 

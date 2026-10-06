@@ -12,6 +12,7 @@ import type {
   ProviderAuthMethod,
   Pty,
   PtyShellsResponse,
+  ProviderAuthValues,
   Session,
   SessionStatus,
   Todo,
@@ -33,7 +34,7 @@ import type { ChatPreferences, ReasoningLevel, ResponseScope } from '@/providers
 import type { ServerCapabilities } from '@/providers/opencode-capabilities';
 
 export type { AgentOption, ChatPreferences, ModelOption, ReasoningLevel, ResponseScope, ServerCapabilities };
-export type { ProviderAuthMethod } from '@/lib/opencode/types';
+export type { ProviderAuthMethod, ProviderAuthPrompt, ProviderAuthValues } from '@/lib/opencode/types';
 
 // A stored provider credential. V2 integrations can hold several labeled
 // accounts (exactly one active); V1 providers have no account list.
@@ -49,6 +50,9 @@ export type ProviderOption = {
   label: string;
   modelCount: number;
   configured: boolean;
+  // Integrations that serve this provider's login methods (its own id plus any
+  // linked Console integration). Used to associate stored accounts.
+  integrationIds?: string[];
   accounts?: ProviderAccount[];
 };
 
@@ -177,13 +181,13 @@ export type CapabilitiesContextValue = {
   availableAgents: AgentOption[];
   configureProvider: (providerId: string) => Promise<void>;
   completeAutomaticProviderOAuth: (providerId: string) => Promise<void>;
-  setProviderAuth: (providerId: string, values: Record<string, string>) => Promise<void>;
+  setProviderAuth: (providerId: string, values: ProviderAuthValues) => Promise<void>;
   removeProvider: (providerId: string) => Promise<void>;
-  startProviderOAuth: (providerId: string, methodIndex: number, inputs?: Record<string, string>) => Promise<{ url: string; instructions?: string; method: 'auto' | 'code' }>;
+  startProviderOAuth: (providerId: string, methodIndex: number, inputs?: ProviderAuthValues) => Promise<{ url: string; instructions?: string; method: 'auto' | 'code' }>;
   completeProviderOAuth: (providerId: string, methodIndex: number, code: string) => Promise<void>;
   // Grouped so the capabilities context grows one member, not one per action.
   providerAccounts: {
-    add: (providerId: string, values: Record<string, string>, label?: string) => Promise<void>;
+    add: (providerId: string, values: ProviderAuthValues, label?: string) => Promise<void>;
     activate: (credentialId: string) => Promise<void>;
     remove: (credentialId: string) => Promise<void>;
   };

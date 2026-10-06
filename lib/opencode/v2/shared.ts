@@ -1,6 +1,7 @@
 import { OpenCode } from '@opencode/client';
 
 import { getServerBase, type OpencodeConnectionSettings } from '../client';
+import type { ProviderAuthPrompt } from '../types';
 import { modelToV1 } from '../v2-mappers';
 
 export type V2Api = ReturnType<typeof OpenCode.make>;
@@ -141,9 +142,14 @@ export async function providersToV1(api: V2Api, location: LocationOptions) {
   const models: V2Model[] = modelsResponse.data ?? [];
   const defaultRef = defaultResponse.data;
 
+  // A provider's login methods can be served by more than one integration: its
+  // direct integration (its own id) and a linked Console integration. Keep both
+  // so stored credentials can be associated with every provider that offers the
+  // matching login method.
   const all = providers.map((provider) => ({
     id: provider.id,
     name: provider.name,
+    integrationIds: [...new Set([provider.integrationID, provider.id].filter(Boolean))] as string[],
     models: Object.fromEntries(models.filter((model) => model.providerID === provider.id).map((model) => [model.modelID, modelToV1(model)])),
   }));
   // V2's provider endpoint lists active providers. The integration endpoint is
@@ -154,7 +160,7 @@ export async function providersToV1(api: V2Api, location: LocationOptions) {
     if (providerIds.has(integration.id) || linkedIntegrationIds.has(integration.id)
       || integration.metadata?.source === 'mcp'
       || !integration.methods.some((method) => method.type === 'key' || method.type === 'oauth')) continue;
-    all.push({ id: integration.id, name: integration.name, models: {} });
+    all.push({ id: integration.id, name: integration.name, integrationIds: [integration.id], models: {} });
   }
 
   const defaults: Record<string, string> = {};
@@ -175,6 +181,59 @@ export async function providersToV1(api: V2Api, location: LocationOptions) {
   return { all, default: defaults, connected };
 }
 
+type V2FormField = {
+  key: string;
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'multiselect' | 'external';
+  title?: string;
+  required?: boolean;
+  hidden?: boolean;
+  when?: Array<{ key: string; op: 'eq' | 'neq'; value: unknown }>;
+  placeholder?: string;
+  options?: Array<{ value: string; label: string }>;
+  default?: unknown;
+  minimum?: unknown;
+  maximum?: unknown;
+  url?: string;
+};
+
+function numeric(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+// V2 integration methods carry a rich `form` (string/select/number/boolean/
+// multiselect/external with `when` conditions). Map it into the app's normalized
+// prompt model so the setup UI can render type-specific controls.
+function formToPrompts(form: unknown): ProviderAuthPrompt[] | undefined {
+  if (!Array.isArray(form)) return undefined;
+  const prompts = (form as V2FormField[])
+    .filter((field) => !field.hidden)
+    .map((field): ProviderAuthPrompt => {
+      const message = field.title || field.key;
+      const when = field.when?.map((condition) => ({
+        key: condition.key,
+        op: condition.op,
+        value: condition.value as string | number | boolean,
+      }));
+
+      switch (field.type) {
+        case 'boolean':
+          return { type: 'boolean', key: field.key, message, defaultValue: typeof field.default === 'boolean' ? field.default : undefined, when };
+        case 'number':
+        case 'integer':
+          return { type: field.type, key: field.key, message, min: numeric(field.minimum), max: numeric(field.maximum), defaultValue: numeric(field.default), when };
+        case 'multiselect':
+          return { type: 'multiselect', key: field.key, message, options: field.options, defaultValue: Array.isArray(field.default) ? (field.default as string[]) : undefined, when };
+        case 'external':
+          return { type: 'external', key: field.key, message, url: field.url, when };
+        default:
+          return field.options?.length
+            ? { type: 'select', key: field.key, message, options: field.options, defaultValue: typeof field.default === 'string' ? field.default : undefined, when }
+            : { type: 'text', key: field.key, message, placeholder: field.placeholder, defaultValue: typeof field.default === 'string' ? field.default : undefined, when };
+      }
+    });
+  return prompts.length > 0 ? prompts : undefined;
+}
+
 export async function providerAuthToV1(api: V2Api, location: LocationOptions) {
   const [integrationsResponse, providersResponse] = await Promise.all([api.integration.list(location), api.provider.list(location)]);
   const result: Record<string, unknown[]> = {};
@@ -190,10 +249,14 @@ export async function providerAuthToV1(api: V2Api, location: LocationOptions) {
     // direct integration accepts its API key. Keep both choices available.
     const directKey = (integrationsResponse.data ?? []).find((item) => item.id === id)?.methods.find((method) => method.type === 'key');
     if (directKey && !methods.some((method) => method.type === 'key')) methods.push(directKey);
-    result[id] = methods.map((method) => ({
-      type: method.type === 'oauth' ? 'oauth' : 'api',
-      label: 'label' in method && method.label ? method.label : method.type,
-    }));
+    result[id] = methods.map((method) => {
+      const prompts = 'form' in method ? formToPrompts(method.form) : undefined;
+      return {
+        type: method.type === 'oauth' ? 'oauth' : 'api',
+        label: 'label' in method && method.label ? method.label : method.type,
+        ...(prompts ? { prompts } : {}),
+      };
+    });
   });
   return result;
 }

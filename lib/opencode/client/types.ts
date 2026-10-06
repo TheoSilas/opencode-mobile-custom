@@ -6,6 +6,7 @@ import {
 import Constants from 'expo-constants';
 
 import type { ConnectMetadata } from '@/lib/connect';
+import type { ProviderAuthValues } from '@/lib/opencode/types';
 
 export type ServerContract = 'v1' | 'v2';
 
@@ -90,12 +91,21 @@ export type ProviderAccountInfo = {
 // whose auth model is a single credential per provider.
 export type ProviderAccountsApi = {
   list: () => Promise<ProviderAccountInfo[]>;
-  add: (providerId: string, values: Record<string, string>, label?: string) => Promise<void>;
+  add: (providerId: string, values: ProviderAuthValues, label?: string) => Promise<void>;
   activate: (credentialId: string) => Promise<void>;
   remove: (credentialId: string) => Promise<void>;
+};
+
+// Authoritative completion for automatic OAuth. `auto` sign-in finishes on the
+// server (the provider redirects to the server's callback, not the app), so the
+// app waits on the attempt status instead of guessing from the provider list.
+export type ProviderOAuthApi = {
+  wait: (providerId: string, timeoutMs?: number) => Promise<void>;
+  cancel: (providerId: string) => Promise<void>;
 };
 
 export type ScopedOpencodeClient = OpencodeClient & {
   __opencode: ClientMetadata;
   accounts?: ProviderAccountsApi;
+  providerOAuth?: ProviderOAuthApi;
 };
