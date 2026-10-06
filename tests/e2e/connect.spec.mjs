@@ -40,11 +40,12 @@ async function submitLink(page, link) {
     await page.goto(`/pair?${new URL(link).searchParams}`);
     await expect(page).toHaveURL(/\/pair$/);
     return;
-  } else await page.getByTestId('connect-link-options').click();
+  } else await page.getByTestId('connect-options').click();
   await page.getByTestId('connect-pairing-link').fill(link);
   await page.getByTestId('connect-open-link').click();
 }
 async function manage(page) {
+  await page.getByTestId('connect-options').click();
   await page.getByTestId('connect-manage').click();
   await expect(page.getByTestId('connect-refresh-machines')).toBeVisible();
 }
@@ -226,7 +227,6 @@ for (const [name, options, message] of [
     await openPair(page); await page.getByTestId('connect-purchase').click();
     await expect(page.getByTestId('connect-error')).toContainText(message);
     if (options.finishFailures) {
-      await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
       await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
     }
     await expect(page.getByTestId('connect-control-plane')).toHaveCount(0);
@@ -282,7 +282,7 @@ test('unfinished native purchase recovery after restart never synchronizes or pu
   await storeFixture(page, { recovered: true }); const state = await mockControlPlane(page, { owned: true });
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair');
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
   await expect.poll(async () => (await events(page)).includes('finish')).toBeTruthy();
   expect(state.subscriptionClaims).toBe(1); expect(await events(page)).not.toContain('restore'); expect(await events(page)).not.toContain('purchase');
   await page.reload();
@@ -294,7 +294,7 @@ test('an expired QR preserves the subscription and accepts a fresh QR without re
   await storeFixture(page); const state = await mockControlPlane(page, { pairStatus: 409 });
   await openPair(page); await page.getByTestId('connect-purchase').click();
   await expect(page.getByTestId('connect-error')).toContainText('pairing expired');
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
   await expect(page.getByTestId('connect-machine-name')).toHaveCount(0);
   await submitLink(page, pairingLink('fresh-pair').toString());
   await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
@@ -318,7 +318,7 @@ test('second-device Restore lists durable machines; access mismatch saves nothin
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair'); await expect(page.getByTestId('connect-restore')).toBeEnabled();
   await page.getByTestId('connect-restore').click();
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
   await manage(page);
   await expect(page.getByTestId('connect-access-machine-1')).toBeVisible();
   await page.getByTestId('connect-access-machine-1').click();
@@ -331,7 +331,7 @@ test('second-device Restore reconnects the same owned machine without a QR', asy
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair'); await expect(page.getByTestId('connect-restore')).toBeEnabled();
   await page.getByTestId('connect-restore').click();
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
   await manage(page);
   await page.getByTestId('connect-access-machine-1').click();
   await expect(page).toHaveURL(/\/workspace$/, { timeout: 30_000 });
@@ -469,7 +469,6 @@ test('an existing subscriber selecting Cloud Link opens the pairing screen witho
   await page.getByTestId('connection-add-button').click();
   await page.getByTestId('connection-method-connect').click();
   await expect(page.getByTestId('connect-panel')).toBeVisible();
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
   await expect(page.getByTestId('connect-progress')).toHaveCount(0);
   await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
   await expect(page).toHaveURL(/\/pair$/);
@@ -489,9 +488,8 @@ test('a subscriber can reopen pairing after connecting without a subscription ov
   await page.getByTestId('connection-add-button').click();
   await page.getByTestId('connection-method-connect').click();
   await expect(page.getByTestId('connect-panel')).toBeVisible();
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
   await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
-  await expect(page.getByTestId('connect-link-options')).toBeEnabled();
+  await expect(page.getByTestId('connect-options')).toBeEnabled();
   await expect(page).toHaveURL(/\/pair$/);
   expect(state.pairClaims).toBe(1);
   expect((await events(page)).filter((event) => event === 'purchase')).toHaveLength(1);
@@ -501,7 +499,7 @@ test('invalid and untrusted QR links can be replaced with a valid subscriber lin
   await storeFixture(page, { recovered: true }); const state = await mockControlPlane(page);
   await page.addInitScript(() => localStorage.setItem('opencode-mobile.onboarding-version', JSON.stringify({ version: 1 })));
   await page.goto('/pair');
-  await expect(page.getByTestId('connect-subscription-active')).toBeVisible();
+  await expect(page.getByTestId('connect-subscription-sheet')).toHaveCount(0);
   await submitLink(page, 'https://unrelated.test');
   await expect(page.getByTestId('connect-error')).toContainText('Invalid or unsupported');
   const untrusted = pairingLink(); untrusted.searchParams.set('cp', 'https://untrusted.test');

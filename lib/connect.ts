@@ -20,6 +20,7 @@ export type ConnectSession = { user_id: string; user_token: string; session_expi
 export type ConnectProof = { store: 'apple'; signedTransaction: string } | { store: 'google'; purchaseToken: string };
 export const CONNECT_PRODUCTION_URL = 'https://api.opencodecloud.link';
 export const CONNECT_STAGING_URL = 'https://apistaging.opencodecloud.link';
+export const CONNECT_LEARN_MORE_URL = 'https://opencodecloud.link/';
 
 export function isConnectEnabled() {
   const extra = Constants.expoConfig?.extra;

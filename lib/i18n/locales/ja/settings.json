@@ -326,6 +326,8 @@
     "manualHint": "サーバーURLと認証情報を入力します。",
     "nativeOnly": "Cloud LinkはiOSとAndroidアプリで利用できます。",
     "benefits": "QRコードで接続し、Cloud Linkを通じてコンピューターにリモートアクセスできます。「購入を復元」で別のデバイスからマシンを復元できます。",
-    "subscribe": "登録する"
+    "subscribe": "登録する",
+    "options": "接続オプション",
+    "learnMore": "Cloud Linkについて詳しく"
   }
 }

@@ -93,27 +93,34 @@ Manual. Onboarding uses the same chooser and retains Skip. Manual opens the
 shared full-screen Name/URL/Username/Password form with Save & connect. Failed
 connections retain the form and reuse the saved profile on retry.
 
-Cloud Link opens a full-screen camera surface, outside the tabs. Store/session
+Cloud Link opens a full-screen camera surface, outside the tabs. On native, camera
+permission is requested before this surface (and its subscription sheet) renders;
+denial cancels pairing and returns to the previous screen. Store/session
 initialization is explicit (`loading`, `ready`, `error`); scanning and the
 subscription overlay wait for recovery to settle. A verified subscriber scans
 and automatically pairs, securely saves, and connects through the provider's
-`pairLink` action. Non-subscribers immediately see the shared subscription
-sheet with benefits, native localized offers, Subscribe and Restore purchases.
-Dismissing it clears the pending QR, dismisses the camera surface, and returns
-to the chooser. Every new Cloud Link attempt checks entitlement again and shows
-the sheet for a non-subscriber; dismissal is never remembered. Active subscribers
-go directly to the camera surface without the buy/Restore sheet, including when
-opening pairing again after a successful connection. No purchase is
-started automatically. Deep links use the same continuation and retain the
-exact pending QR for purchase/Restore.
+`pairLink` action. Non-subscribers see the shared subscription sheet with
+benefits, native localized offers, Subscribe and Restore purchases over the
+camera preview; the preview renders but scans never pair without an active
+entitlement. Dismissing it clears the pending QR, dismisses the camera surface,
+and returns to the chooser. Every new Cloud Link attempt checks entitlement again
+and shows the sheet for a non-subscriber; dismissal is never remembered. Active
+subscribers go directly to the camera surface without the buy/Restore sheet,
+including when opening pairing again after a successful connection. No purchase
+is started automatically. Deep links use the same continuation and retain the
+exact pending QR for purchase/Restore; because they already carry a QR they skip
+the camera-permission gate.
 
 The camera unmounts during operations, overlays, lost focus and backgrounding.
 Invalid/untrusted links show recoverable errors; dismissing resumes scanning.
-Permission denial/unavailable cameras retain device Settings, Retry and a
-pairing-link fallback. The subscription sheet, including store setup and purchase errors, contains
-only purchase/Restore content and recovery controls. Pairing-link fallback belongs to the pairing surface. Machine management lives in a separate `pair?mode=manage`
-view, reached through saved profiles' Manage Cloud Link or Your machines after
-Restore. Production web offers Manual and explains native Cloud Link availability;
+A viewfinder frames the QR area and its hint replaces the old status chips. The
+appbar hosts a single options action (`monitor-multiple`) instead of an inline
+pair-link button: it contains the pairing-link alternative, machine management
+for entitled users, and a learn-more link to `https://opencodecloud.link/`.
+Unavailable cameras retain Retry. The subscription sheet, including store setup and purchase errors, contains
+only purchase/Restore content and recovery controls. Pairing-link fallback belongs to the options sheet. Machine management lives in a separate `pair?mode=manage`
+view, reached through the options action or saved profiles' Manage Cloud Link or
+Your machines after Restore. Production web offers Manual and explains native Cloud Link availability;
 only the existing web E2E harness enables mocked Cloud Link.
 
 ## Purchase, Restore and pairing
@@ -189,9 +196,11 @@ session. The older backend's combined conflict/expiry/lock message is ambiguous;
 retain that QR for explicit retry or replacement rather than guessing its age.
 A new scan replaces pending QR data; closing the pairing flow clears it.
 
-Scanner permission is requested only in the scan flow. Losing focus or
-backgrounding unmounts the preview. Missing iOS lenses and startup timeout retain
-deep-link recovery. Pairing remains available before onboarding completion.
+Scanner permission is requested before the camera surface renders in the scan
+flow; denial cancels pairing. Deep links skip that gate because they already
+carry a QR. Losing focus or backgrounding unmounts the preview. Missing iOS
+lenses and startup timeout retain deep-link recovery. Pairing remains available
+before onboarding completion.
 
 ## Machines, secure profiles and transport
 
@@ -299,7 +308,7 @@ Native acceptance remains separate: real sandbox/license-test purchase and
 second-device Restore in each store, secure cold/locked-device relaunch,
 finalization after interruption, Google plan replacement/lineage, renewal of the
 same machine/tunnel/hostname, expiry/refund termination of active SSE/WebSockets,
-camera allow/deny/unavailable, cold/warm deep links, manual/Cloud Link switching and
+camera allow/deny-cancel/unavailable, cold/warm deep links, manual/Cloud Link switching and
 background notifications. Both variants share `opencodemobile`; verify routing
 when both are installed. Mocked checks and simulator compilation do not establish
 live purchase, Restore, acknowledgement or tunnel behavior.

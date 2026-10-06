@@ -326,6 +326,8 @@
     "manualHint": "Gib deine Server-URL und Zugangsdaten ein.",
     "nativeOnly": "Cloud Link ist in der iOS- und Android-App verfügbar.",
     "benefits": "Verbinde dich per QR-Code, greife über Cloud Link aus der Ferne auf deinen Computer zu und stelle deine Rechner auf einem anderen Gerät mit Käufe wiederherstellen wieder her.",
-    "subscribe": "Abonnieren"
+    "subscribe": "Abonnieren",
+    "options": "Verbindungsoptionen",
+    "learnMore": "Mehr über Cloud Link erfahren"
   }
 }

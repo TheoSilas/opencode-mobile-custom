@@ -414,14 +414,19 @@ This is important to parity because the chat layout is intentionally dense and h
 
 ## Settings Components
 
-`connection-method-chooser.tsx` renders the shared Cloud Link/Manual choices.
-`connection-setup-form.tsx` composes the chooser and existing manual profile form
-for onboarding and returning from pairing. `connect-pairing.tsx` composes the
-full-screen scanner plus shared subscription, error and pairing-link overlays.
-Environment routing belongs to the provider and purchase service; no URL editor
-is rendered. `connect-scanner.tsx` owns camera presentation/lifecycle;
+`connection-method-chooser.tsx` renders the shared Cloud Link/Manual choices and
+a learn-more link. `connection-setup-form.tsx` composes the chooser and existing
+manual profile form for onboarding and returning from pairing.
+`connect-camera-gate.tsx` resolves native camera permission before the pairing
+surface renders and cancels pairing on denial; documented web never uses the
+camera. `connect-pairing.tsx` composes the full-screen scanner, an appbar
+options action that hosts the pairing-link alternative and machine management,
+plus shared subscription and error overlays. Environment routing belongs to the
+provider and purchase service; no URL editor is rendered. `connect-scanner.tsx`
+owns camera presentation/lifecycle and the viewfinder; it previews only once
+permission is granted and never pairs without an entitlement.
 `connect-subscription.tsx` renders native offers and explicit purchase/Restore.
-`connect-panel.tsx` renders the separate machine/profile management view. `app/pair.tsx` ingests links and navigates only.
+`connect-panel.tsx` renders the separate machine/profile management view. `app/pair.tsx` ingests links and navigates only; deep links skip the camera gate.
 Domain state/actions come from `useConnection().connectSetup`; see [Cloud Link](connect.md).
 
 ## `components/settings/settings-sections.tsx`

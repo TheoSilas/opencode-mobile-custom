@@ -487,12 +487,17 @@ Settings and onboarding. The web flows cover manual form retry and duplicate
 submission guards, subscription dismissal back to the chooser, subscriber
 auto-pairing without a subscription-sheet flash, invalid/untrusted QR replacement,
 automatic test/production purchase routing and environment isolation, and separate restored-machine
-management. Existing purchase verification, secure-save/finalization ordering,
-exact QR continuation, expiry and credential-rotation flows remain covered.
+management. The camera-active status chip was replaced by the appbar options
+action (`connect-options`), so entitlement assertions now check that the
+subscription sheet is absent instead. The pairing-link alternative and machine
+management now live in that options sheet. Existing purchase verification,
+secure-save/finalization ordering, exact QR continuation, expiry and
+credential-rotation flows remain covered.
 
-Native acceptance still requires full-screen camera allow/deny/unavailable,
-focus/background suspension, iOS/Android safe areas, larger text, screen-reader
-focus, keyboard/back behavior and real native Subscribe/Restore. Updated E2E
+Native acceptance still requires camera permission requested before the pairing
+surface with allow/deny-cancel behaviour, deep-link gate bypass, focus/background
+suspension, iOS/Android safe areas, larger text, screen-reader focus,
+keyboard/back behavior and real native Subscribe/Restore. Updated E2E
 files require explicit human validation under AGENTS.md. Build/static/mocked
 flow results do not replace these acceptance checks.
 

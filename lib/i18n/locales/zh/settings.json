@@ -326,6 +326,8 @@
     "manualHint": "输入服务器网址和凭据。",
     "nativeOnly": "Cloud Link 可在 iOS 和 Android 应用中使用。",
     "benefits": "通过二维码连接，使用 Cloud Link 远程访问电脑，并通过“恢复购买”在另一台设备上恢复您的机器。",
-    "subscribe": "订阅"
+    "subscribe": "订阅",
+    "options": "连接选项",
+    "learnMore": "了解 Cloud Link"
   }
 }

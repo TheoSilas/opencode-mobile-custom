@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,6 +16,8 @@ export default function PairScreen() {
   const { isHydrated, onboardingCompleted, onboardingActive } = useOnboarding();
   const palette = Colors[useColorScheme() ?? 'light'];
   const { pairLink } = connectSetup;
+  // Captured before the incoming link params are stripped from the route.
+  const [deepLink] = useState(() => Boolean(params.v || params.cp || params.id || params.t || params.n));
   useEffect(() => {
     if (isHydrated && (params.v || params.cp || params.id || params.t || params.n)) {
       void pairLink(params);
@@ -25,7 +27,7 @@ export default function PairScreen() {
   if (!connectSetup.enabled) return null;
   const onConnected = () => router.replace(!onboardingCompleted || onboardingActive ? '/onboarding/workspace' : '/(tabs)/workspace');
   const onClose = () => router.replace(!onboardingCompleted || onboardingActive ? '/onboarding/connect' : '/(tabs)/settings');
-  if (params.mode !== 'manage') return <ConnectEntry setup={connectSetup} onConnected={onConnected} onClose={onClose} onManage={() => router.push('/pair?mode=manage')} />;
+  if (params.mode !== 'manage') return <ConnectEntry setup={connectSetup} onConnected={onConnected} onClose={onClose} onManage={() => router.push('/pair?mode=manage')} deepLink={deepLink} />;
   return <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20 }}>
