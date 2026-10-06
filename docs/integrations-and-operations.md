@@ -227,6 +227,24 @@ template includes its Reanimated rules; native dependencies also contribute
 consumer rules for Expo task/notification modules, React Native, Worklets, and
 Glide image loading.
 
+### Release ABIs And Gradle Memory
+
+Release artifacts are built for a trimmed set of ABIs via
+`-PreactNativeArchitectures`, passed by `scripts/build-android-release.mjs` from
+the `ANDROID_RELEASE_ABIS` environment variable (default `arm64-v8a`). CI builds
+version `v*` tags with `armeabi-v7a,arm64-v8a` (Play-ready, 32-bit + 64-bit ARM)
+and other builds with `arm64-v8a` only. x86/x86_64 are omitted because only
+emulators need them, and emulators are served by
+`npm run build:development:android`, which keeps all four ABIs. Building fewer
+ABIs cuts per-ABI native compile and packaging work and lowers bundletool's peak
+memory.
+
+`app.config.ts` also raises the Gradle daemon JVM args (via `withGradleProperties`)
+above the Expo template default of `-Xmx2048m -XX:MaxMetaspaceSize=512m`, which
+was insufficient for `:app:packageReleaseBundle` and failed the release build
+with `Java heap space`. The generated `android/` directory is ignored, so
+`app.config.ts` remains the source of truth for both settings.
+
 ### Memory Profiling Targets
 
 The chat loads the newest 20 messages per session and lazily pages older history

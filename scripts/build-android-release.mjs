@@ -169,6 +169,11 @@ if (detectedStoreType === 'pkcs12') {
 run('./gradlew', [
   'bundleRelease',
   'assembleRelease',
+  // Trim ABIs for release artifacts. Play needs at most armeabi-v7a + arm64-v8a;
+  // x86/x86_64 only matter for emulators (covered by development builds). CI sets
+  // the wider set on version tags. Building fewer ABIs cuts native compile and
+  // packaging work, plus bundletool's peak memory.
+  `-PreactNativeArchitectures=${getOptionalEnv('ANDROID_RELEASE_ABIS') ?? 'arm64-v8a'}`,
   `-Pandroid.injected.signing.store.file=${keystorePath}`,
   `-Pandroid.injected.signing.store.password=${keystorePassword}`,
   `-Pandroid.injected.signing.key.alias=${keyAlias}`,
