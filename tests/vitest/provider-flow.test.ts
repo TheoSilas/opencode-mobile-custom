@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { getAddableProviders, hasConfigurableAuth } from '@/components/settings/settings-utils';
-import { parseProviderOAuthRedirect } from '@/lib/opencode/oauth';
+import { extractPairingCode, parseProviderOAuthRedirect } from '@/lib/opencode/oauth';
 
 describe('parseProviderOAuthRedirect', () => {
   it('reads a code from the query string', () => {
@@ -18,6 +18,19 @@ describe('parseProviderOAuthRedirect', () => {
 
   it('returns nothing for an unrelated redirect', () => {
     expect(parseProviderOAuthRedirect('opencodemobile://oauth')).toEqual({});
+  });
+});
+
+describe('extractPairingCode', () => {
+  it('pulls a device code out of the instruction text', () => {
+    expect(extractPairingCode('Enter code: 8F43-6FCF')).toBe('8F43-6FCF');
+    expect(extractPairingCode('Enter code:ABCD-12345')).toBe('ABCD-12345');
+  });
+
+  it('returns nothing for paste-code instructions', () => {
+    expect(extractPairingCode('Paste the authorization code here: ')).toBeUndefined();
+    expect(extractPairingCode(undefined)).toBeUndefined();
+    expect(extractPairingCode('')).toBeUndefined();
   });
 });
 

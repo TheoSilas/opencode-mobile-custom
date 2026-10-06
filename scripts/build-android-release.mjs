@@ -42,14 +42,50 @@ const repoRoot = process.cwd();
 const androidDir = path.join(repoRoot, 'android');
 const keystorePath = path.join(androidDir, 'release.keystore');
 
+// The script pins the Expo variant so a conflicting EXPO_APP_VARIANT in the
+// caller's environment cannot leak into Gradle. FOSS is selected through a
+// dedicated flavor switch rather than overloading EXPO_APP_VARIANT.
+const buildFlavor = process.env.OPENCODE_BUILD_FLAVOR?.trim() || 'production';
+const appVariant = buildFlavor === 'foss' ? 'foss' : 'production';
+const isFossVariant = appVariant === 'foss';
+const buildEnv = {
+  ...process.env,
+  EXPO_APP_VARIANT: appVariant,
+  ...(isFossVariant
+    ? {
+        EXPO_PUBLIC_FOSS: '1',
+        // Pin the FOSS package id so a local `.env` EXPO_ANDROID_PACKAGE cannot
+        // override it (shell env wins over Expo's .env loading).
+        EXPO_ANDROID_PACKAGE: process.env.EXPO_ANDROID_PACKAGE || 'app.getopencode.fdroid',
+      }
+    : {}),
+};
+
+const packageJsonPath = path.join(repoRoot, 'package.json');
+let packageJsonBackup;
+
+function restorePackageJson() {
+  if (packageJsonBackup) {
+    fs.writeFileSync(packageJsonPath, packageJsonBackup);
+    packageJsonBackup = undefined;
+  }
+}
+
+if (isFossVariant) {
+  // Shared with the fdroiddata recipe (scripts/foss-prepare.mjs) so upstream and
+  // F-Droid apply byte-identical dependency patches. It edits package.json, so
+  // back it up and restore it once the build finishes.
+  packageJsonBackup = fs.readFileSync(packageJsonPath);
+  run('node', [path.join(repoRoot, 'scripts', 'foss-prepare.mjs')], { cwd: repoRoot });
+  process.on('exit', restorePackageJson);
+  process.on('SIGINT', () => { restorePackageJson(); process.exit(130); });
+  process.on('SIGTERM', () => { restorePackageJson(); process.exit(143); });
+}
+
 // Expo SDK 54+ deprecated --non-interactive; CI=1 forces the same non-interactive mode.
 run('npx', ['expo', 'prebuild', '--platform', 'android', '--clean'], {
   cwd: repoRoot,
-  env: {
-    ...process.env,
-    EXPO_APP_VARIANT: 'production',
-    CI: '1',
-  },
+  env: { ...buildEnv, CI: '1' },
 });
 
 const keystorePassword = requireEnv('ANDROID_KEYSTORE_PASSWORD');
@@ -166,9 +202,13 @@ if (detectedStoreType === 'pkcs12') {
   effectiveKeyPassword = keystorePassword;
 }
 
+// The FOSS build mirrors the fdroiddata recipe exactly (APK only, arm64-v8a)
+// so F-Droid can reproduce and verify the upstream APK. The Play build also
+// produces the AAB and honors ANDROID_RELEASE_ABIS.
+const gradleTasks = isFossVariant ? ['assembleRelease'] : ['bundleRelease', 'assembleRelease'];
+
 run('./gradlew', [
-  'bundleRelease',
-  'assembleRelease',
+  ...gradleTasks,
   // Trim ABIs for release artifacts. Play needs at most armeabi-v7a + arm64-v8a;
   // x86/x86_64 only matter for emulators (covered by development builds). CI sets
   // the wider set on version tags. Building fewer ABIs cuts native compile and
@@ -181,7 +221,7 @@ run('./gradlew', [
   ...(detectedStoreType ? [`-Pandroid.injected.signing.store.type=${detectedStoreType}`] : []),
 ], {
   cwd: androidDir,
-  env: { ...process.env, EXPO_APP_VARIANT: 'production' },
+  env: buildEnv,
 });
 
-console.log('Android production build complete.');
+console.log(`Android ${appVariant} build complete.`);

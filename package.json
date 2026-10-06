@@ -1,7 +1,7 @@
 {
   "name": "opencode-mobile",
   "main": "expo-router/entry",
-  "version": "1.0.48",
+  "version": "1.0.49",
   "scripts": {
     "start": "expo start",
     "start:dev-client": "expo start --dev-client",
@@ -38,6 +38,7 @@
     "test:e2e:web": "playwright test",
     "test:ci:static": "npm run lint && npm run typecheck && npm run test:usage && npm run test:chat-appearance && npm run test:vitest && npm run test:i18n && npm run test:provider-utils && npm run test:voice-errors && npm run test:workspace-patch && npm run test:persistence-hydration && npm run test:credential-storage && npm run test:session-cache && npm run test:favorites && npm run test:connection-scope && npm run test:connection-profiles && npm run test:last-session && npm run test:active-sessions && npm run test:notifications && npm run test:notifications-background && npm run test:onboarding && npm run test:connect && npm run test:anr && npm run test:architecture && npm run test:provider-runtime",
     "build:android": "node ./scripts/build-android-release.mjs",
+    "build:foss:android": "OPENCODE_BUILD_FLAVOR=foss node ./scripts/build-android-release.mjs",
     "build:development:android": "node ./scripts/build-android-development.mjs",
     "ios": "expo run:ios",
     "prebuild:ios": "expo prebuild --platform ios --non-interactive",

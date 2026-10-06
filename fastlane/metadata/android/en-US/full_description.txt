@@ -1,0 +1,19 @@
+OpenCode Mobile is an independent, community-built mobile companion for OpenCode. It connects to the OpenCode server you already run and gives you a focused control surface when you are away from your desk.
+
+This F-Droid build connects only to OpenCode servers that you host or control. Your source code stays on your OpenCode host; the app talks to infrastructure you choose.
+
+What you can do:
+- Start and continue coding sessions, picking an agent and model
+- Watch agent progress instead of waiting for a generic notification
+- Review and approve permission requests
+- Manage workspaces, sessions, servers, and model selection
+- Use the terminal for focused commands
+- Browse and patch project files
+- Dictate prompts with voice input
+- Inspect context utilization, token activity, and estimated cost
+
+How it works:
+Your phone connects over HTTPS to an OpenCode server that you expose through a secure tunnel, VPN, or reverse proxy. OpenCode and its trademarks belong to their respective owners.
+
+F-Droid build notes:
+This build is produced without proprietary Google libraries. It excludes Google Play Billing and the ML Kit barcode scanner, so the optional paid Cloud Link subscription and its QR pairing are not available. It also compiles expo-notifications against free replacement classes instead of Firebase Cloud Messaging; local task-completion notifications still work. To connect, enter your OpenCode server URL and credentials manually.

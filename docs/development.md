@@ -59,11 +59,18 @@ Build a development client:
 npm run build:development:android
 ```
 
+Build the de-Googled FOSS variant (published to F-Droid; excludes Play Billing,
+ML Kit barcode scanning, and Firebase Cloud Messaging):
+```bash
+npm run build:foss:android
+```
+
 Install `android/app/build/outputs/apk/debug/app-debug.apk` (**OpenCode Mobile
 Dev**) and use `EXPO_APP_VARIANT=development npm run start:dev-client`. Both prebuild and Gradle use the
 development variant. The APK built from a push to `main` uses production and
 also exposes Cloud Link subscriptions. See [Cloud Link](connect.md) for native store,
-trusted environment, and sandbox configuration.
+trusted environment, and sandbox configuration. See
+[F-Droid and FOSS builds](fdroid.md) for the FOSS variant's scope and distribution.
 
 **Release Automation**:
 - Every CI run (push to `main`, tags, manual dispatch) builds the Android release and uploads it as the `android-release-artifacts` artifact

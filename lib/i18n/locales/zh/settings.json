@@ -74,6 +74,11 @@
     "cancelSetup": "取消提供商设置",
     "configureProvider": "配置 {{provider}}",
     "oauthHint": "这将在浏览器中打开提供商的登录流程。",
+    "signInPendingHint": "请在浏览器中完成登录。此屏幕会自动更新。",
+    "pairingCode": "配对码",
+    "openLink": "打开链接",
+    "copyLink": "复制链接",
+    "authorizationCodeHint": "登录后，复制显示的代码并粘贴到此处。",
     "setupUnavailable": "此提供商的设置详情目前不可用。",
     "couldNotComplete": "无法完成登录。",
     "removeCredentials": "移除 {{provider}} 的凭据"

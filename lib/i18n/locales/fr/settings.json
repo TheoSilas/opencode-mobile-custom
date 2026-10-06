@@ -74,6 +74,11 @@
     "cancelSetup": "Annuler la configuration du fournisseur",
     "configureProvider": "Configurer {{provider}}",
     "oauthHint": "Cela ouvre le flux de connexion du fournisseur dans ton navigateur.",
+    "signInPendingHint": "Termine la connexion dans ton navigateur. Cet écran se met à jour automatiquement.",
+    "pairingCode": "Code d'appairage",
+    "openLink": "Ouvrir le lien",
+    "copyLink": "Copier le lien",
+    "authorizationCodeHint": "Après t'être connecté, copie le code affiché et colle-le ici.",
     "setupUnavailable": "Les détails de configuration de ce fournisseur sont indisponibles pour le moment.",
     "couldNotComplete": "Impossible de terminer la connexion.",
     "removeCredentials": "Supprimer les identifiants de {{provider}}"

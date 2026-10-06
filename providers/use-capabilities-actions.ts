@@ -182,7 +182,7 @@ export function useCapabilitiesActions({
       await configureProvider(providerId);
       return;
     }
-    const deadline = Date.now() + 90_000;
+    const deadline = Date.now() + 900_000;
     for (;;) {
       const providers = (await client.provider.list()).data;
       if (providers?.connected.includes(providerId)) {
@@ -195,6 +195,11 @@ export function useCapabilitiesActions({
       await new Promise((resolve) => setTimeout(resolve, 2_000));
     }
   }, [client, configureProvider, isCurrentClient]);
+
+  const cancelProviderOAuth = useCallback(async (providerId: string) => {
+    if (!client.providerOAuth) return;
+    await client.providerOAuth.cancel(providerId);
+  }, [client]);
 
   const completeProviderOAuth = useCallback(async (providerId: string, methodIndex: number, code: string) => {
     await client.provider.oauth.callback({
@@ -292,6 +297,7 @@ export function useCapabilitiesActions({
     startProviderOAuth,
     completeAutomaticProviderOAuth,
     completeProviderOAuth,
+    cancelProviderOAuth,
     addProviderAccount,
     activateProviderAccount,
     removeProviderAccount,

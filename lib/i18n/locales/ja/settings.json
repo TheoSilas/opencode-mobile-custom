@@ -74,6 +74,11 @@
     "cancelSetup": "プロバイダーの設定をキャンセル",
     "configureProvider": "{{provider}}を設定",
     "oauthHint": "ブラウザーでプロバイダーのサインインフローが開きます。",
+    "signInPendingHint": "ブラウザーでサインインを完了してください。この画面は自動的に更新されます。",
+    "pairingCode": "ペアリングコード",
+    "openLink": "リンクを開く",
+    "copyLink": "リンクをコピー",
+    "authorizationCodeHint": "サインイン後、表示されたコードをコピーしてここに貼り付けてください。",
     "setupUnavailable": "このプロバイダーの設定詳細は現在利用できません。",
     "couldNotComplete": "サインインを完了できませんでした。",
     "removeCredentials": "{{provider}}の認証情報を削除"

@@ -74,6 +74,11 @@
     "cancelSetup": "Anbieter-Einrichtung abbrechen",
     "configureProvider": "{{provider}} konfigurieren",
     "oauthHint": "Dies öffnet den Anmeldeablauf des Anbieters in deinem Browser.",
+    "signInPendingHint": "Schließe die Anmeldung in deinem Browser ab. Dieser Bildschirm aktualisiert sich automatisch.",
+    "pairingCode": "Kopplungscode",
+    "openLink": "Link öffnen",
+    "copyLink": "Link kopieren",
+    "authorizationCodeHint": "Kopiere nach der Anmeldung den angezeigten Code und füge ihn hier ein.",
     "setupUnavailable": "Die Einrichtungsdetails für diesen Anbieter sind derzeit nicht verfügbar.",
     "couldNotComplete": "Anmeldung konnte nicht abgeschlossen werden.",
     "removeCredentials": "Zugangsdaten für {{provider}} entfernen"

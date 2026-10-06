@@ -132,15 +132,20 @@ The response must contain:
 - optional `instructions`
 - `method: "auto" | "code"`
 
-The URL is opened with `WebBrowser.openAuthSessionAsync` against the app scheme so a redirect back to the app is captured. A `code` in the returned query or fragment is used directly. For headless/device-code flows (no URL, or `instructions` carrying the pairing code), Settings shows the instructions and collects the code. When no code is captured, `client.provider.oauth.callback()` is called with:
+Routing follows the returned `method`, not the presence of instructions:
+
+- `auto`: the server completes the exchange (loopback callback or device/pairing polling). The app opens `url` when present, shows any instructions/pairing code with copy controls plus an open/copy link action, and polls the attempt until it completes. It never asks the user to paste a code.
+- `code`: the provider expects a code back. The app opens `url`, shows the instructions/link, and collects the authorization code on the setup step. A redirect that returns to the app scheme is captured opportunistically and submitted directly, but is not required.
+
+Device/pairing codes are embedded in `instructions` (`"Enter code: 8F43-6FCF"`); the app best-effort extracts the code into its own copyable field and always shows the full instruction text. Manual completion calls `client.provider.oauth.callback()` with:
 
 ```json
 { "method": 0, "code": "returned-code" }
 ```
 
-An empty trimmed code is sent as `undefined`, although the current dialog disables completion until text is present. A successful callback enables the provider and refreshes capabilities.
+An empty trimmed code is sent as `undefined`, and the dialog disables completion until text is present. A successful callback enables the provider and refreshes capabilities.
 
-On V2, `auto` OAuth completes on the server after the browser hits the server's callback. Rather than guessing from the provider list, the adapter polls `integration.oauth.status` (`pending`/`complete`/`failed`/`expired`) through a `providerOAuth.wait(providerId, timeoutMs)` facade (default five minutes) and only then enables the provider. V1 has no attempt status and keeps bounded `provider.list()` polling.
+On V2, `auto` OAuth completes on the server after the browser hits the server's callback or the device flow is approved. Rather than guessing from the provider list, the adapter polls `integration.oauth.status` (`pending`/`complete`/`failed`/`expired`) through a `providerOAuth.wait(providerId, timeoutMs)` facade (default fifteen minutes, matching device-code expiry) and only then enables the provider. V1 has no attempt status and keeps bounded `provider.list()` polling. Dismissing a pending flow cancels the attempt through `providerOAuth.cancel(providerId)` on V2.
 
 ### Provider Auth Methods And Forms
 

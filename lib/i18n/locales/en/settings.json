@@ -74,6 +74,11 @@
     "cancelSetup": "Cancel provider setup",
     "configureProvider": "Configure {{provider}}",
     "oauthHint": "This opens the provider sign-in flow in your browser.",
+    "signInPendingHint": "Finish signing in in your browser. This screen updates automatically.",
+    "pairingCode": "Pairing code",
+    "openLink": "Open link",
+    "copyLink": "Copy link",
+    "authorizationCodeHint": "After you sign in, copy the code shown and paste it here.",
     "setupUnavailable": "Setup details for this provider are unavailable right now.",
     "couldNotComplete": "Could not complete sign-in.",
     "removeCredentials": "Remove {{provider}} credentials"

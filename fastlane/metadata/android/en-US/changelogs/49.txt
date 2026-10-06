@@ -1,0 +1,7 @@
+Initial F-Droid release.
+
+- Self-hosted OpenCode connections with saved profiles
+- Chat sessions, workspace management, terminal, and file patching
+- Voice input and local task-completion notifications
+- No proprietary Google libraries: Play Billing and ML Kit barcode scanning removed, Firebase Cloud Messaging replaced with free stubs
+- Optional paid Cloud Link subscription and QR pairing are not part of this build

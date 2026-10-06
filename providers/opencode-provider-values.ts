@@ -53,6 +53,7 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     removeProvider,
     startProviderOAuth,
     completeProviderOAuth,
+    cancelProviderOAuth,
     addProviderAccount,
     activateProviderAccount,
     removeProviderAccount,
@@ -260,8 +261,8 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const capabilitiesValue = useMemo<CapabilitiesContextValue>(
-    () => ({ currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, completeAutomaticProviderOAuth, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, providerAccounts: { add: addProviderAccount, activate: activateProviderAccount, remove: removeProviderAccount } }),
-    [currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, completeAutomaticProviderOAuth, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, addProviderAccount, activateProviderAccount, removeProviderAccount],
+    () => ({ currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, providerOAuth: { start: startProviderOAuth, complete: completeProviderOAuth, completeAutomatic: completeAutomaticProviderOAuth, cancel: cancelProviderOAuth }, providerAccounts: { add: addProviderAccount, activate: activateProviderAccount, remove: removeProviderAccount } }),
+    [currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth, cancelProviderOAuth, addProviderAccount, activateProviderAccount, removeProviderAccount],
   );
 
   const preferencesValue = useMemo<PreferencesContextValue>(

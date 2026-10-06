@@ -115,7 +115,7 @@ export function buildCapabilitiesApi({ api, ctx, vcsLocation, ok }: V2Adapter): 
     providerOAuth: {
       // `auto` OAuth completes on the server after the browser hits the
       // server's callback; poll the attempt until it settles.
-      wait: async (providerId: string, timeoutMs = 300_000) => {
+      wait: async (providerId: string, timeoutMs = 900_000) => {
         const attempt = oauthAttempts.get(providerId);
         if (!attempt) throw new Error('Start provider sign-in again to complete it.');
         const deadline = Date.now() + timeoutMs;

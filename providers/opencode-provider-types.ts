@@ -180,12 +180,15 @@ export type CapabilitiesContextValue = {
   availableModels: ModelOption[];
   availableAgents: AgentOption[];
   configureProvider: (providerId: string) => Promise<void>;
-  completeAutomaticProviderOAuth: (providerId: string) => Promise<void>;
   setProviderAuth: (providerId: string, values: ProviderAuthValues) => Promise<void>;
   removeProvider: (providerId: string) => Promise<void>;
-  startProviderOAuth: (providerId: string, methodIndex: number, inputs?: ProviderAuthValues) => Promise<{ url: string; instructions?: string; method: 'auto' | 'code' }>;
-  completeProviderOAuth: (providerId: string, methodIndex: number, code: string) => Promise<void>;
   // Grouped so the capabilities context grows one member, not one per action.
+  providerOAuth: {
+    start: (providerId: string, methodIndex: number, inputs?: ProviderAuthValues) => Promise<{ url: string; instructions?: string; method: 'auto' | 'code' }>;
+    complete: (providerId: string, methodIndex: number, code: string) => Promise<void>;
+    completeAutomatic: (providerId: string) => Promise<void>;
+    cancel: (providerId: string) => Promise<void>;
+  };
   providerAccounts: {
     add: (providerId: string, values: ProviderAuthValues, label?: string) => Promise<void>;
     activate: (credentialId: string) => Promise<void>;

@@ -72,7 +72,7 @@ export function buildEffectiveMethods(
 export function useProviderConfiguration() {
   const { t } = useTranslation();
   const palette = Colors[useColorScheme() ?? 'light'];
-  const { availableProviders, providerAuthMethodsById, providerAccounts, setProviderAuth, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth } = useCapabilities();
+  const { availableProviders, providerAuthMethodsById, providerAccounts, setProviderAuth, providerOAuth } = useCapabilities();
   const { connect, serverCapabilities } = useConnection();
 
   const [selectedProviderId, setSelectedProviderId] = useState<string>();
@@ -83,6 +83,7 @@ export function useProviderConfiguration() {
   const [providerDialogError, setProviderDialogError] = useState<string>();
   const [oauthStage, setOAuthStage] = useState<ProviderOAuthStage>('idle');
   const [oauthInstructions, setOAuthInstructions] = useState<string>();
+  const [oauthUrl, setOAuthUrl] = useState<string>();
   const [oauthCode, setOAuthCode] = useState('');
   const [oauthError, setOAuthError] = useState<string>();
   const [feedback, setFeedback] = useState<ProviderFeedback>();
@@ -119,8 +120,10 @@ export function useProviderConfiguration() {
     setSelectedMethodIndex(0);
     setAuthValues({});
     setProviderDialogError(undefined);
+    setIsConfiguringProvider(false);
     setOAuthStage('idle');
     setOAuthInstructions(undefined);
+    setOAuthUrl(undefined);
     setOAuthCode('');
     setOAuthError(undefined);
   }, []);
@@ -129,8 +132,10 @@ export function useProviderConfiguration() {
     const methods = buildEffectiveMethods(providerAuthMethodsById[providerId] || [], providerId, serverCapabilities.contract, t);
     flowRef.current += 1;
     setProviderDialogError(undefined);
+    setIsConfiguringProvider(false);
     setOAuthStage('idle');
     setOAuthInstructions(undefined);
+    setOAuthUrl(undefined);
     setOAuthCode('');
     setOAuthError(undefined);
     setSelectedProviderId(providerId);
@@ -143,11 +148,13 @@ export function useProviderConfiguration() {
     setSelectedMethodIndex(index);
     setAuthValues(initialAuthValues(effectiveAuthMethods[index]));
     setOAuthStage('idle');
+    setOAuthUrl(undefined);
     setOAuthError(undefined);
     setStep('configure');
   }, [effectiveAuthMethods]);
 
   const goBack = useCallback(() => {
+    if (selectedProviderId) void providerOAuth.cancel(selectedProviderId);
     if (effectiveAuthMethods.length > 1) {
       setStep('method');
       setOAuthStage('idle');
@@ -155,7 +162,27 @@ export function useProviderConfiguration() {
       return;
     }
     resetProviderDialog();
-  }, [effectiveAuthMethods.length, resetProviderDialog]);
+  }, [effectiveAuthMethods.length, providerOAuth, resetProviderDialog, selectedProviderId]);
+
+  const completeOAuthCode = useCallback(async (codeOverride?: string) => {
+    if (!selectedProviderId) return;
+    const providerId = selectedProviderId;
+    const providerLabel = selectedProviderCopy?.label || providerId;
+    const flowId = flowRef.current;
+    setIsConfiguringProvider(true);
+    setOAuthError(undefined);
+    try {
+      await providerOAuth.complete(providerId, selectedMethodIndex, codeOverride ?? oauthCode);
+      if (flowId !== flowRef.current) return;
+      setFeedback({ type: 'success', message: t('settings:providers.signInFinished', { provider: providerLabel }) });
+      resetProviderDialog();
+    } catch (error) {
+      if (flowId !== flowRef.current) return;
+      setOAuthError(error instanceof Error ? error.message : t('settings:providers.couldNotComplete'));
+    } finally {
+      if (flowId === flowRef.current) setIsConfiguringProvider(false);
+    }
+  }, [oauthCode, providerOAuth, resetProviderDialog, selectedMethodIndex, selectedProviderCopy?.label, selectedProviderId, t]);
 
   const submitProviderConfiguration = useCallback(async () => {
     if (!selectedProviderId || !selectedMethod) return;
@@ -170,38 +197,34 @@ export function useProviderConfiguration() {
 
     try {
       if (selectedMethod.type === 'oauth') {
-        const authorization = await startProviderOAuth(providerId, methodIndex, authValues);
+        const authorization = await providerOAuth.start(providerId, methodIndex, authValues);
         if (flowId !== flowRef.current) return;
         const url = authorization.url?.trim();
-        // Code-based and headless/device flows surface the provider's pairing
-        // instructions and an authorization-code field on this step.
-        const needsCode = authorization.method === 'code' || !url || Boolean(authorization.instructions);
-        if (needsCode) {
+        setOAuthInstructions(authorization.instructions);
+        setOAuthUrl(url || undefined);
+
+        // The server reports one of two modes:
+        // - 'code': the provider shows a code after sign-in and expects it back.
+        //   A redirect to the app scheme is a bonus, not the expected path, so
+        //   the browser must not block the code step.
+        if (authorization.method === 'code') {
           if (url) {
-            const result = await WebBrowser.openAuthSessionAsync(url, Linking.createURL(''));
-            if (flowId !== flowRef.current) return;
-            if (result.type === 'success') {
+            void WebBrowser.openAuthSessionAsync(url, Linking.createURL('')).then((result) => {
+              if (flowId !== flowRef.current || result.type !== 'success') return;
               const { code, error } = parseProviderOAuthRedirect(result.url);
-              if (error) throw new Error(error);
-              if (code) {
-                await completeProviderOAuth(providerId, methodIndex, code);
-                if (flowId !== flowRef.current) return;
-                setFeedback({ type: 'success', message: t('settings:providers.signInFinished', { provider: providerLabel }) });
-                resetProviderDialog();
-                return;
-              }
-            }
+              if (error) { setOAuthError(error); return; }
+              if (code) void completeOAuthCode(code);
+            });
           }
-          setOAuthInstructions(authorization.instructions);
           setOAuthStage('code');
           return;
         }
 
-        // Automatic OAuth completes on the server; wait on the attempt status
-        // while the browser is open so the step advances on its own.
-        setOAuthInstructions(authorization.instructions);
+        // - 'auto': the server completes the exchange (loopback callback or
+        //   device/pairing flow). Show the pairing code/instructions and poll;
+        //   never ask the user to paste a code back.
         setOAuthStage('pending');
-        const waitPromise = completeAutomaticProviderOAuth(providerId);
+        const waitPromise = providerOAuth.completeAutomatic(providerId);
         if (url) void WebBrowser.openAuthSessionAsync(url, Linking.createURL(''));
         await waitPromise;
         if (flowId !== flowRef.current) return;
@@ -229,10 +252,10 @@ export function useProviderConfiguration() {
     }
   }, [
     authValues,
-    completeAutomaticProviderOAuth,
-    completeProviderOAuth,
+    completeOAuthCode,
     connect,
     providerAccounts,
+    providerOAuth,
     resetProviderDialog,
     selectedMethod,
     selectedMethodIndex,
@@ -240,29 +263,13 @@ export function useProviderConfiguration() {
     selectedProviderId,
     serverCapabilities.contract,
     setProviderAuth,
-    startProviderOAuth,
     t,
   ]);
 
-  const completeOAuthCode = useCallback(async () => {
-    if (!selectedProviderId) return;
-    const providerId = selectedProviderId;
-    const providerLabel = selectedProviderCopy?.label || providerId;
-    const flowId = flowRef.current;
-    setIsConfiguringProvider(true);
-    setOAuthError(undefined);
-    try {
-      await completeProviderOAuth(providerId, selectedMethodIndex, oauthCode);
-      if (flowId !== flowRef.current) return;
-      setFeedback({ type: 'success', message: t('settings:providers.signInFinished', { provider: providerLabel }) });
-      resetProviderDialog();
-    } catch (error) {
-      if (flowId !== flowRef.current) return;
-      setOAuthError(error instanceof Error ? error.message : t('settings:providers.couldNotComplete'));
-    } finally {
-      if (flowId === flowRef.current) setIsConfiguringProvider(false);
-    }
-  }, [completeProviderOAuth, oauthCode, resetProviderDialog, selectedMethodIndex, selectedProviderCopy?.label, selectedProviderId, t]);
+  const closeProviderDialog = useCallback(() => {
+    if (selectedProviderId) void providerOAuth.cancel(selectedProviderId);
+    resetProviderDialog();
+  }, [providerOAuth, resetProviderDialog, selectedProviderId]);
 
   const handleAuthValueChange = useCallback((key: string, value: string | number | boolean | string[]) => {
     setAuthValues((current) => ({ ...current, [key]: value }));
@@ -278,11 +285,12 @@ export function useProviderConfiguration() {
       oauthError={oauthError}
       oauthInstructions={oauthInstructions}
       oauthStage={oauthStage}
+      oauthUrl={oauthUrl}
       onAuthValueChange={handleAuthValueChange}
       onBack={goBack}
-      onCancelOAuth={resetProviderDialog}
+      onCancelOAuth={closeProviderDialog}
       onCompleteOAuth={() => void completeOAuthCode()}
-      onDismiss={resetProviderDialog}
+      onDismiss={closeProviderDialog}
       onOAuthCodeChange={setOAuthCode}
       onSelectMethod={selectMethod}
       onSubmit={() => void submitProviderConfiguration()}

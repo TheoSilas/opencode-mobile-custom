@@ -1,4 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Appbar, Button, Chip, HelperText, Switch, Text } from 'react-native-paper';
@@ -8,6 +10,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { TextInput } from '@/components/ui/text-input';
 
 import { Colors } from '@/constants/theme';
+import { extractPairingCode } from '@/lib/opencode/oauth';
 import type { ProviderAuthMethod, ProviderAuthPrompt, ProviderAuthValues } from '@/providers/opencode-provider';
 
 type Palette = typeof Colors.light;
@@ -24,6 +27,7 @@ type ProviderConfigDialogProps = {
   oauthError?: string;
   oauthInstructions?: string;
   oauthStage: ProviderOAuthStage;
+  oauthUrl?: string;
   onAuthValueChange: (key: string, value: string | number | boolean | string[]) => void;
   onBack: () => void;
   onCancelOAuth: () => void;
@@ -119,6 +123,72 @@ function PromptField({ authValues, onAuthValueChange, palette, prompt }: {
   );
 }
 
+function useCopied() {
+  const [copied, setCopied] = useState(false);
+  return {
+    copied,
+    copy: async (value: string) => {
+      await Clipboard.setStringAsync(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    },
+  };
+}
+
+// Read-only instruction/URL text with an explicit copy affordance, so device
+// and code flows do not require long-pressing to select.
+function CopyText({ palette, value }: { palette: Palette; value: string }) {
+  const { t } = useTranslation();
+  const { copied, copy } = useCopied();
+  return (
+    <View style={[styles.copyRow, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+      <Text selectable variant="bodyMedium" style={[styles.copyText, { color: palette.text }]}>{value}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('common:actions.copy')}
+        hitSlop={8}
+        onPress={() => void copy(value)}>
+        <MaterialCommunityIcons name={copied ? 'check' : 'content-copy'} size={20} color={copied ? palette.tint : palette.muted} />
+      </Pressable>
+    </View>
+  );
+}
+
+function PairingCode({ code, palette }: { code: string; palette: Palette }) {
+  const { t } = useTranslation();
+  const { copied, copy } = useCopied();
+  return (
+    <View style={styles.pairingGroup}>
+      <Text variant="labelLarge" style={{ color: palette.muted }}>{t('settings:providers.pairingCode')}</Text>
+      <View style={[styles.codeBox, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+        <Text selectable variant="headlineSmall" style={[styles.codeValue, { color: palette.text }]}>{code}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common:actions.copy')}
+          hitSlop={8}
+          onPress={() => void copy(code)}>
+          <MaterialCommunityIcons name={copied ? 'check' : 'content-copy'} size={22} color={copied ? palette.tint : palette.muted} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function LinkActions({ palette, url }: { palette: Palette; url: string }) {
+  const { t } = useTranslation();
+  const { copied, copy } = useCopied();
+  return (
+    <View style={styles.linkActions}>
+      <Button mode="outlined" icon="open-in-new" onPress={() => void Linking.openURL(url).catch(() => undefined)}>
+        {t('settings:providers.openLink')}
+      </Button>
+      <Button mode="text" icon={copied ? 'check' : 'content-copy'} onPress={() => void copy(url)} textColor={palette.muted}>
+        {t('settings:providers.copyLink')}
+      </Button>
+    </View>
+  );
+}
+
 export function ProviderConfigDialog({
   authValues,
   error,
@@ -128,6 +198,7 @@ export function ProviderConfigDialog({
   oauthError,
   oauthInstructions,
   oauthStage,
+  oauthUrl,
   onAuthValueChange,
   onBack,
   onCancelOAuth,
@@ -147,6 +218,7 @@ export function ProviderConfigDialog({
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const isOAuth = selectedMethod?.type === 'oauth';
+  const pairingCode = oauthStage === 'pending' ? extractPairingCode(oauthInstructions) : undefined;
 
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={step === 'configure' ? onBack : onDismiss}>
@@ -196,22 +268,23 @@ export function ProviderConfigDialog({
                 <View style={styles.centered}>
                   <ActivityIndicator />
                   <Text variant="titleSmall" style={{ color: palette.text }}>{t('settings:providers.signInTitle')}</Text>
-                  <Text variant="bodySmall" style={{ color: palette.muted, textAlign: 'center' }}>{t('settings:providers.oauthHint')}</Text>
-                  {oauthInstructions ? (
-                    <TextInput mode="flat" editable={false} selectTextOnFocus multiline value={oauthInstructions} />
-                  ) : null}
+                  {pairingCode ? <PairingCode code={pairingCode} palette={palette} /> : null}
+                  {oauthInstructions ? <CopyText palette={palette} value={oauthInstructions} /> : null}
+                  {oauthUrl ? <LinkActions palette={palette} url={oauthUrl} /> : null}
+                  <Text variant="bodySmall" style={{ color: palette.muted, textAlign: 'center' }}>{t('settings:providers.signInPendingHint')}</Text>
                 </View>
               ) : oauthStage === 'code' ? (
                 <View style={styles.promptGroup}>
-                  {oauthInstructions ? (
-                    <TextInput mode="flat" editable={false} selectTextOnFocus multiline value={oauthInstructions} />
-                  ) : null}
+                  {oauthInstructions ? <CopyText palette={palette} value={oauthInstructions} /> : null}
+                  {oauthUrl ? <LinkActions palette={palette} url={oauthUrl} /> : null}
+                  <Text variant="bodySmall" style={{ color: palette.muted }}>{t('settings:providers.authorizationCodeHint')}</Text>
                   <TextInput
                     mode="outlined"
                     label={t('settings:providers.authorizationCode')}
                     value={oauthCode}
                     onChangeText={onOAuthCodeChange}
                     autoCapitalize="none"
+                    testID="provider-oauth-code-input"
                   />
                   {oauthError ? <HelperText type="error">{oauthError}</HelperText> : null}
                 </View>
@@ -266,4 +339,10 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   switchLabel: { flex: 1 },
   centered: { alignItems: 'center', gap: 10, paddingVertical: 24 },
+  copyRow: { alignItems: 'center', alignSelf: 'stretch', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  copyText: { flex: 1 },
+  pairingGroup: { alignItems: 'center', alignSelf: 'stretch', gap: 6 },
+  codeBox: { alignItems: 'center', alignSelf: 'stretch', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
+  codeValue: { flex: 1, letterSpacing: 2 },
+  linkActions: { alignSelf: 'stretch', alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
 });

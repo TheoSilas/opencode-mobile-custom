@@ -1,0 +1,19 @@
+# fdroidserver configuration for the self-hosted OpenCode Mobile FOSS repo.
+#
+# Passwords are intentionally omitted; fdroidserver prompts for them locally.
+# The publish workflow appends keystorepass/keypass from repository secrets.
+#
+# Generate the repo signing key once on a trusted machine and keep it backed up:
+#   keytool -genkeypair -v -keystore fdroid/repo.keystore -alias opencode-mobile-repo \
+#     -keyalg RSA -keysize 4096 -validity 10000
+
+repo_url: https://alvarolorentedev.github.io/opencode-mobile/fdroid/repo
+repo_name: OpenCode Mobile (FOSS)
+repo_description: |
+  De-Googled FOSS builds of OpenCode Mobile, the mobile companion for your
+  self-hosted OpenCode server.
+repo_icon: repo-icon.png
+archive_older: 3
+
+keystore: repo.keystore
+repo_keyalias: opencode-mobile-repo

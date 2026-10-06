@@ -43,6 +43,16 @@ const androidReleaseBuildPropertiesPlugin: [string, { android: {
   },
 ];
 
+// The F-Droid/FOSS build drops the proprietary expo-camera (ML Kit barcode
+// scanning) and expo-iap (Google Play Billing) plugins. Typed constants keep
+// the tuple shape so `plugins` stays assignable to ExpoConfig.
+type PluginList = NonNullable<ExpoConfig['plugins']>;
+const cameraPlugin: PluginList = [['expo-camera', {
+  cameraPermission: 'Allow $(PRODUCT_NAME) to scan a Cloud Link pairing QR code.',
+  recordAudioAndroid: false,
+}]];
+const iapPlugin: PluginList = ['expo-iap'];
+
 // The Expo template defaults to -Xmx2048m -XX:MaxMetaspaceSize=512m, which OOMs
 // during release AAB packaging (bundletool) with the four default ABIs. Raise
 // both so `:app:packageReleaseBundle` has room. The android/ directory is
@@ -107,14 +117,14 @@ const withAndroidAppConfig = (config: ExpoConfig) => {
 const config: ExpoConfig = {
   name: isDevelopmentVariant ? 'OpenCode Mobile Dev' : 'OpenCode Mobile',
   slug: 'opencode-mobile',
-  version: '1.0.48',
+  version: '1.0.49',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'opencodemobile',
   userInterfaceStyle: 'automatic',
   android: {
     package: androidPackage,
-    versionCode: 48,
+    versionCode: 49,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: "#202020"
@@ -128,7 +138,7 @@ const config: ExpoConfig = {
   },
   ios: {
     bundleIdentifier: isDevelopmentVariant ? 'app.getopencode.mobile.dev' : 'app.getopencode.mobile',
-    buildNumber: '48',
+    buildNumber: '49',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSPhotoLibraryUsageDescription: 'Allow OpenCode Mobile to access photos you choose to attach to chat messages.',
@@ -143,10 +153,7 @@ const config: ExpoConfig = {
     'expo-notifications',
     'expo-background-task',
     'expo-web-browser',
-    ...(isFossVariant ? [] : [['expo-camera', {
-      cameraPermission: 'Allow $(PRODUCT_NAME) to scan a Cloud Link pairing QR code.',
-      recordAudioAndroid: false,
-    }]]),
+    ...(isFossVariant ? [] : cameraPlugin),
     [
       // Exposes the shipped app languages to the OS so iOS/Android surface the
       // correct per-app language choices. Extend both lists with every language
@@ -182,7 +189,7 @@ const config: ExpoConfig = {
     ],
     'expo-image',
     'expo-secure-store',
-    ...(isFossVariant ? [] : ['expo-iap']),
+    ...(isFossVariant ? [] : iapPlugin),
     'expo-status-bar',
     withAndroidAppConfig as unknown as string,
   ],

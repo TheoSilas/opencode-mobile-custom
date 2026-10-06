@@ -1,0 +1,137 @@
+#!/usr/bin/env node
+// Applies every patch that turns the vendored dependencies into a build that
+// F-Droid's inclusion policy accepts. Shared by scripts/build-android-release.mjs
+// (FOSS flavor) and the fdroiddata recipe so both produce identical inputs and
+// therefore a reproducible APK.
+//
+// Patches:
+//   1. package.json   -> exclude the native expo-iap / expo-camera modules
+//   2. expo-notifications -> drop proprietary firebase-messaging, compile
+//      against F-Droid's firebase-stubs instead (local notifications only)
+//   3. expo-application -> drop the proprietary com.android.installreferrer
+//      dependency and replace its AsyncFunction with a no-op
+//
+// Safe to run more than once.
+
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+// Pinned to the same commit the fdroiddata recipe references. Bump both
+// together if expo-notifications needs a newer stub API.
+const FIREBASE_STUB_SHA = 'ce90a956aacda17a85c60577ee443aeb83d876ef';
+const FIREBASE_STUB_URL = `https://gitlab.com/freed-by-fdroid/firebase-stubs/-/archive/${FIREBASE_STUB_SHA}/firebase-stubs-${FIREBASE_STUB_SHA}.tar.gz`;
+
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, { stdio: 'inherit', ...options });
+  if (result.status !== 0) {
+    throw new Error(`Command failed: ${command} ${args.join(' ')}`);
+  }
+}
+
+function patchAutolinking(repoRoot) {
+  const packageJsonPath = path.join(repoRoot, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  pkg.expo = { ...(pkg.expo ?? {}) };
+  pkg.expo.autolinking = { ...(pkg.expo.autolinking ?? {}) };
+  pkg.expo.autolinking.exclude = [
+    ...new Set([...(pkg.expo.autolinking.exclude ?? []), 'expo-iap', 'expo-camera']),
+  ];
+  fs.writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
+}
+
+function patchExpoNotifications(repoRoot) {
+  const androidDir = path.join(repoRoot, 'node_modules', 'expo-notifications', 'android');
+  const gradlePath = path.join(androidDir, 'build.gradle');
+  const gradle = fs.readFileSync(gradlePath, 'utf8');
+  if (gradle.includes('firebase-messaging')) {
+    fs.writeFileSync(
+      gradlePath,
+      gradle.split('\n').filter((line) => !line.includes('firebase-messaging')).join('\n'),
+    );
+  }
+
+  const marker = path.join(
+    androidDir,
+    'src/main/java/com/google/firebase/messaging/FirebaseMessaging.java',
+  );
+  if (fs.existsSync(marker)) return;
+
+  // F-Droid passes its firebase-stub srclib checkout so the stub source is
+  // auditable in the build recipe; other builds fetch the same pinned commit.
+  const localSrcDir = process.env.FIREBASE_STUB_SRC_DIR;
+  run('cp', ['-a', `${localSrcDir ? path.resolve(localSrcDir) : downloadStubSource()}/.`, `${path.join(androidDir, 'src')}/`]);
+}
+
+function downloadStubSource() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'firebase-stub-'));
+  const archive = path.join(tmpDir, 'stub.tar.gz');
+  run('curl', ['-fsSL', FIREBASE_STUB_URL, '-o', archive]);
+  run('tar', ['-xzf', archive, '-C', tmpDir]);
+  return path.join(tmpDir, `firebase-stubs-${FIREBASE_STUB_SHA}`, 'firebase-messaging', 'src');
+}
+
+// Replace an `AsyncFunction("name") { ... }` block with `replacement`, matching
+// balanced braces so nested lambdas/objects do not confuse the boundaries.
+function replaceAsyncFunction(source, name, replacement) {
+  const marker = `AsyncFunction("${name}")`;
+  const start = source.indexOf(marker);
+  if (start === -1) return source;
+  const open = source.indexOf('{', start);
+  let depth = 0;
+  let end = open;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+  }
+  const lineStart = source.lastIndexOf('\n', start) + 1;
+  return source.slice(0, lineStart) + replacement + source.slice(end);
+}
+
+function patchExpoApplication(repoRoot) {
+  const androidDir = path.join(repoRoot, 'node_modules', 'expo-application', 'android');
+  const gradlePath = path.join(androidDir, 'build.gradle');
+  const gradle = fs.readFileSync(gradlePath, 'utf8');
+  if (gradle.includes('installreferrer')) {
+    fs.writeFileSync(
+      gradlePath,
+      gradle.split('\n').filter((line) => !line.includes('installreferrer')).join('\n'),
+    );
+  }
+
+  const modulePath = path.join(
+    androidDir,
+    'src/main/java/expo/modules/application/ApplicationModule.kt',
+  );
+  const source = fs.readFileSync(modulePath, 'utf8');
+  if (!source.includes('com.android.installreferrer')) return;
+
+  const patched = replaceAsyncFunction(
+    source
+      .split('\n')
+      .filter((line) => !line.includes('com.android.installreferrer'))
+      .filter((line) => line.trim() !== 'import android.os.RemoteException')
+      .join('\n'),
+    'getInstallReferrerAsync',
+    '    AsyncFunction("getInstallReferrerAsync") { promise: Promise ->\n      promise.resolve("")\n    }',
+  );
+  fs.writeFileSync(modulePath, patched);
+}
+
+export function prepareFoss(repoRoot = process.cwd()) {
+  patchAutolinking(repoRoot);
+  patchExpoNotifications(repoRoot);
+  patchExpoApplication(repoRoot);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  prepareFoss();
+  console.log('FOSS dependency patches applied.');
+}

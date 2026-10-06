@@ -356,9 +356,11 @@ Behavior:
 - provider auth metadata comes from the server; V2 integration forms map into the same prompt model (text/select/number/integer/boolean/multiselect/external with `when` conditions)
 - if the server returns no auth methods for a non-known-OAuth provider, the app falls back to a generic API-key flow
 - provider setup is a full-screen two-step flow: pick a login method from a dropdown, then configure it; the dropdown dismisses on selection and the step advances
-- if OAuth is selected, the app requests authorization details, opens the URL in an auth session that can return to the app scheme, and completes directly when a code is captured from the redirect
-- headless/device-code OAuth (no browser URL or provider-supplied instructions) renders the pairing/authorization code on the setup step with an authorization-code field
-- automatic OAuth waits on the server's OAuth attempt status (bounded, five minutes) while the browser is open, then refreshes capabilities
+- OAuth routing is driven by the server's returned method, not by the presence of instructions; `auto` never asks for a code, `code` collects one
+- `auto` OAuth (loopback callback or device/pairing flow) shows any pairing code and instructions with explicit copy controls plus an open/copy link action, opens the browser, and polls the server attempt until it completes (bounded, fifteen minutes, matching device-code expiry); after the user enters the code on the provider site the app finishes on its own
+- `code` OAuth shows the instructions and link, opens the browser, and collects the authorization code on the setup step; a redirect back to the app scheme is captured opportunistically and submitted directly, but is not required
+- pairing/device codes live inside the server's instruction text; the app best-effort extracts the code into its own copyable field and always shows the full instruction text
+- dismissing a pending OAuth flow cancels the server attempt on OpenCode 2
 - if API auth is selected, auth values are normalized and sent to `client.auth.set` (V1) or the V2 credential endpoint
 - after successful auth, the provider is enabled in server config and capabilities are refreshed
 - configured providers can be removed, deleting stored credentials and disabling the provider in config

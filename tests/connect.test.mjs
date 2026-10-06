@@ -267,6 +267,23 @@ for (const config of [production, development]) {
     assert.deepEqual(connect.parseConnectPairing(url.toString()), pairing);
   }
 }
+
+// The FOSS (F-Droid) variant disables Cloud Link and drops the proprietary
+// Play Billing / ML Kit barcode plugins.
+const foss = appConfig('foss');
+assert.equal(foss.extra.foss, true);
+assert.equal(foss.android.package, 'app.getopencode.fdroid');
+assert.ok(!foss.plugins.some((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-camera'), 'FOSS build must not configure the camera/ML Kit plugin.');
+assert.ok(!foss.plugins.includes('expo-iap'), 'FOSS build must not configure the Play Billing plugin.');
+{
+  const savedConfig = globalThis.__connectConfig;
+  const savedPlatform = globalThis.__connectPlatform;
+  globalThis.__connectConfig = { extra: { foss: true } };
+  globalThis.__connectPlatform = 'android';
+  assert.equal(connect.isConnectEnabled(), false, 'FOSS builds must disable Cloud Link.');
+  globalThis.__connectConfig = savedConfig;
+  globalThis.__connectPlatform = savedPlatform;
+}
 // Gradle regenerates Expo configuration; it must use the same variant as
 // prebuild, even when the caller has a conflicting variant in the environment.
 for (const variant of ['development', 'production']) {

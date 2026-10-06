@@ -74,6 +74,11 @@
     "cancelSetup": "Cancelar la configuración del proveedor",
     "configureProvider": "Configurar {{provider}}",
     "oauthHint": "Esto abre el flujo de inicio de sesión del proveedor en tu navegador.",
+    "signInPendingHint": "Completa el inicio de sesión en tu navegador. Esta pantalla se actualiza automáticamente.",
+    "pairingCode": "Código de vinculación",
+    "openLink": "Abrir enlace",
+    "copyLink": "Copiar enlace",
+    "authorizationCodeHint": "Después de iniciar sesión, copia el código que se muestra y pégalo aquí.",
     "setupUnavailable": "Los detalles de configuración de este proveedor no están disponibles ahora mismo.",
     "couldNotComplete": "No se pudo completar el inicio de sesión.",
     "removeCredentials": "Eliminar credenciales de {{provider}}"

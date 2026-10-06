@@ -74,6 +74,11 @@
     "cancelSetup": "Cancelar configuração do provedor",
     "configureProvider": "Configurar {{provider}}",
     "oauthHint": "Isso abre o fluxo de login do provedor no seu navegador.",
+    "signInPendingHint": "Conclua o login no seu navegador. Esta tela é atualizada automaticamente.",
+    "pairingCode": "Código de emparelhamento",
+    "openLink": "Abrir link",
+    "copyLink": "Copiar link",
+    "authorizationCodeHint": "Depois de entrar, copie o código exibido e cole aqui.",
     "setupUnavailable": "Os detalhes de configuração deste provedor estão indisponíveis no momento.",
     "couldNotComplete": "Não foi possível concluir o login.",
     "removeCredentials": "Remover credenciais de {{provider}}"
