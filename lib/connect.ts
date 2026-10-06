@@ -24,6 +24,7 @@ export const CONNECT_LEARN_MORE_URL = 'https://opencodecloud.link/';
 
 export function isConnectEnabled() {
   const extra = Constants.expoConfig?.extra;
+  if (extra?.foss) return false;
   return Platform.OS === 'ios' || Platform.OS === 'android' || (extra?.e2eMode === true && extra?.connectPilot?.testing === true);
 }
 

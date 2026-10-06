@@ -9,9 +9,10 @@ function env(name: string) {
 
 const appVariant = env('EXPO_APP_VARIANT') ?? 'production';
 const isDevelopmentVariant = appVariant === 'development';
+const isFossVariant = appVariant === 'foss' || env('EXPO_PUBLIC_FOSS') === '1';
 const isE2EMode = env('EXPO_PUBLIC_E2E_MODE') === '1';
 const e2eServerUrl = env('EXPO_PUBLIC_E2E_SERVER_URL');
-const defaultAndroidPackage = 'app.getopencode';
+const defaultAndroidPackage = isFossVariant ? 'app.getopencode.fdroid' : 'app.getopencode';
 const releaseAndroidPackage = env('EXPO_ANDROID_PACKAGE') ?? defaultAndroidPackage;
 const developmentAndroidPackage = env('EXPO_ANDROID_PACKAGE_DEV') ?? `${releaseAndroidPackage}.dev`;
 const androidPackage = isDevelopmentVariant ? developmentAndroidPackage : releaseAndroidPackage;
@@ -142,10 +143,10 @@ const config: ExpoConfig = {
     'expo-notifications',
     'expo-background-task',
     'expo-web-browser',
-    ['expo-camera', {
+    ...(isFossVariant ? [] : [['expo-camera', {
       cameraPermission: 'Allow $(PRODUCT_NAME) to scan a Cloud Link pairing QR code.',
       recordAudioAndroid: false,
-    }],
+    }]]),
     [
       // Exposes the shipped app languages to the OS so iOS/Android surface the
       // correct per-app language choices. Extend both lists with every language
@@ -181,7 +182,7 @@ const config: ExpoConfig = {
     ],
     'expo-image',
     'expo-secure-store',
-    'expo-iap',
+    ...(isFossVariant ? [] : ['expo-iap']),
     'expo-status-bar',
     withAndroidAppConfig as unknown as string,
   ],
@@ -193,6 +194,7 @@ const config: ExpoConfig = {
     router: {},
     e2eMode: isE2EMode,
     e2eServerUrl,
+    foss: isFossVariant,
     connectPilot: {
       testing: isDevelopmentVariant && isE2EMode,
     },
