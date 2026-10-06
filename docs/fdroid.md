@@ -54,28 +54,25 @@ the APK contains no `firebase`, `com.android.billingclient`,
 The FOSS package id is `app.getopencode.fdroid`, so it can be installed
 alongside a Play Store build.
 
-## Distribution stages
+## Distribution
 
-### Own F-Droid repository
+There is no self-hosted F-Droid repo. The FOSS build is distributed two ways:
 
-A self-hosted F-Droid repo (`fdroid/`) can be published from the FOSS APKs. See
-`fdroid/README.md`. A self-hosted repo is not bound by the inclusion policy, but
-we still ship the FOSS variant for consistency with the main-repo build.
-
-### Main F-Droid repository
-
-Submission requires a recipe in an `fdroiddata` fork. A draft lives at
-`fdroid/fdroiddata/app.getopencode.fdroid.yml`. It mirrors F-Droid's official
-`build-react-native.yml` template: `npm ci`, patch `package.json` autolinking,
-apply the `firebase-stub` srclib, `npx expo prebuild -p android --clean`, strip
-the release `signingConfig`, and `gradle assembleRelease`. It is marked for
-reproducible builds via `Binaries:` pointing at the GitHub release APK, so
-F-Droid verifies its rebuild matches the upstream `opencode-mobile-fdroid.apk`
-before publishing under the upstream signature.
+- **Main F-Droid repository** — the intended distribution. Submission requires a
+  recipe in an `fdroiddata` fork; a draft lives at
+  `fdroid/fdroiddata/app.getopencode.fdroid.yml` (see `fdroid/README.md`). It
+  mirrors F-Droid's official `build-react-native.yml` template: `npm ci`, run
+  `scripts/foss-prepare.mjs`, `npx expo prebuild -p android --clean`, strip the
+  release `signingConfig`, and `gradle assembleRelease`. It is marked for
+  reproducible builds via `Binaries:` pointing at the GitHub release APK, so
+  F-Droid verifies its rebuild matches the upstream `opencode-mobile-fdroid.apk`
+  before publishing.
+- **GitHub releases** — the `foss-release` CI job attaches
+  `opencode-mobile-fdroid.apk` to `v*` releases for direct sideloading.
 
 Anti-features: voice input relies on the device's system speech recognizer,
 which on many devices is supplied by Google. If F-Droid reviewers apply
-`NonFreeNetwork`, declare it rather than dropping voice.
+`NonFreeNet`, declare it rather than dropping voice.
 
 ## Keeping the variant working
 

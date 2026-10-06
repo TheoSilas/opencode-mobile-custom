@@ -1,63 +1,41 @@
-# F-Droid distribution
+# F-Droid submission
 
-This directory holds the F-Droid scaffolding for OpenCode Mobile's de-Googled
-FOSS build. See [`docs/fdroid.md`](../docs/fdroid.md) for how the variant is
-produced.
+This directory holds the material for submitting OpenCode Mobile's de-Googled
+FOSS build to the **main F-Droid repository**. There is no self-hosted F-Droid
+repo; users install either from F-Droid or from the `opencode-mobile-fdroid.apk`
+asset on GitHub releases.
 
-- `fdroiddata/app.getopencode.fdroid.yml` — **draft** recipe for the main F-Droid
-  repository (`fdroiddata`). Copy it into an `fdroiddata` fork and open a merge
-  request.
-- `config.yml` — [fdroidserver](https://f-droid.org/docs/) config for the
-  self-hosted repository.
+See [`docs/fdroid.md`](../docs/fdroid.md) for how the FOSS variant is produced.
 
-## Own F-Droid repository
+## Submitting to fdroiddata
 
-The self-hosted repo serves the `app.getopencode.fdroid` FOSS APKs. It can be
-installed alongside a Play Store build.
-
-### One-time setup
-
-1. Generate a repo signing key and keep it backed up (losing it breaks updates):
-   ```bash
-   keytool -genkeypair -v -keystore fdroid/repo.keystore \
-     -alias opencode-mobile-repo -keyalg RSA -keysize 4096 -validity 10000
-   ```
-2. Add these repository secrets:
-   - `FDROID_KEYSTORE_BASE64` — `base64 < fdroid/repo.keystore`
-   - `FDROID_KEYSTORE_PASS` — keystore password
-   - `FDROID_KEY_PASS` — key password (often the same)
-3. Enable GitHub Pages for the repository (the publish workflow pushes to the
-   `gh-pages` branch, served at
-   `https://alvarolorentedev.github.io/opencode-mobile/fdroid/repo`).
-
-### Publishing
-
-`.github/workflows/fdroid.yml` runs when a GitHub release is published (or
-manually). It downloads the release's `opencode-mobile-fdroid.apk`, updates the
-repository index with fdroidserver, and publishes to GitHub Pages.
-
-### Install
-
-Add `https://alvarolorentedev.github.io/opencode-mobile/fdroid/repo` as a
-repository in the F-Droid client.
-
-## Main F-Droid repository
-
-Submission requires the recipe and, for reproducible builds, upstream signing
-key material:
-
-1. Ensure a tagged release contains the FOSS support and the `foss-release` CI
+1. Ensure a tagged release contains the FOSS support and its `foss-release` CI
    job attached `opencode-mobile-fdroid.apk` to the GitHub release.
-2. Copy `fdroiddata/app.getopencode.fdroid.yml` into an `fdroiddata` fork and set
-   `commit:` to the full SHA of that tag.
-3. Extract upstream signatures for reproducible verification:
+2. Fork and clone [fdroiddata](https://gitlab.com/fdroid/fdroiddata).
+3. Copy `fdroiddata/app.getopencode.fdroid.yml` into the fork at
+   `metadata/app.getopencode.fdroid.yml`, and set `commit:` to that release's
+   tag SHA.
+4. Extract upstream signatures for reproducible verification:
    ```bash
+   curl -L -o opencode-mobile-fdroid.apk \
+     https://github.com/alvarolorentedev/opencode-mobile/releases/download/v1.0.49/opencode-mobile-fdroid.apk
    fdroid signatures opencode-mobile-fdroid.apk
    ```
-   Place them under
-   `metadata/app.getopencode.fdroid/signatures/<versionCode>/` in the fork.
-4. Run `fdroid checkupdates --allow-dirty app.getopencode.fdroid`,
-   `fdroid lint app.getopencode.fdroid`, and
-   `fdroid build app.getopencode.fdroid`.
-5. Open a merge request. Expect reviewer questions about voice input's use of
-   the system speech recognizer (possible `NonFreeNet` anti-feature).
+   Place the extracted files under
+   `metadata/app.getopencode.fdroid/signatures/<versionCode>/`.
+5. Validate:
+   ```bash
+   fdroid checkupdates --allow-dirty app.getopencode.fdroid
+   fdroid lint app.getopencode.fdroid
+   fdroid build app.getopencode.fdroid
+   ```
+6. Branch, commit (`New App: app.getopencode.fdroid`), push to your fork, and
+   open a merge request. F-Droid maintainers build and publish it.
+
+## Reviewer notes
+
+- The FOSS build excludes Google Play Billing and ML Kit barcode scanning and
+  compiles `expo-notifications` against F-Droid's `firebase-stubs` rather than
+  Firebase Cloud Messaging. Local notifications still work.
+- Voice input uses the device's system speech recognizer; if reviewers apply
+  `NonFreeNet`, declare it in the recipe rather than dropping the feature.
