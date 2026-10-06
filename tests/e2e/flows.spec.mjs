@@ -1501,6 +1501,30 @@ test('busy safety polling recovers completion while SSE remains connected', asyn
   }
 });
 
+// A provider error schedules an automatic retry. The retry status is event-only
+// (the running set excludes it), so a session-list refresh must not downgrade it
+// to idle or the idle connected session stops polling and the transcript
+// freezes. The fake server writes the recovered output with no SSE event, so
+// only the preserved busy status and its safety poll can surface it.
+test('v2 provider retry survives refresh and the safety poll recovers output', async ({ page, request }) => {
+  const port = await getFreePort();
+  const server = spawnV2Server(port, 'retry');
+  const origin = `http://127.0.0.1:${port}`;
+  try {
+    await resetScenario(request, 'happy-path');
+    await waitForServer(request, `${origin}/api/info`);
+    await openReadyChat(page);
+    await connectToServer(page, origin);
+    await sendPrompt(page, 'Retry recovery');
+    await expect(page.getByText(/retrying \(attempt 2\)/)).toBeVisible({ timeout: 15_000 });
+    // Recovered output lands after the post-send refresh window and emits no
+    // event, so the 10s busy safety poll is the only thing that can render it.
+    await expect(page.getByText(/Recovered: Retry recovery/).first()).toBeVisible({ timeout: 30_000 });
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
 for (const protocol of ['v1', 'v2']) {
   test(`${protocol} SSE reconnect reconciles a missed blocking question`, async ({ page, request }) => {
     const port = await getFreePort();

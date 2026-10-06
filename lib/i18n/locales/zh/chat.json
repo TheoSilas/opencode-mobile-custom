@@ -50,6 +50,7 @@
     "sessionReverted": "会话已回退",
     "restoreReverted": "恢复已回退的工作",
     "runningActivity": "OpenCode 正在{{activity}}…",
+    "runningRetry": "OpenCode 遇到错误，正在重试（第 {{attempt}} 次）…",
     "runningGeneric": "OpenCode 正在处理当前步骤…",
     "answerNeeded": "需要回答",
     "waitingForAnswer": "OpenCode 正在等待你的回答",

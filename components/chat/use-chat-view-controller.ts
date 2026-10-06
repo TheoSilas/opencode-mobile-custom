@@ -65,6 +65,7 @@ export function useChatViewController() {
 
   const status = currentSessionId ? sessionStatuses[currentSessionId] : undefined;
   const running = sendingState.active || (!!status && status.type !== 'idle');
+  const retryAttempt = status?.type === 'retry' ? status.attempt : undefined;
   const conversationActive = conversation.active;
   const {
     handleSpeakEntry,
@@ -400,7 +401,7 @@ export function useChatViewController() {
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
     pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
-    rejectQuestion, replyToPermission, replyToQuestion, revertSession, running, selectDiffMessage,
+    rejectQuestion, replyToPermission, replyToQuestion, revertSession, retryAttempt, running, selectDiffMessage,
     selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage,
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,
     setCopiedMessageId, setDiffScope, setDraft, setExpandedDiffId, setIsUpdatingAutoApprove,

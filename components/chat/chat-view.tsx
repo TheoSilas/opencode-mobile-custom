@@ -32,7 +32,7 @@ export function ChatView() {
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
     pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
-    rejectQuestion, replyToPermission, replyToQuestion, revertSession, running, selectDiffMessage,
+    rejectQuestion, replyToPermission, replyToQuestion, revertSession, retryAttempt, running, selectDiffMessage,
     selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage,
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,
     setCopiedMessageId, setDiffScope, setDraft, setExpandedDiffId, setIsUpdatingAutoApprove,
@@ -143,6 +143,7 @@ export function ChatView() {
           onToggleSpeak={(entry) => void handleSpeakEntry(entry)}
           palette={palette}
           pendingInteractions={pendingInteractions}
+          retryAttempt={retryAttempt}
           running={running}
           speakingMessageId={speakingMessageId}
         />

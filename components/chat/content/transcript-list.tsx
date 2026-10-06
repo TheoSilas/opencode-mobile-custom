@@ -48,6 +48,7 @@ type TranscriptListProps = {
   onUnrevert: () => void;
   palette: Palette;
   pendingInteractions: number;
+  retryAttempt?: number;
   running: boolean;
   speakingMessageId?: string;
   slim: boolean;
@@ -77,6 +78,7 @@ export function TranscriptList({
   onUnrevert,
   palette,
   pendingInteractions,
+  retryAttempt,
   running,
   speakingMessageId,
   slim,
@@ -204,7 +206,9 @@ export function TranscriptList({
             <View style={styles.loadingRow}>
               <ActivityIndicator color={palette.tint} />
               <Text style={{ color: palette.muted }}>
-                {currentActivityLabel ? t('chat:content.runningActivity', { activity: currentActivityLabel.toLowerCase() }) : t('chat:content.runningGeneric')}
+                {retryAttempt
+                  ? t('chat:content.runningRetry', { attempt: retryAttempt })
+                  : currentActivityLabel ? t('chat:content.runningActivity', { activity: currentActivityLabel.toLowerCase() }) : t('chat:content.runningGeneric')}
               </Text>
             </View>
           ) : null}

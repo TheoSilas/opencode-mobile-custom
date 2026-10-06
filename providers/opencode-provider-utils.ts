@@ -1,6 +1,33 @@
 // Small provider-agnostic helpers that do not belong to a specific domain
 // (project labels and grouping pending interactions by session).
 
+import type { SessionStatus } from '@/lib/opencode/types';
+
+// V2 `retry` is event-only: the session-list status endpoint derives its map
+// from the running set, which cannot express a retry. A list refresh would
+// therefore downgrade a server-scheduled retry to idle, disabling the safety
+// poll (idle connected sessions do not poll) and freezing the transcript if the
+// retry's SSE frames are missed. Preserve the event-derived retry until the
+// server reports the session running, a terminal execution/idle event clears
+// it, or it goes stale.
+// ponytail: 2-minute stale ceiling; a legitimately longer retry window would
+// need a real completion signal instead of the `next` timestamp.
+export const RETRY_STATUS_STALE_MS = 120_000;
+
+export function mergeSessionStatuses(
+  previous: Record<string, SessionStatus>,
+  fetched: Record<string, SessionStatus>,
+  now = Date.now(),
+): Record<string, SessionStatus> {
+  const next: Record<string, SessionStatus> = {};
+  for (const [id, status] of Object.entries(fetched)) {
+    const prior = previous[id];
+    const stale = prior?.type === 'retry' && prior.next ? now - prior.next >= RETRY_STATUS_STALE_MS : false;
+    next[id] = status.type === 'idle' && prior?.type === 'retry' && !stale ? prior : status;
+  }
+  return next;
+}
+
 export function getProjectLabel(path: string) {
   const normalized = path.trim().replace(/\/$/, '');
   const segments = normalized.split('/').filter(Boolean);

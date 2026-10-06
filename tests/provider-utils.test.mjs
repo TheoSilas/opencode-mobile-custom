@@ -40,4 +40,21 @@ assert.deepEqual(
   ['openrouter'],
 );
 
+const providerUtilsSource = await readFile(new URL('../providers/opencode-provider-utils.ts', import.meta.url), 'utf8');
+const providerUtilsOutput = ts.transpileModule(providerUtilsSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
+const { mergeSessionStatuses, RETRY_STATUS_STALE_MS } = await import(`data:text/javascript,${encodeURIComponent(providerUtilsOutput)}`);
+const now = 1_000_000;
+const retry = { type: 'retry', attempt: 2, message: 'provider failed', next: now + 5_000 };
+const staleRetry = { type: 'retry', attempt: 2, message: 'provider failed', next: now - RETRY_STATUS_STALE_MS - 1 };
+// A list refresh cannot express retry, so an event-derived retry must survive it.
+assert.deepEqual(mergeSessionStatuses({ s: retry }, { s: { type: 'idle' } }, now), { s: retry });
+// A server-confirmed running status wins over the local retry.
+assert.deepEqual(mergeSessionStatuses({ s: retry }, { s: { type: 'busy' } }, now), { s: { type: 'busy' } });
+// A fresh retry replaces a previously idle session.
+assert.deepEqual(mergeSessionStatuses({ s: { type: 'idle' } }, { s: retry }, now), { s: retry });
+// Sessions absent from the fetched list are dropped.
+assert.deepEqual(mergeSessionStatuses({ a: retry, b: { type: 'idle' } }, { b: { type: 'idle' } }, now), { b: { type: 'idle' } });
+// A retry whose scheduled attempt is long past without any new signal clears.
+assert.deepEqual(mergeSessionStatuses({ s: staleRetry }, { s: { type: 'idle' } }, now), { s: { type: 'idle' } });
+
 console.log('provider utility tests passed');

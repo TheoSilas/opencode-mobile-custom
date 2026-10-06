@@ -162,6 +162,7 @@ Scenarios in the test infrastructure that correspond to supported app behavior:
 - `permission`
 - `question`
 - `stream-disconnect`
+- `retry` (V2)
 
 ### Happy Path
 
@@ -186,6 +187,10 @@ The server emits a pending assistant question and waits for an ordered answer pa
 ### Stream Disconnect Scenario
 
 The SSE endpoint intentionally fails, forcing the app to complete the workflow through polling fallback.
+
+### Provider Retry Scenario (V2)
+
+A prompt fails mid-turn (`session.execution.failed`) and the server schedules an automatic retry (`session.retry.scheduled`). The retry status is event-only: the running set excludes it, so a session-list refresh must preserve it. The recovered output is then written to state with no SSE event, so only the busy safety poll can surface it. This reproduces the Android freeze from issue #71.
 
 ## Supported-Contract E2E Flows
 
@@ -266,6 +271,9 @@ against a real V2 server and real code/automatic OAuth completion.
 
 - drop domain events while keeping SSE connected; a submitted task still finishes
   through the busy-work safety poll
+- a V2 provider error keeps its event-derived retry status across the session-list
+  refresh, shows the retry attempt, and recovers the retried output through the
+  busy safety poll after the post-send refresh window
 - create a blocking question while suppressing events, then disconnect without
   resetting state; reconnect discovers the missed session/question for both protocols
 - recovery flows spawn fresh servers to avoid reusing an older local fake backend

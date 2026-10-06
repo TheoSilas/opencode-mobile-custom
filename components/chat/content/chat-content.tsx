@@ -62,6 +62,7 @@ type ChatContentProps = {
   onToggleSpeak: (entry: TranscriptEntry) => void;
   palette: Palette;
   pendingInteractions: number;
+  retryAttempt?: number;
   running: boolean;
   speakingMessageId?: string;
 };
@@ -92,6 +93,7 @@ export function ChatContent({ ...props }: ChatContentProps) {
         onUnrevert={props.onUnrevert}
         palette={props.palette}
         pendingInteractions={props.pendingInteractions}
+        retryAttempt={props.retryAttempt}
         running={props.running}
         speakingMessageId={props.speakingMessageId}
         slim={props.slim}

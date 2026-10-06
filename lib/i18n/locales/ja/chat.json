@@ -50,6 +50,7 @@
     "sessionReverted": "セッションが取り消されました",
     "restoreReverted": "取り消した作業を復元",
     "runningActivity": "OpenCode は{{activity}}中です...",
+    "runningRetry": "OpenCode でエラーが発生し、再試行しています（試行 {{attempt}}）...",
     "runningGeneric": "OpenCode は現在のステップを処理しています...",
     "answerNeeded": "回答が必要です",
     "waitingForAnswer": "OpenCode はあなたの回答を待っています",

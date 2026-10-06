@@ -159,7 +159,7 @@ OpenCode 2 stores credentials as first-class, labeled accounts. `GET /api/creden
 
 ### List And Status
 
-`session.list()` and `session.status()` are fetched together. Sessions are sorted descending by `time.updated`; any status other than `idle` is treated as busy.
+`session.list()` and `session.status()` are fetched together. Sessions are sorted descending by `time.updated`; any status other than `idle` is treated as busy. The V2 adapter derives status from `session.active()`, whose running set cannot express `retry`, so the provider preserves an event-derived `retry` across list refreshes (see Global Event Stream) instead of letting a refresh downgrade it to idle.
 
 Fields consumed by the UI include:
 
@@ -366,6 +366,8 @@ Recognized payload types:
 - `question.rejected`
 
 The subscription reconnects after failure or an unexpected end. It is considered connected only after the first matching project event arrives, so polling remains active while the SDK is still opening or retrying the stream. Backoff starts at 1 second, doubles after each failure, and is capped at 15 seconds. A successful event resets backoff to 1 second.
+
+On V2 a mid-turn provider failure emits `session.execution.failed` (mapped to `session.idle`) followed by `session.retry.scheduled` (mapped to a `session.status` carrying `retry`, `attempt`, and `next`). V2 keeps the retry on the assistant message, so the adapter also maps `assistant.retry` to a transcript `retry` part, and the running indicator shows the retry attempt from the session status. Because the running set excludes retries, a session-list refresh must not overwrite the event-derived retry: `mergeSessionStatuses` keeps it until the server reports the session running, a terminal event clears it, or the retry's `next` is more than two minutes stale. Preserving the retry keeps the session busy, so the safety poll keeps running and recovers output even when the retry's SSE frames are missed.
 
 ## Polling Fallback
 

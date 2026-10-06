@@ -134,6 +134,52 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
     state.completionTimers.add(timer);
   }
 
+  // Provider error + automatic retry. The retry status is emitted as an event
+  // (V2 keeps it on the assistant message and excludes it from the running set),
+  // then the recovered output is written to state with no SSE event, so only the
+  // busy safety poll can surface it. This mirrors the Android freeze report.
+  function scheduleRetry(sessionId, promptText) {
+    const state = getState();
+    const assistantId = `message-${state.nextMessageId++}`;
+    const retryError = { type: 'SessionError', message: 'The provider response ended unexpectedly.' };
+    const assistant = {
+      info: {
+        id: assistantId,
+        role: 'assistant',
+        sessionID: sessionId,
+        time: { created: getNow() },
+        error: retryError,
+        retry: { attempt: 2, at: getNow() + 5_000, error: retryError },
+      },
+      parts: [],
+    };
+    state.messagesBySession[sessionId] = [...getMessages(sessionId), assistant];
+
+    const failTimer = setTimeout(() => {
+      state.completionTimers.delete(failTimer);
+      state.sessionStatuses[sessionId] = { type: 'idle' };
+      emitEvent({ type: 'session.idle', properties: { sessionID: sessionId } });
+      state.sessionStatuses[sessionId] = { type: 'retry' };
+      emitEvent({
+        type: 'session.retry.scheduled',
+        properties: { sessionID: sessionId, assistantMessageID: assistantId, attempt: 2, at: getNow() + 5_000, error: retryError },
+      });
+      emitEvent({ type: 'message.updated', properties: { sessionID: sessionId, info: assistant.info } });
+    }, 300);
+    state.completionTimers.add(failTimer);
+
+    const recoverTimer = setTimeout(() => {
+      state.completionTimers.delete(recoverTimer);
+      assistant.parts.push({ type: 'text', text: `Recovered: ${promptText || 'task complete'} after the provider retry.` });
+      assistant.info.error = undefined;
+      assistant.info.retry = undefined;
+      state.sessionStatuses[sessionId] = { type: 'idle' };
+      const session = getSession(sessionId);
+      if (session) session.time.updated = getNow();
+    }, 7_000);
+    state.completionTimers.add(recoverTimer);
+  }
+
   function createPermissionRequest(sessionId) {
     const state = getState();
     const request = {
@@ -197,6 +243,11 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
 
     if (state.scenario === 'question' || state.scenario === 'question-multi' || state.scenario === 'question-failure') {
       createQuestionRequest(sessionId);
+      return;
+    }
+
+    if (state.scenario === 'retry') {
+      scheduleRetry(sessionId, promptText);
       return;
     }
 

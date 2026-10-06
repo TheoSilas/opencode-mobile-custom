@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { modelToV1, projectToV1, sessionToV1 } from '@/lib/opencode/v2-mappers';
+import { messageToV1 } from '@/lib/opencode/v2/mappers';
 import { buildV2Client } from '@/lib/opencode/v2-client';
 
 const h = vi.hoisted(() => ({ api: undefined as unknown }));
@@ -35,8 +36,23 @@ describe('v2 response mappers', () => {
     expect(minimalSession.model).toBeUndefined();
   });
 
-  it('maps projects', () => {
-    expect(projectToV1({ id: 'project-1', canonical: '/workspace/demo', vcs: 'git', time: { created: 1, updated: 2 }, sandboxes: [] } as never)).toEqual({
+  it('maps an assistant retry into a retry transcript part', () => {
+    const mapped = messageToV1({
+      id: 'msg_1',
+      type: 'assistant',
+      sessionID: 'ses_1',
+      time: { created: 1 },
+      content: [],
+      retry: { attempt: 3, at: 99, error: { type: 'SessionError', message: 'The provider response ended unexpectedly.' } },
+    } as never, 'ses_1');
+    const retryPart = mapped?.parts.find((part) => part.type === 'retry');
+    expect(retryPart).toMatchObject({
+      attempt: 3,
+      error: { name: 'SessionError', data: { message: 'The provider response ended unexpectedly.' } },
+    });
+  });
+
+  it('maps projects', () => {    expect(projectToV1({ id: 'project-1', canonical: '/workspace/demo', vcs: 'git', time: { created: 1, updated: 2 }, sandboxes: [] } as never)).toEqual({
       id: 'project-1',
       worktree: '/workspace/demo',
       vcs: 'git',

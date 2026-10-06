@@ -50,6 +50,7 @@
     "sessionReverted": "Sitzung wurde zurückgesetzt",
     "restoreReverted": "Zurückgesetzte Arbeit wiederherstellen",
     "runningActivity": "OpenCode {{activity}}...",
+    "runningRetry": "OpenCode ist auf einen Fehler gestoßen und versucht es erneut (Versuch {{attempt}})...",
     "runningGeneric": "OpenCode arbeitet den aktuellen Schritt ab...",
     "answerNeeded": "Antwort erforderlich",
     "waitingForAnswer": "OpenCode wartet auf deine Antwort",

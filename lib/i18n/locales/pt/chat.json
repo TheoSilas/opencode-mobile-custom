@@ -50,6 +50,7 @@
     "sessionReverted": "A sessão foi revertida",
     "restoreReverted": "Restaurar trabalho revertido",
     "runningActivity": "O OpenCode está {{activity}}...",
+    "runningRetry": "O OpenCode encontrou um erro e está tentando novamente (tentativa {{attempt}})...",
     "runningGeneric": "O OpenCode está processando a etapa atual...",
     "answerNeeded": "Resposta necessária",
     "waitingForAnswer": "O OpenCode está aguardando sua resposta",

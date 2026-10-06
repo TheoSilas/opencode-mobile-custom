@@ -116,6 +116,21 @@ export function messageToV1(message: V2Message, sessionID: string): { info: Reco
     const cost = numberField((message as Record<string, unknown>).cost);
     const finish = stringField((message as Record<string, unknown>).finish, 'stop');
     const error = (message as Record<string, unknown>).error as Record<string, unknown> | undefined;
+    const retry = (message as Record<string, unknown>).retry as Record<string, unknown> | undefined;
+
+    // V2 keeps the automatic-retry state on the assistant message rather than
+    // as a part. Surface it as a `retry` part so the transcript shows the same
+    // "Retry N" detail the TUI does while the server retries.
+    if (retry) {
+      parts.push({
+        id: `${message.id}-retry`,
+        sessionID,
+        messageID: message.id,
+        type: 'retry',
+        attempt: numberField(retry.attempt),
+        error: { name: 'SessionError', data: { message: extractErrorMessage(retry.error) } },
+      });
+    }
 
     parts.push({
       id: `${message.id}-step-finish`,

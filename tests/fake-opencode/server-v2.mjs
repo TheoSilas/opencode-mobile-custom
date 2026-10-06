@@ -90,6 +90,14 @@ function translate(eventMessage) {
       return event('session.status', { sessionID: properties.sessionID, status: properties.status });
     case 'session.idle':
       return event('session.idle', { sessionID: properties.sessionID });
+    case 'session.retry.scheduled':
+      return event('session.retry.scheduled', {
+        sessionID: properties.sessionID,
+        assistantMessageID: properties.assistantMessageID,
+        attempt: properties.attempt,
+        at: properties.at,
+        error: properties.error,
+      });
     case 'message.updated':
       return event('session.text.ended', { sessionID: properties.sessionID });
     case 'session.diff':
@@ -201,6 +209,8 @@ function messageToV2(record) {
     cost: ASSISTANT_COST,
     tokens: { input: ASSISTANT_USAGE.input, output: ASSISTANT_USAGE.output, reasoning: ASSISTANT_USAGE.reasoning, cache: { ...ASSISTANT_USAGE.cache } },
     finish: 'stop',
+    ...(record.info.error ? { error: record.info.error } : {}),
+    ...(record.info.retry ? { retry: record.info.retry } : {}),
   };
 }
 
@@ -474,7 +484,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/api/session/active') {
       const active = {};
       for (const [sessionID, status] of Object.entries(state.sessionStatuses)) {
-        if (status?.type !== 'idle' && status?.type !== undefined) active[sessionID] = { type: 'running' };
+        // The running set excludes retries, matching the real server. The app
+        // must preserve the event-derived retry across this list refresh.
+        if (status?.type === 'busy') active[sessionID] = { type: 'running' };
       }
       sendJson(res, 200, { data: active });
       return;

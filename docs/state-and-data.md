@@ -587,7 +587,10 @@ and every 5 seconds while disconnected. A submitted prompt also schedules a
 one-off transcript refresh after 5 seconds so a missed completion still lands.
 The first envelope of a subscription reconciles authoritatively (rebuilding the
 transcript window); later ticks tail-merge. Idle connected sessions do not poll.
-Stable latest-action bridges prevent provider renders from reopening the stream.
+An event-derived `retry` status is preserved across session-list refreshes
+(`mergeSessionStatuses`), so an automatic retry stays busy and its safety poll
+continues instead of freezing on a missed event. Stable latest-action bridges
+prevent provider renders from reopening the stream.
 Cleanup aborts subscriptions and cancels poll/retry timers. Domain responses
 retain the provider's client-scope guards.
 
