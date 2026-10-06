@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Icon, Portal, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -33,7 +33,7 @@ export function OverlaySheet({ visible, title, onClose, children, headerAction, 
         <Pressable accessibilityLabel={t('common:actions.closeWithName', { title })} onPress={onClose} style={StyleSheet.absoluteFill}>
           <View style={styles.backdrop} />
         </Pressable>
-        <View testID={fitContent ? `${testID}-sheet` : undefined} accessibilityLabel={title} accessibilityViewIsModal style={[styles.sheet, fitContent ? { maxHeight: height - 64 - insets.top } : { top: compact ? Math.max(64 + insets.top, height * 0.45) : 64 + insets.top }, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+        <KeyboardAvoidingView behavior="padding" testID={fitContent ? `${testID}-sheet` : undefined} accessibilityLabel={title} accessibilityViewIsModal style={[styles.sheet, fitContent ? { maxHeight: height - 64 - insets.top } : { top: compact ? Math.max(64 + insets.top, height * 0.45) : 64 + insets.top }, { backgroundColor: palette.surface, borderColor: palette.border }]}>
           {compact ? <View style={styles.grabberWrap}><View style={[styles.grabber, { backgroundColor: palette.muted }]} /></View> : null}
           <View style={[styles.header, compact && styles.compactHeader, { borderBottomColor: palette.border }]}>
             {compact ? (
@@ -59,7 +59,7 @@ export function OverlaySheet({ visible, title, onClose, children, headerAction, 
           {scrollable ? <ScrollView keyboardShouldPersistTaps="handled" style={fitContent ? styles.fitContentScroll : undefined} contentContainerStyle={[styles.content, compact && styles.compactContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             {children}
           </ScrollView> : <View style={[styles.content, compact && styles.compactContent, { flex: 1, minHeight: 0, paddingBottom: Math.max(insets.bottom, 24) }]}>{children}</View>}
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Portal>
   );

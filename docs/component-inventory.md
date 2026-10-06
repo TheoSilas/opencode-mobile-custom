@@ -227,6 +227,7 @@ type ChatHeaderProps = {
 
 - shared overlay presentation for Chats, workspace selection, progress, diff source selection, session usage, terminal selection, and Settings categories; short overlays fit their content
 - `scrollable={false}` lets embedded virtualized lists own scrolling without a nested ScrollView
+- the sheet is a `KeyboardAvoidingView` with `behavior="padding"` on all platforms so inputs inside (search, rename, pairing, directory entry) stay above the keyboard
 
 ## `components/ui/workspace-picker.tsx`
 
@@ -625,6 +626,9 @@ Behavior:
 - Android/web use a custom modal sheet
 - `searchable` forces the modal sheet on every platform and adds a text
   filter over the option labels (used by the Add provider pickers)
+- the searchable modal sheet lifts its options above the soft keyboard via
+  `useKeyboardHeight` (transparent `Modal`s cannot use `KeyboardAvoidingView`)
+  and shrinks the sheet/list so long filtered lists stay scrollable
 
 ### Prop contract
 

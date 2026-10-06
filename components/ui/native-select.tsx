@@ -14,6 +14,7 @@ import {
 
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { TextInput } from '@/components/ui/text-input';
 
 export type NativeSelectOption<T extends string = string> = {
@@ -52,6 +53,7 @@ export function NativeSelect<T extends string>({
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
+  const keyboardHeight = useKeyboardHeight(visible && searchable);
 
   const selectedOption = useMemo(
     () => options.find((option) => option.value === selectedValue),
@@ -111,7 +113,7 @@ export function NativeSelect<T extends string>({
       })}
       {Platform.OS === 'ios' && !searchable ? null : (
         <Modal animationType="fade" transparent visible={visible} onRequestClose={close}>
-          <View style={styles.overlay}>
+          <View style={[styles.overlay, { paddingBottom: keyboardHeight }]}>
             <Pressable style={styles.backdrop} onPress={close} />
             <View style={[styles.sheet, { backgroundColor: palette.surface, borderColor: palette.border }]}> 
               <View style={[styles.sheetHeader, { borderBottomColor: palette.border }]}> 
@@ -135,7 +137,7 @@ export function NativeSelect<T extends string>({
                   />
                 </View>
               ) : null}
-              <ScrollView contentContainerStyle={styles.optionList} keyboardShouldPersistTaps="handled">
+              <ScrollView style={styles.optionScroll} contentContainerStyle={styles.optionList} keyboardShouldPersistTaps="handled">
                 {visibleOptions.map((option) => {
                   const selected = option.value === selectedValue;
                   const color = selected ? palette.tint : palette.muted;
@@ -193,6 +195,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
+    flexShrink: 1,
     maxHeight: '72%',
     overflow: 'hidden',
   },
@@ -224,6 +227,9 @@ const styles = StyleSheet.create({
   searchWrap: {
     paddingHorizontal: 12,
     paddingTop: 12,
+  },
+  optionScroll: {
+    flexShrink: 1,
   },
   optionList: {
     gap: 8,

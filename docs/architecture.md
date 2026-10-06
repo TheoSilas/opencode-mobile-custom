@@ -623,6 +623,11 @@ This is one of the densest parts of the architecture and would need careful pari
   keyboard overlap while preserving the outer flex frame; explicit `height`
   adjustment can feed IME/layout changes back into each other with
   hardware-keyboard toolbars.
+- Bottom overlays follow the same `padding` rule: `OverlaySheet` makes its sheet
+  a `KeyboardAvoidingView`, while transparent `Modal` sheets (`native-select`,
+  model picker) cannot use `KeyboardAvoidingView` and instead consume
+  `hooks/use-keyboard-height.ts` and apply the inset as padding. Neither uses
+  `behavior="height"`.
 - The app uses custom theme tokens from `constants/theme.ts` and maps them into React Native Paper in `constants/paper-theme.ts`.
 - Markdown rendering is intentionally narrow and custom, not library-based.
 - Diff rendering is custom and optimized for readable in-app inspection, not full git-style fidelity.

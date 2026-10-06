@@ -5,6 +5,7 @@ import { Keyboard, Modal, Pressable, SectionList, StyleSheet, Text, TextInput, V
 
 import { NumericSlider } from '@/components/ui/numeric-slider';
 import { useDismissOnBack } from '@/hooks/use-dismiss-on-back';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { REASONING_OPTIONS } from '@/components/chat/chat-view-utils';
 import { ControlButton } from '@/components/chat/chat-controls';
 import { renderProviderIcon } from '@/components/ui/provider-icon';
@@ -36,7 +37,7 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
   const palette = Colors[colorScheme];
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useKeyboardHeight(visible);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const matchingModels = useMemo(
     () => models.filter((model) => {
@@ -70,16 +71,6 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
       setQuery('');
     }
   }, [visible]);
-
-  useEffect(() => {
-    const showSubscription = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardHeight(event.endCoordinates.height));
-    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   const close = () => setVisible(false);
   useDismissOnBack(visible, close);
