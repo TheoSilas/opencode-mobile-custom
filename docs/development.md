@@ -84,10 +84,11 @@ Build a local iOS release:
 npm run build:ios:local
 ```
 
-**Release Automation**:
-- Push to `main` to trigger iOS release build and artifact upload
-- Push a version tag (e.g., `v1.2.3`) to trigger production TestFlight upload
-- Use `workflow_dispatch` with `upload_to_app_store: true` for manual TestFlight uploads
+**Release Automation** (`.github/workflows/ios-release.yml`, manual only):
+- Run the **iOS Release** workflow via `workflow_dispatch`; pass a `tag` (e.g. `v1.0.51`) or leave it blank to use the latest `v*` tag, then it runs the validate gate against that tag and builds and signs the archive
+- It ignores the ref selected when dispatching; the resolved tag is validated against the app version and the GitHub Release asset is published for it, while the `.ipa` is uploaded as the `ios-release-ipa` artifact
+- Set `upload_to_store: true` to upload to App Store Connect (TestFlight)
+- The pipeline never runs on push or tag, so routine Android releases don't trigger a macOS build
 - The `.ipa` artifact can be found in the workflow run's artifacts section
 
 ### Testing

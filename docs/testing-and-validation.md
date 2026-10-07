@@ -22,17 +22,21 @@ before seeding next-launch data, and waits for the rotated scope to persist
 before asserting preservation. Navigation completion alone does not signal
 that provider persistence has finished.
 
-`.github/workflows/build.yml` owns validation and release. It runs on pushes to `main` and `v*` tags:
+`.github/workflows/build.yml` owns Android validation and release. It runs on pushes to `main` and `v*` tags:
 
 - a single `validate` job covers static validation and flow regression testing, and is the required gate for both release jobs
 - validation uploads artifacts only on failure (`playwright-report`), with 3-day retention; Playwright retains failed-test traces and screenshots without requiring retries
 
 `.github/workflows/pr-validate.yml` runs the same validate steps on pull requests targeting `main`, so contributor branches get the static, fake-server, and Playwright gates before review. It does not build or publish releases, and it cancels superseded runs for the same PR.
 
-Release automation in the same workflow:
+`.github/workflows/ios-release.yml` owns the iOS release, a separate pipeline that runs only on manual dispatch (never on push or tag):
 
-- the `android-release` job always runs after `validate` passes and uploads the signed Android artifacts, including on `main` pushes and manual dispatch
-- GitHub Release publishing and Play Store upload run only on `v*` tags; the iOS release job still runs on `v*` tags or manual dispatch
+- it re-runs the same `validate` gate before building, then builds and signs the iOS archive on `macos-26`
+- it builds an explicit `tag` input when provided, otherwise the latest `v*` tag; either way it checks out the tag rather than the ref the workflow was dispatched from
+- it validates the tag against the app version, publishes the GitHub Release asset for that tag, and (with `upload_to_store`) uploads to App Store Connect
+- it has no `cancel-in-progress`, so a release in flight is never killed mid-upload
+
+Release automation in `build.yml`:
 - Actions artifacts expire after 3 days; the permanent copy is the GitHub Release asset, Play Store upload, or TestFlight upload
 - `.github/workflows/cleanup.yml` runs weekly to delete artifacts older than 3 days and keep only the newest Gradle/npm cache
 
