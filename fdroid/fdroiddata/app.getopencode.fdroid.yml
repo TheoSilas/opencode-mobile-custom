@@ -19,7 +19,7 @@ Repo: https://github.com/alvarolorentedev/opencode-mobile
 Builds:
   - versionName: 1.0.52
     versionCode: 52
-    commit: 029ea4aef4c69e56b8b8cd315fa9bba44592580d
+    commit: a107a34987bc50d54dc771f87eeb7ea6fc686ce5
     submodules: true
     sudo:
       - apt-get update

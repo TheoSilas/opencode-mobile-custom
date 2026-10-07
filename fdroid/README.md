@@ -16,7 +16,9 @@ See [`docs/fdroid.md`](../docs/fdroid.md) for how the FOSS variant is produced.
 3. Copy `fdroiddata/app.getopencode.fdroid.yml` into the fork at
    `metadata/app.getopencode.fdroid.yml`, and set `commit:` to that release's
    full source commit SHA. If metadata or build support was added after the
-   release tag, pin the public commit containing those fixes.
+   release tag, pin the merged upstream main commit containing those fixes.
+   Verify the SHA exists in a fresh clone. Rebase/squash merges rewrite commit
+   hashes, so a pre-merge topic-branch SHA can become unavailable to F-Droid.
 4. Decide the signing approach before first publication. Reproducible builds
    are currently not enabled; the reasons are recorded in `MaintainerNotes`
    and [`docs/fdroid.md`](../docs/fdroid.md). Only after unsigned APK equivalence
