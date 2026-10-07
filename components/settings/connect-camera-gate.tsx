@@ -1,5 +1,5 @@
 import { useCameraPermissions } from 'expo-camera';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet, View } from 'react-native';
 import { ActivityIndicator } from 'react-native-paper';
@@ -12,16 +12,10 @@ import { ActivityIndicator } from 'react-native-paper';
 export function ConnectCameraGate({ onCancel, children }: { onCancel: () => void; children: ReactNode }) {
   const { t } = useTranslation();
   const native = Platform.OS === 'ios' || Platform.OS === 'android';
-  const [permission, requestPermission] = useCameraPermissions();
-  const requested = useRef(false);
+  const [permission] = useCameraPermissions({ request: native });
   useEffect(() => {
-    if (!native || !permission || permission.granted) return;
-    if (permission.status === 'undetermined') {
-      if (!requested.current) { requested.current = true; void requestPermission(); }
-      return;
-    }
-    onCancel();
-  }, [native, onCancel, permission, requestPermission]);
+    if (native && permission && !permission.granted) onCancel();
+  }, [native, onCancel, permission]);
   if (!native || permission?.granted) return <>{children}</>;
   return <View style={styles.screen}><ActivityIndicator accessibilityLabel={t('settings:connect.cameraLoading')} /></View>;
 }

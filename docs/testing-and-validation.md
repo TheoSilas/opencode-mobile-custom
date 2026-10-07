@@ -442,6 +442,10 @@ new production endpoint, plus the existing production/staging recovery flows.
 These E2E edits require explicit human validation under `AGENTS.md`; mocked
 requests do not verify deployment or real store acceptance on the new domain.
 
+The camera-gate component check covers permission request-on-entry, grant,
+requestable denial, blocked denial, and web bypass. Native validation still
+needs to confirm the OS prompt and Subscribe/Restore continuation on device.
+
 The following important behaviors are present in code but are not obviously covered by the current documented E2E suite:
 
 - conversation mode state machine

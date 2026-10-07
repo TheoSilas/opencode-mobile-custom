@@ -93,9 +93,10 @@ Manual. Onboarding uses the same chooser and retains Skip. Manual opens the
 shared full-screen Name/URL/Username/Password form with Save & connect. Failed
 connections retain the form and reuse the saved profile on retry.
 
-Cloud Link opens a full-screen camera surface, outside the tabs. On native, camera
-permission is requested before this surface (and its subscription sheet) renders;
-denial cancels pairing and returns to the previous screen. Store/session
+Cloud Link opens a full-screen camera surface, outside the tabs. On native, each
+pairing entry requests camera permission before this surface (and its subscription
+sheet) renders, including when Android reports a requestable denial; denial
+cancels pairing and returns to the previous screen. Store/session
 initialization is explicit (`loading`, `ready`, `error`); scanning and the
 subscription overlay wait for recovery to settle. A verified subscriber scans
 and automatically pairs, securely saves, and connects through the provider's
@@ -196,8 +197,8 @@ session. The older backend's combined conflict/expiry/lock message is ambiguous;
 retain that QR for explicit retry or replacement rather than guessing its age.
 A new scan replaces pending QR data; closing the pairing flow clears it.
 
-Scanner permission is requested before the camera surface renders in the scan
-flow; denial cancels pairing. Deep links skip that gate because they already
+Scanner permission is requested on every native pairing entry before the camera
+surface renders; denial cancels pairing. Deep links skip that gate because they already
 carry a QR. Losing focus or backgrounding unmounts the preview. Missing iOS
 lenses and startup timeout retain deep-link recovery. Pairing remains available
 before onboarding completion.
