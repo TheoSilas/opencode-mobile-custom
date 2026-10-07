@@ -18,7 +18,7 @@ See [`docs/fdroid.md`](../docs/fdroid.md) for how the FOSS variant is produced.
 4. Extract upstream signatures for reproducible verification:
    ```bash
    curl -L -o opencode-mobile-fdroid.apk \
-      https://github.com/alvarolorentedev/opencode-mobile/releases/download/v1.0.51/opencode-mobile-fdroid.apk
+      https://github.com/alvarolorentedev/opencode-mobile/releases/download/v1.0.52/opencode-mobile-fdroid.apk
    fdroid signatures opencode-mobile-fdroid.apk
    ```
    Place the extracted files under
