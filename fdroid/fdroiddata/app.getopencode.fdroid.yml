@@ -35,10 +35,15 @@ Repo: https://github.com/alvarolorentedev/opencode-mobile
 # publishes the upstream binary.
 Binaries: https://github.com/alvarolorentedev/opencode-mobile/releases/download/v%v/opencode-mobile-fdroid.apk
 
+# SHA-256 of the upstream signing certificate (from the `foss-release` job's
+# `apksigner verify --print-certs` output). Lets a repo operator confirm APKs
+# were signed by the expected key.
+AllowedAPKSigningKeys: d5a75b79abebf37d3011c66b681c7b903d99230f9d7f79eddb71ef30fffc3cc5
+
 Builds:
   - versionName: 1.0.51
     versionCode: 51
-    commit: 7ee765e528b762641130566258537b6472b97036
+    commit: 2ea8c5077bb6e971f1141adea94c231bf51e4765
     subdir: android/app
     sudo:
       - apt-get update
@@ -81,8 +86,8 @@ MaintainerNotes: |-
   app.getopencode) is not built here. Upstream publishes the matching FOSS APK
   as opencode-mobile-fdroid.apk on GitHub releases for reproducible
   verification. If expo-notifications' stub API changes, bump the
-  firebase-stub commit here and FIREBASE_STUB_SHA in
-  scripts/build-android-release.mjs together.
+  firebase-stub commit here and FIREBASE_STUB_SHA in scripts/foss-prepare.mjs
+  together.
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$

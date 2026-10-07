@@ -1,0 +1,2 @@
+- Automatic retry handling for transient session errors, with clearer in-app status
+- Stability and release-pipeline improvements
