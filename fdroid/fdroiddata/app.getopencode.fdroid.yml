@@ -34,9 +34,9 @@ Builds:
       - env CI=1 EXPO_APP_VARIANT=foss EXPO_PUBLIC_FOSS=1 npx expo prebuild -p 
         android --clean
     scanignore:
+      - node_modules/*/local-maven-repo
+      - node_modules/@*/*/local-maven-repo
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
-      - node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
-      - node_modules/expo-modules-autolinking/scripts/android/autolinking_implementation.gradle
     scandelete:
       - node_modules
     build:
