@@ -18,9 +18,9 @@ Binaries:
   https://github.com/alvarolorentedev/opencode-mobile/releases/download/v%v/opencode-mobile-fdroid.apk
 
 Builds:
-  - versionName: 1.0.51
-    versionCode: 51
-    commit: 2ea8c5077bb6e971f1141adea94c231bf51e4765
+  - versionName: 1.0.52
+    versionCode: 52
+    commit: 2115b576b1eb9453c22e08f9482a45750757cb8d
     sudo:
       - apt-get update
       - apt-get install -y npm curl
@@ -66,5 +66,5 @@ MaintainerNotes: |-
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
 UpdateCheckData: app.config.ts|versionCode:\s*(\d+)|.|version:\s*'([\d.]+)'
-CurrentVersion: 1.0.51
-CurrentVersionCode: 51
+CurrentVersion: 1.0.52
+CurrentVersionCode: 52
