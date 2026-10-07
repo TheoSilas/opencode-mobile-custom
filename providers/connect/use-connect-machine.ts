@@ -229,9 +229,9 @@ export function useConnectState({ controlPlaneUrl, setControlPlaneUrl, switchCon
   }; }, [availablePurchases, finishPurchase, store]);
   useEffect(() => {
     if (!enabled) return;
-    const listener = AppState.addEventListener('change', (state) => { if (state === 'active') void perform(() => refreshRef.current()); });
+    const listener = AppState.addEventListener('change', (state) => { if (state === 'active' && initialization === 'ready') void perform(() => refreshRef.current()); });
     return () => listener.remove();
-  }, [enabled, perform]);
+  }, [enabled, initialization, perform]);
 
   const selectControlPlane = useCallback((url: string) => selectConnectControlPlane({
     url, enabled, isHydrated, phase, controlPlaneUrl, linkLock, lock, pendingClaim, pendingPurchase, changeControlPlane, setError,

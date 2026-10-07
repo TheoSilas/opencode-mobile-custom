@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import type { ProductSubscription, Purchase, RequestPurchaseProps } from 'expo-iap';
 import { Platform } from 'react-native';
 
-import { getConnectStore, isConnectEnabled, type ConnectCatalog, type ConnectProof } from '@/lib/connect';
+import { getConnectStore, isConnectEnabled, isConnectEntitlement, type ConnectCatalog, type ConnectProof } from '@/lib/connect';
 
 export type ConnectOffer = {
   key: string;
@@ -70,7 +70,7 @@ export async function loadConnectStore(): Promise<StoreApi> {
 }
 
 export function selectConnectOffers(catalog: ConnectCatalog, products: ProductSubscription[], store = getConnectStore(), introEligible = new Set<string>()): ConnectOffer[] {
-  const configured = catalog.plans.filter((plan) => plan.entitlements.includes('connect')).flatMap((plan) => plan.products).filter((product) => product.store === store);
+  const configured = catalog.plans.filter((plan) => plan.entitlements.some(isConnectEntitlement)).flatMap((plan) => plan.products).filter((product) => product.store === store);
   const result: ConnectOffer[] = [];
   for (const item of configured) {
     const native = products.find((product) => product.id === item.productId && product.type === 'subs' && product.platform === (store === 'apple' ? 'ios' : 'android'));
@@ -96,7 +96,7 @@ export function selectConnectOffers(catalog: ConnectCatalog, products: ProductSu
 export const AVAILABLE_CONNECT_PURCHASES = { onlyIncludeActiveItemsIOS: true, alsoPublishToEventListenerIOS: false };
 
 export function isConnectPurchase(catalog: ConnectCatalog | undefined, purchase: Purchase, store = getConnectStore()) {
-  return purchase.store === store && Boolean(catalog?.plans.some((plan) => plan.entitlements.includes('connect') && plan.products.some((product) => product.store === store && product.productId === purchase.productId)));
+  return purchase.store === store && Boolean(catalog?.plans.some((plan) => plan.entitlements.some(isConnectEntitlement) && plan.products.some((product) => product.store === store && product.productId === purchase.productId)));
 }
 
 export function connectPurchaseRequest(offer: ConnectOffer, previous?: Purchase, store = getConnectStore()): RequestPurchaseProps {

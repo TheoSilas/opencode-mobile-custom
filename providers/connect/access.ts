@@ -8,6 +8,7 @@ import {
   getConnectCredentialError,
   getConnectSession,
   hasConnectSession,
+  isConnectEntitlement,
   saveConnectSession,
   type ConnectClaim,
   type ConnectPairing,
@@ -72,7 +73,7 @@ export async function authenticateConnectRequest<T>({
   const invalidateEntitlement = async () => {
     const saved = sessionRef.current;
     if (!saved) return;
-    const inactive = { ...saved, entitlements: saved.entitlements.filter((entry) => entry !== 'connect') };
+    const inactive = { ...saved, entitlements: saved.entitlements.filter((entry) => !isConnectEntitlement(entry)) };
     sessionRef.current = inactive;
     setSession(inactive);
     await saveConnectSession(controlPlaneUrl, store, inactive);

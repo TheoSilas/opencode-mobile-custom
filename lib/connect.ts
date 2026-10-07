@@ -145,8 +145,11 @@ export async function saveConnectSession(controlPlaneUrl: string, store: Connect
 export function hasConnectSession(session: ConnectSession | undefined, now = Date.now()) {
   return Boolean(session && Date.parse(session.session_expires_at) > now);
 }
+export function isConnectEntitlement(entitlement: string) {
+  return entitlement === 'cloudlink' || entitlement === 'connect';
+}
 export function hasConnectEntitlement(session: ConnectSession | undefined, now = Date.now()) {
-  return Boolean(hasConnectSession(session, now) && session?.entitlements.includes('connect') && Date.parse(session.subscription_expires_at) > now);
+  return Boolean(hasConnectSession(session, now) && session?.entitlements.some(isConnectEntitlement) && Date.parse(session.subscription_expires_at) > now);
 }
 export async function savePendingConnectPairing(controlPlaneUrl: string, store: ConnectStore, pairing?: ConnectPairing) {
   await writeSecret(secureKey(controlPlaneUrl, store, 'pairing'), pairing ? JSON.stringify(pairing) : '');

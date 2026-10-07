@@ -59,7 +59,10 @@ rejected; open a fresh QR from a connector running in the matching environment.
 Never put product IDs or private verification credentials in Expo
 configuration. The environment's `GET /v1/subscriptions/catalog` supplies plans,
 Apple products and Google product/base-plan/offer IDs. Missing configuration or
-native product metadata shows an unavailable error.
+native product metadata shows an unavailable error. Catalog plans and verified
+sessions recognize `cloudlink`, retaining `connect` for legacy compatibility.
+Returning to the foreground after failed initialization preserves the error
+and Retry action; Retry reloads the store offers.
 
 `expo-iap` 5.8.2 requires a native development/store build. Rebuild after adding
 its plugin. Expo Go and ordinary web cannot purchase or restore. Keep Expo SDK

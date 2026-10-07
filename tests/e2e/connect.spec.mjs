@@ -77,7 +77,7 @@ async function mockControlPlane(page, options = {}) {
     const send = (json, status = 200) => route.fulfill({ status, headers, json });
     if (path === '/v1/subscriptions/catalog') {
       expect(request.headers().authorization).toBeUndefined();
-      await send({ plans: [{ id: 'connect', entitlements: ['connect'], products: [{ store: 'google', productId: options.productId ?? PRODUCT, basePlanId: 'monthly', offerIds: [] }] }] }, options.catalogStatus ?? 200); return;
+      await send({ plans: [{ id: 'cloudlink', entitlements: ['cloudlink'], products: [{ store: 'google', productId: options.productId ?? PRODUCT, basePlanId: 'monthly', offerIds: [] }] }] }, options.catalogStatus ?? 200); return;
     }
     if (path === '/v1/subscriptions/claim') {
       state.subscriptionClaims += 1;
@@ -86,7 +86,7 @@ async function mockControlPlane(page, options = {}) {
       await page.evaluate(() => globalThis.__connectStoreTest.events.push('claim'));
       if (options.testPurchase) { await send({ error: 'Google test purchases are disabled in this environment' }, 403); return; }
       if (options.subscriptionStatus && state.subscriptionClaims === 1) { await send({ error: 'store unavailable' }, options.subscriptionStatus); return; }
-      await send({ user_id: 'store-owner', user_token: 'test-user-token', session_expires_at: new Date(Date.now() + 86400000).toISOString(), subscription_expires_at: new Date(state.paidThrough).toISOString(), entitlements: ['connect'] }); return;
+      await send({ user_id: 'store-owner', user_token: 'test-user-token', session_expires_at: new Date(Date.now() + 86400000).toISOString(), subscription_expires_at: new Date(state.paidThrough).toISOString(), entitlements: ['cloudlink'] }); return;
     }
     expect(request.headers().authorization).toBe('Bearer test-user-token');
     const connection = { server_url: machine.public_url, machine_id: options.mismatch ? 'wrong-machine' : machine.id, machine_name: machine.name, device_id: `device-${state.accesses + 1}`, device_secret: 'device-test-secret', expires_at: new Date(state.paidThrough).toISOString() };

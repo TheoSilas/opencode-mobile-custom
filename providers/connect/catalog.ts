@@ -1,4 +1,4 @@
-import { getConnectCatalog, type ConnectCatalog, type ConnectStore } from '@/lib/connect';
+import { getConnectCatalog, isConnectEntitlement, type ConnectCatalog, type ConnectStore } from '@/lib/connect';
 import { selectConnectOffers, type ConnectOffer, type ConnectStoreApi } from '@/lib/connect-store';
 
 export type ConnectPhase = 'idle' | 'catalog' | 'purchasing' | 'pending' | 'restoring' | 'verifying' | 'savingSession' | 'finalizing' | 'claiming' | 'saving' | 'connecting' | 'paired';
@@ -23,7 +23,7 @@ export async function loadConnectCatalog({
   setPhase('catalog');
   const catalog = await getConnectCatalog(controlPlaneUrl);
   catalogRef.current = catalog;
-  const products = catalog.plans.filter((plan) => plan.entitlements.includes('connect')).flatMap((plan) => plan.products.filter((product) => product.store === store));
+  const products = catalog.plans.filter((plan) => plan.entitlements.some(isConnectEntitlement)).flatMap((plan) => plan.products.filter((product) => product.store === store));
   if (!products.length) throw new Error('Cloud Link subscriptions are not configured for this store.');
   const native = await api.fetchProducts({ skus: [...new Set(products.map((product) => product.productId))], type: 'subs' });
   const subscriptions = native as import('expo-iap').ProductSubscription[];

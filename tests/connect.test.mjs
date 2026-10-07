@@ -91,12 +91,15 @@ for (const controlPlane of connect.getConnectControlPlanes()) {
   assert.equal(await connect.getPendingConnectPairing(controlPlane, 'apple'), undefined, 'New environments do not reuse legacy QR records.');
 }
 for (const [key, value] of legacySecrets) assert.equal(globalThis.__connectSecrets.get(key), value, 'Legacy secure records remain untouched.');
-const session = { user_id: 'owner', user_token: 'user-token', session_expires_at: new Date(Date.now() + 86400000).toISOString(), subscription_expires_at: new Date(Date.now() + 3600000).toISOString(), entitlements: ['connect'] };
+const session = { user_id: 'owner', user_token: 'user-token', session_expires_at: new Date(Date.now() + 86400000).toISOString(), subscription_expires_at: new Date(Date.now() + 3600000).toISOString(), entitlements: ['cloudlink'] };
 await connect.saveConnectSession(pairing.controlPlaneUrl, 'apple', session);
 assert.deepEqual(await connect.getConnectSession(pairing.controlPlaneUrl, 'apple'), session);
 assert.equal(await connect.getConnectSession(pairing.controlPlaneUrl, 'google'), undefined, 'Store identities stay separate.');
 await assert.rejects(connect.getConnectSession('http://127.0.0.1:8787', 'apple'), /HTTPS/);
 assert.equal(connect.hasConnectEntitlement(session), true);
+assert.equal(connect.hasConnectEntitlement({ ...session, entitlements: ['connect'] }), true, 'Legacy sessions remain entitled.');
+assert.equal(connect.hasConnectEntitlement({ ...session, entitlements: ['unrelated'] }), false);
+assert.equal(connect.hasConnectEntitlement({ ...session, session_expires_at: '2000-01-01T00:00:00Z' }), false);
 assert.equal(connect.hasConnectEntitlement({ ...session, subscription_expires_at: '2000-01-01T00:00:00Z' }), false);
 assert.equal(connect.hasConnectSession({ ...session, subscription_expires_at: '2000-01-01T00:00:00Z' }), true, 'Entitlement expiry does not erase a valid identity session.');
 await connect.savePendingConnectPairing(pairing.controlPlaneUrl, 'apple', pairing);
@@ -164,7 +167,7 @@ try {
   const sharedClaims = await Promise.all([1, 2, 3].map(() => connect.claimConnectSubscription(pairing.controlPlaneUrl, { store: 'apple', signedTransaction: 'native.jws.proof' })));
   assert.equal(calls.length, beforeClaims + 1, 'Concurrent recovery shares one verification request.');
   sharedClaims[0].entitlements.length = 0;
-  assert.deepEqual(sharedClaims[1].entitlements, ['connect'], 'Consumers do not share mutable session arrays.');
+  assert.deepEqual(sharedClaims[1].entitlements, ['cloudlink'], 'Consumers do not share mutable session arrays.');
   await connect.claimConnectSubscription(pairing.controlPlaneUrl, { store: 'apple', signedTransaction: 'native.jws.proof' });
   assert.equal(calls.length, beforeClaims + 2, 'Completed claims are not cached.');
   status = 403;
@@ -322,7 +325,7 @@ const connectUri = await moduleUri('../lib/connect.ts', [
 const subscriptionService = await import(await moduleUri('../providers/services/connect-subscription-service.ts', [
   [/from '@\/lib\/connect'/g, `from "${connectUri}"`], [/from '@\/lib\/connect-store'/g, `from "${storeUri}"`],
 ]));
-const fixtureCatalog = { plans: [{ id: 'connect', entitlements: ['connect'], products: [{ store: 'apple', productId: 'fixture.apple' }, { store: 'google', productId: 'fixture.google', basePlanId: 'monthly', offerIds: ['trial'] }] }] };
+const fixtureCatalog = { plans: [{ id: 'cloudlink', entitlements: ['cloudlink'], products: [{ store: 'apple', productId: 'fixture.apple' }, { store: 'google', productId: 'fixture.google', basePlanId: 'monthly', offerIds: ['trial'] }] }] };
 const googleProduct = { id: 'fixture.google', platform: 'android', type: 'subs', title: 'Monthly', displayPrice: '$4.99', subscriptionOffers: [
   { id: 'monthly', basePlanIdAndroid: 'monthly', offerTokenAndroid: 'base-offer', displayPrice: '$4.99', price: 4.99, period: { unit: 'month', value: 1 } },
   { id: 'trial', basePlanIdAndroid: 'monthly', offerTokenAndroid: 'trial-offer', displayPrice: '$0', price: 0 },
@@ -331,6 +334,9 @@ const googleProduct = { id: 'fixture.google', platform: 'android', type: 'subs',
 ] };
 const selected = storeApi.selectConnectOffers(fixtureCatalog, [googleProduct], 'google');
 assert.equal(selected.length, 2);
+const legacyCatalog = { plans: fixtureCatalog.plans.map((plan) => ({ ...plan, entitlements: ['connect'] })) };
+assert.deepEqual(storeApi.selectConnectOffers(legacyCatalog, [googleProduct], 'google'), selected);
+assert.equal(storeApi.isConnectPurchase(legacyCatalog, { productId: 'fixture.google', store: 'google' }, 'google'), true);
 assert.equal(storeApi.isConnectPurchase(fixtureCatalog, { productId: 'fixture.google', store: 'google' }, 'google'), true);
 assert.equal(storeApi.isConnectPurchase(fixtureCatalog, { productId: 'fixture.google', store: 'apple' }, 'google'), false);
 assert.equal(storeApi.selectConnectOffers(fixtureCatalog, [], 'google').length, 0);
@@ -392,7 +398,7 @@ console.log('Subscription catalog, native proof, DEFERRED replacement, secure gr
 // verification must permit automatic routing without replaying a purchase;
 // once verified, secure-save/finalization checkpoints must stay in their scope.
 for (const platform of ['apple', 'google']) {
-  for (const scenario of ['routing', 'claim', 'restore', 'secure', 'finish']) {
+  for (const scenario of ['catalog', 'routing', 'claim', 'restore', 'secure', 'finish']) {
     // Each scenario represents a fresh app process, including its catalog cache.
     const freshConnectUri = `${connectUri}#${platform}-${scenario}`;
     const connect = await import(freshConnectUri);
@@ -408,10 +414,10 @@ for (const platform of ['apple', 'google']) {
     const purchase = { id: 'recovery-transaction', productId: `fixture.${platform}`, store: platform, purchaseState: 'purchased', purchaseToken: 'exact-native-proof', transactionDate: Date.now() };
     if (scenario === 'routing' && platform === 'apple') purchase.environmentIOS = 'Sandbox';
     const requests = [], events = [];
-    let fail = true, onPurchase;
+    let fail = true, onPurchase, onAppState;
     const nativeApi = {
       initConnection: async () => true, endConnection: async () => true,
-      fetchProducts: async () => platform === 'apple' ? [appleProduct] : [googleProduct],
+      fetchProducts: async () => scenario === 'catalog' && fail ? [] : platform === 'apple' ? [appleProduct] : [googleProduct],
       // Recovery must retain the transaction even if the next store query has
       // not published it yet. No interactive Restore is needed to change scope.
       getAvailablePurchases: async () => [], getPendingTransactionsIOS: async () => [],
@@ -426,14 +432,14 @@ for (const platform of ['apple', 'google']) {
       purchaseErrorListener: () => ({ remove() {} }),
     };
     const concern = {
-      'react-native': { Platform: { OS: globalThis.__connectPlatform }, AppState: { addEventListener: () => ({ remove() {} }) } },
+      'react-native': { Platform: { OS: globalThis.__connectPlatform }, AppState: { addEventListener: (_, listener) => { onAppState = listener; return { remove() {} }; } } },
       '@/lib/connect': connect,
       '@/lib/connect-store': { ...storeApi, loadConnectStore: async () => nativeApi },
       '@/lib/connection-profiles': { loadConnectionProfiles: async () => [] },
       '@/providers/connection-refresh': {},
       '@/providers/services/connect-subscription-service': subscriptionService,
     };
-    const catalogModule = await loadTs('providers/connect/catalog.ts', concern);
+    const catalogModule = await loadTs('providers/connect/catalog.ts', concern, { Error });
     const purchasesModule = await loadTs('providers/connect/purchases.ts', concern);
     const pairingModule = await loadTs('providers/connect/pairing.ts', concern);
     const accessModule = await loadTs('providers/connect/access.ts', concern);
@@ -444,7 +450,7 @@ for (const platform of ['apple', 'google']) {
       '@/providers/connect/purchases': purchasesModule,
       '@/providers/connect/pairing': pairingModule,
       '@/providers/connect/access': accessModule,
-    });
+    }, { Error });
     globalThis.fetch = async (address) => {
       requests.push(address);
       const testPurchase = scenario === 'routing' && platform === 'google' && address === `${connect.CONNECT_PRODUCTION_URL}/v1/subscriptions/claim`;
@@ -461,6 +467,25 @@ for (const platform of ['apple', 'google']) {
         });
       }, {});
       await runtime.settle();
+      if (scenario === 'catalog') {
+        assert.equal(runtime.value.initialization, 'error');
+        assert.equal(runtime.value.offers.length, 0);
+        const setupError = runtime.value.error;
+        assert.match(setupError, /No matching Cloud Link products/);
+        onAppState('active');
+        await runtime.settle();
+        assert.equal(runtime.value.error, setupError, 'Foregrounding must preserve failed setup errors.');
+        assert.equal(runtime.value.canRetry, true);
+        fail = false;
+        assert.equal(await runtime.value.retry(), true);
+        await runtime.settle();
+        assert.equal(runtime.value.initialization, 'ready');
+        assert.equal(runtime.value.error, undefined);
+        assert.equal(runtime.value.canRetry, false);
+        assert.ok(runtime.value.offers.length > 0);
+        assert.equal(runtime.value.canPurchase, true);
+        continue;
+      }
       assert.equal(runtime.value.canPurchase, true);
       if (scenario === 'routing') {
         await runtime.value.pairLink({ v: '1', cp: staging, id: 'discarded', t: 'temporary-proof', n: 'Test Mac' });
@@ -540,7 +565,7 @@ for (const platform of ['apple', 'google']) {
     globalThis.__connectPlatform = platform === 'apple' ? 'ios' : 'android';
     globalThis.__connectSecrets.clear();
     const staging = connect.CONNECT_STAGING_URL;
-    const stale = { ...session, user_token: 'stale-session' };
+    const stale = { ...session, user_token: 'stale-session', entitlements: ['cloudlink', 'connect', 'unrelated'] };
     await connect.saveConnectSession(staging, platform, stale);
     const runtime = hookRuntime();
     const requests = [], events = [];
@@ -587,7 +612,7 @@ for (const platform of ['apple', 'google']) {
         if (address.startsWith(connect.CONNECT_PRODUCTION_URL) && platform === 'google') {
           status = 403; body = { error: 'Google test purchases are disabled in this environment' };
         } else if (scenario === 'expired') { status = 403; body = { error: 'no active subscription' }; }
-        else body = session;
+        else body = { ...session, entitlements: ['cloudlink', 'unrelated'] };
       } else if (address.endsWith('/pairings/renewal-qr/claim')) {
         if (scenario === 'invalid-qr') { status = 401; body = { error: 'invalid pairing token' }; }
         else if (scenario === 'unrelated-403') { status = 403; body = { error: 'unrelated denial' }; }
@@ -626,6 +651,7 @@ for (const platform of ['apple', 'google']) {
       } else {
         assert.equal(runtime.value.entitled, false, 'A rejected entitlement must not keep the active banner');
         assert.equal(connect.hasConnectEntitlement(await connect.getConnectSession(staging, platform)), false);
+        assert.deepEqual((await connect.getConnectSession(staging, platform)).entitlements, ['unrelated'], 'Invalidate both aliases while preserving unrelated entitlements.');
         assert.equal(runtime.value.hasToken, true, `Keep the identity for machine listing: ${platform}/${scenario} (${runtime.value.controlPlaneUrl}, ${runtime.value.error})`);
         assert.equal((await connect.getPendingConnectPairing(staging, platform)).pairingId, 'renewal-qr');
         assert.ok(runtime.value.error);
