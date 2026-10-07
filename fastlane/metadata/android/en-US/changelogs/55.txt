@@ -1,0 +1,1 @@
+- Improved Cloud Link subscription recovery and entitlement compatibility.
