@@ -1,0 +1,1 @@
+- Fixed Cloud Link pairing so camera permission is requested and the subscription flow can open.

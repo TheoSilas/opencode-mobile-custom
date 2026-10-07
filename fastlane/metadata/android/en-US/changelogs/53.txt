@@ -1,0 +1,4 @@
+- Chat composer now resizes reliably for multiline and pasted prompts on iOS.
+- Fixed long connection passwords wrapping in iOS fields.
+- Preserve your selected workspace when a server omits it from its project list.
+- Improved Android and F-Droid release reliability.

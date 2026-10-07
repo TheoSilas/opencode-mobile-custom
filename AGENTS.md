@@ -226,6 +226,11 @@ npm run test:e2e:web
 
 A red e2e run is blocking. If a failure looks intermittent, rerun the failing test to confirm and harden it before pushing rather than pushing over a flaky check.
 
+For every release version increase, add or update
+`fastlane/metadata/android/en-US/changelogs/<android.versionCode>.txt` with
+concise user-facing release notes. The filename must match `android.versionCode`
+in `app.config.ts`, and the changelog must be included in the release commit.
+
 ## Tests
 
 This repo validates behavior mainly with static checks and end-to-end flows.
