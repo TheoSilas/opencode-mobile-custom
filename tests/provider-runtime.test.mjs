@@ -77,6 +77,57 @@ const first = actions.searchWorkspaceFiles('first'), last = actions.searchWorksp
 reads.get('last').resolve(['last.ts']); await last;
 reads.get('first').resolve(['first.ts']); await first;
 assert.deepEqual(files, ['last.ts'], 'older searches cannot replace newer results');
+
+// Catalog omissions must not discard the persisted, app-selected directory.
+let workspaceCatalog = {
+  currentProjectPath: '/workspace/main-clone',
+  serverRootPath: '/workspace',
+  serverProjects: [{ id: 'project-1', worktree: '/workspace/main-clone', time: { created: 1 } }],
+};
+const workspaceCatalogHook = await loadTs('providers/use-workspace-catalog-actions.ts', {
+  react: { useCallback: (fn) => fn, useEffect: () => {}, useRef: (current) => ({ current }) },
+  '@/lib/opencode/client': { buildClient: () => ({}) },
+  '@/providers/session-cache': { hydrateSessionCache: () => {} },
+  '@/providers/services/session-service': {
+    loadWorkspaceCatalog: async () => workspaceCatalog,
+    resolveWorkspace: async () => ({ worktree: '/workspace/added' }),
+  },
+});
+function makeWorkspaceCatalogActions(activePath, isCurrentCatalogClient = () => true) {
+  const state = { activePath, cleared: 0, projects: [], currentPath: undefined };
+  const activeProjectPathRef = { current: activePath };
+  const scopeGenerationRef = { current: 0 };
+  state.actions = workspaceCatalogHook.useWorkspaceCatalogActions({
+    catalogClient: {}, isCurrentCatalogClient, activeProjectPathRef,
+    setActiveProjectPath: (path) => { state.activePath = path; activeProjectPathRef.current = path; },
+    clearProjectState: () => { state.cleared++; },
+    serverProjectsRef: { current: [] }, setServerProjects: (projects) => { state.projects = projects; },
+    setCurrentProjectPath: (path) => { state.currentPath = path; }, setServerRootPath: () => {},
+    connectionScope: 'scope', connectionScopeRef: { current: 'scope' }, isHydrated: false,
+    setSessions: () => {}, setSessionStatuses: () => {}, setIsRefreshingWorkspaceCatalog: () => {},
+    scopeGenerationRef, serverContract: 'v2', settingsRef: { current: {} },
+  });
+  state.scopeGenerationRef = scopeGenerationRef;
+  return state;
+}
+const retainedWorkspace = makeWorkspaceCatalogActions('/workspace/other-clone');
+await retainedWorkspace.actions.refreshWorkspaceCatalog();
+assert.equal(retainedWorkspace.activePath, '/workspace/other-clone');
+assert.equal(retainedWorkspace.cleared, 0, 'catalog omission does not clear selected workspace state');
+assert.equal(retainedWorkspace.scopeGenerationRef.current, 0, 'catalog omission does not advance the project generation');
+const serverCurrentWorkspace = makeWorkspaceCatalogActions(undefined);
+await serverCurrentWorkspace.actions.refreshWorkspaceCatalog();
+assert.equal(serverCurrentWorkspace.activePath, '/workspace/main-clone', 'a fresh selection prefers the server current project');
+workspaceCatalog = { ...workspaceCatalog, currentProjectPath: undefined };
+const firstListedWorkspace = makeWorkspaceCatalogActions(undefined);
+await firstListedWorkspace.actions.refreshWorkspaceCatalog();
+assert.equal(firstListedWorkspace.activePath, '/workspace/main-clone', 'a fresh selection falls back to the first listed project');
+workspaceCatalog = { ...workspaceCatalog, currentProjectPath: '/workspace/main-clone' };
+const staleWorkspaceResponse = makeWorkspaceCatalogActions('/workspace/other-clone', () => false);
+await staleWorkspaceResponse.actions.refreshWorkspaceCatalog();
+assert.equal(staleWorkspaceResponse.activePath, '/workspace/other-clone');
+assert.equal(staleWorkspaceResponse.projects.length, 0, 'stale catalog responses remain ignored');
+
 const olderFile = actions.openWorkspaceFile('selection-first'), newerFile = actions.openWorkspaceFile('selection-last');
 fileReads.get('selection-last').resolve({ type: 'text', content: 'latest selection' }); await newerFile;
 fileReads.get('selection-first').resolve({ type: 'text', content: 'obsolete selection' });

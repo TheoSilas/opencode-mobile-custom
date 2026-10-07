@@ -74,7 +74,7 @@ The catalog client loads these requests concurrently:
 - `project.current()`
 - adding a workspace resolves `project.current()` with that server directory (`directory` on V1, `location[directory]` on V2), then refreshes `project.list()`; the resolved worktree is selected
 
-`path.get()` must return a `directory`. Projects are deduplicated by `worktree`; the current project is included even if omitted from the project list.
+`path.get()` must return a `directory`. Projects are deduplicated by `worktree`; the current project is included even if omitted from the project list. A selected app workspace remains selected if a refresh omits it from `project.list()`; only when there is no selected path does discovery choose the server current project, then the first listed project. The active workspace path is persisted and restored during hydration.
 
 ## Capability Discovery
 

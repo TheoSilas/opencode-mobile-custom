@@ -1115,6 +1115,11 @@ test('OpenCode 2 adds a server workspace from the shared picker', async ({ page,
   const server = spawnV2Server(port);
   try {
     await waitForServer(request, `http://127.0.0.1:${port}/api/info`);
+    await page.route('**/api/project', async (route) => {
+      const response = await route.fetch();
+      const projects = await response.json();
+      await route.fulfill({ response, json: projects.filter((project) => project.canonical !== '/workspace/v2-new-project') });
+    });
     await openReadyChat(page);
     await connectToServer(page, `http://127.0.0.1:${port}`);
     await openChatLibrary(page);
@@ -1124,6 +1129,24 @@ test('OpenCode 2 adds a server workspace from the shared picker', async ({ page,
     await page.getByTestId('workspace-add-submit').click();
     await expect(page.getByRole('button', { name: /^Open chats/ })).toContainText('v2-new-project');
     await goToTab(page, 'Workspace');
+    await Promise.all([
+      page.waitForResponse((response) => response.url().includes('/api/project') && response.request().method() === 'GET'),
+      page.getByTestId('workspace-sync-button').click(),
+    ]);
+    await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/workspace/v2-new-project');
+    await expect.poll(() => page.evaluate(() => globalThis.localStorage.getItem('opencode-mobile.active-project'))).toBe('/workspace/v2-new-project');
+    await goToTab(page, 'Chat');
+    await goToTab(page, 'Workspace');
+    await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/workspace/v2-new-project');
+    await page.getByRole('button', { name: 'Change workspace' }).click();
+    await expect(page.getByRole('button', { name: 'Select v2-new-project' })).toBeVisible();
+    await page.getByTestId('workspace-picker').getByRole('button', { name: 'Close', exact: true }).click();
+    await goToTab(page, 'Settings');
+    await reconnectActiveConnection(page);
+    await expectConnectedTo(page, String(port));
+    await page.reload();
+    await goToTab(page, 'Workspace');
+    await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/workspace/v2-new-project');
     await page.getByRole('button', { name: 'Change workspace' }).click();
     await expect(page.getByRole('button', { name: 'Select v2-new-project' })).toBeVisible();
   } finally {

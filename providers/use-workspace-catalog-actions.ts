@@ -48,9 +48,7 @@ export function useWorkspaceCatalogActions({
         setCurrentProjectPath(result.currentProjectPath);
         setServerRootPath(result.serverRootPath);
         const currentProject = activeProjectPathRef.current;
-        const nextProject = currentProject && result.serverProjects.some((project) => project.worktree === currentProject)
-          ? currentProject
-          : result.currentProjectPath || result.serverProjects[0]?.worktree;
+        const nextProject = currentProject || result.currentProjectPath || result.serverProjects[0]?.worktree;
         if (nextProject !== currentProject) {
           scopeGenerationRef.current += 1;
           clearProjectState();

@@ -22,6 +22,11 @@ before seeding next-launch data, and waits for the rotated scope to persist
 before asserting preservation. Navigation completion alone does not signal
 that provider persistence has finished.
 
+The OpenCode 2 workspace regression flow omits an added directory from the
+`/api/project` catalog response, then checks that explicit catalog refresh, tab
+navigation, reconnect, and reload preserve the selected path and keep it in the
+picker. It waits for the active-project storage write before reload.
+
 `.github/workflows/build.yml` owns Android validation and release. It runs on pushes to `main` and `v*` tags:
 
 - a single `validate` job covers static validation and flow regression testing, and is the required gate for both release jobs
