@@ -60,13 +60,15 @@ There is no self-hosted F-Droid repo. The FOSS build is distributed two ways:
 
 - **Main F-Droid repository** — the intended distribution. Submission requires a
   recipe in an `fdroiddata` fork; a draft lives at
-  `fdroid/fdroiddata/app.getopencode.fdroid.yml` (see `fdroid/README.md`). It
-  mirrors F-Droid's official `build-react-native.yml` template: `npm ci`, run
-  `scripts/foss-prepare.mjs`, `npx expo prebuild -p android --clean`, strip the
-  release `signingConfig`, and `gradle assembleRelease`. It is marked for
-  reproducible builds via `Binaries:` pointing at the GitHub release APK, so
-  F-Droid verifies its rebuild matches the upstream `opencode-mobile-fdroid.apk`
-  before publishing.
+  `fdroid/fdroiddata/app.getopencode.fdroid.yml` (see `fdroid/README.md`). Because
+  the project does not commit `android/`, the recipe cannot use `subdir`
+  (fdroidserver checks it exists before `prebuild`). Instead it runs `npm ci`,
+  `scripts/foss-prepare.mjs`, `npx expo prebuild -p android --clean`, then a
+  manual `build:` that strips the release `signingConfig` and runs
+  `gradle assembleRelease`, with `output:` pointing at the unsigned APK. It is
+  marked for reproducible builds via `Binaries:` pointing at the GitHub release
+  APK, so F-Droid verifies its rebuild matches the upstream
+  `opencode-mobile-fdroid.apk` before publishing.
 - **GitHub releases** — the `foss-release` CI job attaches
   `opencode-mobile-fdroid.apk` to `v*` releases for direct sideloading.
 

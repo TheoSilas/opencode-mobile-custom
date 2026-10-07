@@ -1,18 +1,3 @@
-# Draft recipe for the main F-Droid repository.
-#
-# Copy this file into an fdroiddata fork at metadata/app.getopencode.fdroid.yml
-# and open a merge request. See docs/fdroid.md and
-# https://f-droid.org/docs/Submitting_to_F-Droid_Quick_Start_Guide/
-#
-# Before submitting:
-#   - `commit:` is the v1.0.51 tag SHA; update it for each release
-#   - run `fdroid checkupdates --allow-dirty app.getopencode.fdroid`
-#   - run `fdroid lint app.getopencode.fdroid`
-#   - run `fdroid build app.getopencode.fdroid`
-#   - for reproducible builds, add upstream signing signatures under
-#     metadata/app.getopencode.fdroid/signatures/<versionCode>/
-#     (extract with `fdroid signatures opencode-mobile-fdroid.apk`)
-
 Categories:
   - Development
   - Internet
@@ -29,70 +14,57 @@ AutoName: OpenCode Mobile
 
 RepoType: git
 Repo: https://github.com/alvarolorentedev/opencode-mobile
-
-# Reproducible build: F-Droid rebuilds the FOSS flavor and verifies it against
-# the upstream-signed APK produced by the `foss-release` CI job before it
-# publishes the upstream binary.
-Binaries: https://github.com/alvarolorentedev/opencode-mobile/releases/download/v%v/opencode-mobile-fdroid.apk
-
-# SHA-256 of the upstream signing certificate (from the `foss-release` job's
-# `apksigner verify --print-certs` output). Lets a repo operator confirm APKs
-# were signed by the expected key.
-AllowedAPKSigningKeys: d5a75b79abebf37d3011c66b681c7b903d99230f9d7f79eddb71ef30fffc3cc5
+Binaries: 
+  https://github.com/alvarolorentedev/opencode-mobile/releases/download/v%v/opencode-mobile-fdroid.apk
 
 Builds:
   - versionName: 1.0.51
     versionCode: 51
     commit: 2ea8c5077bb6e971f1141adea94c231bf51e4765
-    subdir: android/app
     sudo:
       - apt-get update
       - apt-get install -y npm curl
-    init:
-      - cd ../..
-      - npm ci
+    init: npm ci
+    output: android/app/build/outputs/apk/release/*.apk
     srclibs:
       - firebase-stub@ce90a956aacda17a85c60577ee443aeb83d876ef
     prebuild:
-      # Applies the shared FOSS dependency patches: excludes Play Billing
-      # (expo-iap) and ML Kit barcode scanning (expo-camera) from autolinking,
-      # swaps firebase-messaging in expo-notifications for the firebase-stub
-      # srclib classes, and removes expo-application's proprietary install
-      # referrer dependency. metro.config.js detects the autolinking exclude and
-      # swaps the removed modules' JS entrypoints for stubs in lib/foss/.
-      - cd ../..
-      - FIREBASE_STUB_SRC_DIR=$$firebase-stub$$/firebase-messaging/src node scripts/foss-prepare.mjs
-      - env CI=1 EXPO_APP_VARIANT=foss EXPO_PUBLIC_FOSS=1 npx expo prebuild -p android --clean
-      # F-Droid signs the release itself; drop the debug signing config.
-      - sed -i -e '/signingConfig /d' android/app/build.gradle
-    gradle:
-      - yes
-    gradleprops:
-      # Match the upstream FOSS APK (arm64-v8a only) for reproducible builds.
-      - reactNativeArchitectures=arm64-v8a
+      - FIREBASE_STUB_SRC_DIR=$$firebase-stub$$/firebase-messaging/src node 
+        scripts/foss-prepare.mjs
+      - env CI=1 EXPO_APP_VARIANT=foss EXPO_PUBLIC_FOSS=1 npx expo prebuild -p 
+        android --clean
     scanignore:
-      # Prebuilt toolchain binaries; upstream cannot rebuild these.
-      - node_modules/react-native/sdks/hermesc/linux64-bin/hermesc
+      - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
       - node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
       - node_modules/expo-modules-autolinking/scripts/android/autolinking_implementation.gradle
     scandelete:
       - node_modules
+    build:
+      - cd android/app
+      - sed -i -e '/signingConfig /d' build.gradle
+      - gradle assembleRelease -PreactNativeArchitectures=arm64-v8a
+    ndk: 27.1.12297006
 
-# Voice input uses the device's system speech recognizer, which some reviewers
-# may consider a non-free network service (Google). If F-Droid applies
-# NonFreeNet, add `AntiFeatures: NonFreeNet` here rather than dropping voice.
+AllowedAPKSigningKeys: 
+  d5a75b79abebf37d3011c66b681c7b903d99230f9d7f79eddb71ef30fffc3cc5
+
 MaintainerNotes: |-
-  Builds the de-Googled FOSS flavor only. The Play/iOS flavor (package
-  app.getopencode) is not built here. Upstream publishes the matching FOSS APK
-  as opencode-mobile-fdroid.apk on GitHub releases for reproducible
-  verification. If expo-notifications' stub API changes, bump the
-  firebase-stub commit here and FIREBASE_STUB_SHA in scripts/foss-prepare.mjs
-  together.
+  Builds the de-Googled FOSS flavor only (package app.getopencode.fdroid). The
+  Play/iOS flavor (app.getopencode) is not built here. There is no committed
+  android/ directory, so the recipe must not use subdir; prebuild generates it
+  and the build runs gradle manually. scripts/foss-prepare.mjs excludes Play
+  Billing (expo-iap) and ML Kit barcode scanning (expo-camera) from autolinking,
+  swaps firebase-messaging in expo-notifications for the firebase-stub srclib,
+  and removes expo-application's install-referrer dependency. Voice input uses
+  the device's system speech recognizer, which some reviewers may consider a
+  non-free network service; if so, add NonFreeNet under AntiFeatures rather than
+  dropping voice. Upstream publishes the matching opencode-mobile-fdroid.apk on
+  GitHub releases for reproducible verification (Binaries above). If
+  expo-notifications' stub API changes, update the firebase-stub commit here and
+  FIREBASE_STUB_SHA in scripts/foss-prepare.mjs together.
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
-# The native project is generated by prebuild, so read the version from
-# app.config.ts instead of build.gradle/AndroidManifest.xml.
 UpdateCheckData: app.config.ts|versionCode:\s*(\d+)|.|version:\s*'([\d.]+)'
 CurrentVersion: 1.0.51
 CurrentVersionCode: 51
