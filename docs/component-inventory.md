@@ -135,6 +135,11 @@ type ChatContentProps = {
 - dismiss the keyboard when opening selectors while preserving the parent-owned draft; model picker dismisses on Back/Escape or session/tab changes
 - render optional conversation banner
 - render attachments, voice status, prompt input, and action buttons
+- On iOS, an invisible, accessibility-hidden native Text measures the draft at
+  the input's width and typography because fixed-height Fabric inputs can miss
+  content-size events. Trailing blank lines are included. The input grows from
+  44 to 110 px (36 to 90 px in slim mode), scrolls at the cap, and shrinks when
+  text is removed or cleared. Android and web retain content-size events.
 
 ### Prop contract
 
@@ -474,6 +479,9 @@ The component owns only local state (expanded row, dialog, switching row); profi
 ### Responsibility
 
 - collect name, server URL, username, and password for one connection
+- The shared TextInput clears Paper's implicit text alignment for single-line
+  iOS fields to prevent wrapping. Explicit caller alignment takes precedence;
+  password masking and credential values remain native and unchanged.
 - validate the name and URL before submit, surface the error inline, and disable submit while saving
 - own its form state for the lifetime of one dialog instance (mounted only while open)
 

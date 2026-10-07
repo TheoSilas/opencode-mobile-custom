@@ -1128,6 +1128,16 @@ test('OpenCode 2 adds a server workspace from the shared picker', async ({ page,
     await page.getByTestId('workspace-add-path').fill('/workspace/v2-new-project');
     await page.getByTestId('workspace-add-submit').click();
     await expect(page.getByRole('button', { name: /^Open chats/ })).toContainText('v2-new-project');
+    const [promptResponse] = await Promise.all([
+      page.waitForResponse((response) => response.url().startsWith(`http://127.0.0.1:${port}/api/session/`) && response.url().endsWith('/prompt') && response.request().method() === 'POST'),
+      sendPrompt(page, 'Retained workspace chat'),
+    ]);
+    expect(promptResponse.status()).toBe(200);
+    const { data: { sessionID: retainedSessionId } } = await promptResponse.json();
+    const { data: promptedSession } = await (await request.get(`http://127.0.0.1:${port}/api/session/${retainedSessionId}`)).json();
+    expect(promptedSession.location.directory).toBe('/workspace/v2-new-project');
+    await expect(page.getByPlaceholder('Ask anything...')).toHaveValue('');
+    await expect(page.getByText(/Finished: Retained workspace chat/).first()).toBeVisible({ timeout: 30_000 });
     await goToTab(page, 'Workspace');
     await Promise.all([
       page.waitForResponse((response) => response.url().includes('/api/project') && response.request().method() === 'GET'),
@@ -1136,6 +1146,12 @@ test('OpenCode 2 adds a server workspace from the shared picker', async ({ page,
     await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/workspace/v2-new-project');
     await expect.poll(() => page.evaluate(() => globalThis.localStorage.getItem('opencode-mobile.active-project'))).toBe('/workspace/v2-new-project');
     await goToTab(page, 'Chat');
+    await openChatLibrary(page);
+    await chatAction(page, 'Retained workspace chat', 'Favorite');
+    await page.getByTestId(`chat-library-favorite-${retainedSessionId}`).click();
+    await expect(page.getByTestId('chat-library')).not.toBeVisible();
+    await expect(page.getByText(/Finished: Retained workspace chat/).first()).toBeVisible();
+    await expect.poll(() => page.evaluate(() => globalThis.localStorage.getItem('opencode-mobile.favorite-sessions'))).toContain(retainedSessionId);
     await goToTab(page, 'Workspace');
     await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/workspace/v2-new-project');
     await page.getByRole('button', { name: 'Change workspace' }).click();
@@ -1149,6 +1165,12 @@ test('OpenCode 2 adds a server workspace from the shared picker', async ({ page,
     await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/workspace/v2-new-project');
     await page.getByRole('button', { name: 'Change workspace' }).click();
     await expect(page.getByRole('button', { name: 'Select v2-new-project' })).toBeVisible();
+    await page.getByTestId('workspace-picker').getByRole('button', { name: 'Close', exact: true }).click();
+    await goToTab(page, 'Chat');
+    await openChatLibrary(page);
+    await page.getByTestId(`chat-library-favorite-${retainedSessionId}`).click();
+    await expect(page.getByTestId('chat-library')).not.toBeVisible();
+    await expect(page.getByText(/Finished: Retained workspace chat/).first()).toBeVisible();
   } finally {
     server.kill('SIGTERM');
   }

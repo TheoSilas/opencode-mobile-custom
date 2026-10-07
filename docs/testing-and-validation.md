@@ -23,9 +23,13 @@ before asserting preservation. Navigation completion alone does not signal
 that provider persistence has finished.
 
 The OpenCode 2 workspace regression flow omits an added directory from the
-`/api/project` catalog response, then checks that explicit catalog refresh, tab
-navigation, reconnect, and reload preserve the selected path and keep it in the
-picker. It waits for the active-project storage write before reload.
+`/api/project` catalog response and sends a prompt through the app, checking
+the HTTP 200 admission response and cleared composer. It checks that catalog
+refresh, tab navigation, reconnect, and reload preserve the selected path and keep it in the
+picker. It also opens a favorite in that workspace after refresh and reload,
+checking the retained transcript. It waits for the active-project and favorite
+storage writes before reload. Provider runtime coverage checks that session
+opening accepts the retained active path while rejecting other unlisted paths.
 
 `.github/workflows/build.yml` owns Android validation and release. It runs on pushes to `main` and `v*` tags:
 
@@ -91,6 +95,26 @@ The `test:chat-appearance` suite checks that the chat font-size preference
 defaults safely and stays within the supported 12–24 px range, and that the
 flat-transcript and slim-interface preferences default to off.
 
+`tests/vitest/native-inputs.test.ts` exercises the real composer and shared
+input with the existing hook driver and mocked platform boundaries. It covers
+iOS measurement-driven growth, height caps, scrolling, shrinking/clearing,
+trailing blank lines, regular/slim typography, accessibility exclusion,
+Android/web content-size callbacks, and single-line alignment overrides without
+altering password values. These checks do not reproduce UIKit rendering.
+
+For native input changes, verify iOS typed newlines, automatic wrapping, long
+pasted prompts, scrolling at the cap, deletion, clearing, regular/slim layouts,
+larger text, focus/selection, and keyboard visibility. Long server passwords
+must remain masked on one row through typing, paste, blur/refocus, and reopening
+the connection dialog. Repeat composer growth/scrolling on Android. Native
+checks are required before considering the iOS password workaround verified.
+
+The iOS 26.5 simulator acceptance run confirmed regular/slim height caps,
+wrapped and pasted prompts, typed/trailing newlines, shrinking/clearing, larger
+text, and masked passwords through typing, paste, blur/refocus, and dialog
+reopening. The reopened test credential matched exactly. Android runtime and
+the separate Mac runtime still require native acceptance checks.
+
 The `test:vitest` suite is the standard TypeScript runner (Vitest) for module
 behavior that benefits from real imports and module mocking: format/transcript
 shaping, bounded-window record preservation, session reads/pagination/coalescing,
@@ -149,6 +173,12 @@ The deterministic backend lives under `tests/fake-opencode/`.
 
 - `tests/fake-opencode/server.mjs` emulates the OpenCode 1.x contract.
 - `tests/fake-opencode/server-v2.mjs` emulates the OpenCode 2.x `/api` contract (discovery, capabilities, sessions, messages, prompt, diff, permissions, forms, MCP, PTY, VCS, and the flat V2 event stream), reusing the same deterministic state and session helpers.
+
+The V2 self-test submits prompts through the pinned `@opencode/client` SDK,
+checks that the HTTP 200 admission identifies the stored user message, and
+verifies that session events carry that session's directory. Non-session events
+use the server's main directory. Scoped session lists filter by `directory`;
+unscoped lists include every workspace for the Chat Library's recent group.
 
 Its intended job is to simulate the server behaviors this client depends on, including:
 

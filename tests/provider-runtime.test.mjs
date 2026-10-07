@@ -331,6 +331,20 @@ sessionContext.pendingDeepLinkTargetRef.current = { sessionId: 'missing', projec
 sessionContext.bootstrapPromiseRef.current = null;
 assert.equal(await sessionActions.ensureActiveSession(), undefined); assert.equal(createdSessions, 0);
 
+// A retained active workspace may be absent from the server catalog.
+sessionContext.serverProjectsRef.current = [{ worktree: '/elsewhere' }];
+sessionContext.bootstrapPromiseRef.current = null;
+sessionContext.ensureActiveSessionRef.current = sessionActions.ensureActiveSession;
+assert.equal((await sessionActions.openDeepLinkSession({ sessionId: 'target', projectPath: '/repo' })).ok, true,
+  'explicit session opening accepts the retained active workspace');
+assert.match((await sessionActions.openDeepLinkSession({ sessionId: 'missing', projectPath: '/repo' })).error,
+  /was not found/, 'the retained workspace still requires an existing session');
+assert.equal(createdSessions, 0, 'opening an existing session does not create a replacement');
+assert.match((await sessionActions.openDeepLinkSession({ sessionId: 'target', projectPath: '/unlisted' })).error,
+  /not available from the configured server/, 'other unlisted workspaces remain rejected');
+assert.equal(sessionContext.pendingDeepLinkTargetRef.current, undefined);
+sessionContext.serverProjectsRef.current = [{ worktree: '/repo' }];
+
 // A genuine supersession is cancellation of an earlier request, not a new URL.
 const firstOpenGate = deferred();
 let opens = 0;

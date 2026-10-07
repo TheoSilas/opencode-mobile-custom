@@ -76,6 +76,8 @@ The catalog client loads these requests concurrently:
 
 `path.get()` must return a `directory`. Projects are deduplicated by `worktree`; the current project is included even if omitted from the project list. A selected app workspace remains selected if a refresh omits it from `project.list()`; only when there is no selected path does discovery choose the server current project, then the first listed project. The active workspace path is persisted and restored during hydration.
 
+Session links and Chat Library opening accept that active path even when it is absent from the catalog. Other explicitly named project paths must still be listed by the configured server; session existence is checked through the scoped session flow.
+
 ## Capability Discovery
 
 For an active project, the app loads:
@@ -229,6 +231,8 @@ Prompt submission uses `session.promptAsync()` with:
 - text and file `parts`
 
 The optional `system` instructions are built from chat preferences (`buildSystemPrompt`: reasoning level, response scope, next actions). V1 sends them as the prompt `system` field. V2 prompt input has no `system` field, so the adapter writes the same text to a session-scoped instruction entry (`opencode-mobile.chat-preferences`) with `PUT /api/experimental/session/{sessionID}/instructions/entries/{key}` and removes it when the preferences are empty. The server announces instruction changes at the next step boundary. If a V2 server does not expose the experimental endpoint, the adapter logs nothing and still sends the prompt.
+
+V2 prompt submission returns HTTP 200 with a `{ data: SessionInbox.User }` admission response identifying the accepted input. Completion is observed through session events and message reads.
 
 Before send:
 

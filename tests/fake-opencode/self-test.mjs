@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import WebSocket from 'ws';
+import { OpenCode } from '@opencode/client';
 
 const port = 4196;
 const prefix = '/api';
@@ -301,13 +302,28 @@ try {
   assert((await v2request('/api/provider')).data.some((item) => item.id === 'opencode-go'), 'V2 key login must activate Go');
   assert((await v2request('/api/model')).data.some((item) => item.providerID === 'opencode-go' && item.enabled), 'V2 key login must expose Go models');
   assert((await v2request('/api/integration')).data.find((item) => item.id === 'opencode-go').connections.some((connection) => connection.method === 'key'), 'V2 key login must retain the credential connection');
-  const v2Session = (await v2request('/api/session', json('POST', { title: 'V2 smoke session' }))).data;
+  const v2Directory = '/workspace/secondary-project';
+  const v2Session = (await v2request('/api/session', json('POST', { title: 'V2 smoke session', location: { directory: v2Directory } }))).data;
   assert(v2Session.model?.id === 'gpt-4.1-mini' && v2Session.model.providerID === 'openai', 'V2 session did not expose a model');
   assert(v2Session.tokens?.input === 0 && v2Session.cost === 0, 'V2 session did not expose usage fields');
+  const missingPrompt = await fetch(`${v2Origin}/api/session/ses_missing/prompt`, json('POST', { text: 'Missing session' }));
+  assert(missingPrompt.status === 404, 'V2 prompts must reject a missing session');
 
-  await v2request(`/api/session/${v2Session.id}/prompt`, json('POST', { text: 'Validate V2 contract' }));
+  const v2Api = OpenCode.make({ baseUrl: v2Origin });
+  await v2request('/api/session', json('POST', { title: 'Other workspace session' }));
+  const scopedSessions = await v2Api.session.list({ directory: v2Directory });
+  assert(scopedSessions.data.length === 1 && scopedSessions.data[0].id === v2Session.id, 'V2 scoped lists must exclude other workspace sessions');
+  assert((await v2Api.session.list()).data.length === 2, 'V2 unscoped lists must include all workspace sessions');
+  const v2EventsController = new AbortController();
+  const v2Reader = (await fetch(`${v2Origin}/api/event`, { signal: v2EventsController.signal })).body.getReader();
+  const v2RunningEvent = nextEvent(v2Reader, (event) => event.type === 'session.status' && event.data.sessionID === v2Session.id);
+  const admitted = await v2Api.session.prompt({ sessionID: v2Session.id, text: 'Validate V2 contract' });
+  assert(admitted.type === 'user' && admitted.sessionID === v2Session.id && admitted.payload.text === 'Validate V2 contract', 'V2 prompt must return the admitted input through the SDK');
+  assert((await v2RunningEvent).location.directory === v2Directory, 'V2 session events must use their session directory');
+  v2EventsController.abort();
   await sleep(900);
   const v2Messages = (await v2request(`/api/session/${v2Session.id}/message`)).data;
+  assert(v2Messages.some((message) => message.id === admitted.id && message.type === 'user'), 'V2 prompt admission must identify the stored user message');
   const v2Newest = await v2request(`/api/session/${v2Session.id}/message?limit=1&order=desc`);
   assert(v2Newest.data[0].id === v2Messages[0].id && v2Newest.cursor.next, 'V2 newest-first pagination failed');
   const v2Older = await v2request(`/api/session/${v2Session.id}/message?limit=1&cursor=${encodeURIComponent(v2Newest.cursor.next)}`);

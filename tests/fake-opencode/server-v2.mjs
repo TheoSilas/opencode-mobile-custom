@@ -70,11 +70,12 @@ function readJson(req) {
 }
 
 function event(type, data) {
+  const session = state.sessions.find((entry) => entry.id === (data.sessionID || data.form?.sessionID));
   return {
     id: `event-${state.nextEventId++}`,
     created: Date.now(),
     type,
-    location: { directory: state.project.worktree },
+    location: { directory: session?.directory || state.project.worktree },
     data,
   };
 }
@@ -493,7 +494,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && pathname === '/api/session') {
-      sendJson(res, 200, { data: state.sessions.map(sessionToV2), cursor: { next: null, previous: null } });
+      const directory = requestUrl.searchParams.get('directory');
+      const sessions = directory ? state.sessions.filter((session) => session.directory === directory) : state.sessions;
+      sendJson(res, 200, { data: sessions.map(sessionToV2), cursor: { next: null, previous: null } });
       return;
     }
 
@@ -559,10 +562,18 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/session\/[^/]+\/prompt$/.test(pathname)) {
       const sessionID = pathname.split('/')[3];
+      if (!helpers.getSession(sessionID)) return notFound(res);
       const body = await readJson(req);
       helpers.handlePromptSubmission(sessionID, { parts: body?.text ? [{ type: 'text', text: body.text }] : [] });
-      res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
-      res.end();
+      const message = helpers.getMessages(sessionID).findLast((record) => record.info.role === 'user');
+      sendJson(res, 200, { data: {
+        id: message.info.id,
+        sessionID,
+        type: 'user',
+        payload: { text: body?.text || '' },
+        delivery: body?.delivery || 'steer',
+        time: message.info.time,
+      } });
       return;
     }
 

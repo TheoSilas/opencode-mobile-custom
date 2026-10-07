@@ -92,7 +92,7 @@ export function useConnectionLinkActions({
       if (!targetProjectPath) {
         return finish({ ok: false, error: 'This session link does not name a project, and no project is open.' });
       }
-      if (projectPath && !serverProjectsRef.current.some((project) => project.worktree === projectPath)) {
+      if (projectPath && projectPath !== activeProjectPathRef.current && !serverProjectsRef.current.some((project) => project.worktree === projectPath)) {
         return finish({ ok: false, error: `Project ${projectPath} is not available from the configured server.` });
       }
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Keyboard, useWindowDimensions, View } from 'react-native';
-import { Chip, IconButton, Surface, Text } from 'react-native-paper';
+import { Keyboard, Platform, Text as NativeText, useWindowDimensions, View } from 'react-native';
+import { Chip, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 
 import { Colors } from '@/constants/theme';
 import { TextInput } from '@/components/ui/text-input';
@@ -78,6 +78,7 @@ export function ChatComposer({
   visibleModels,
 }: ChatComposerProps) {
   const { t } = useTranslation();
+  const { fonts } = useTheme();
   const { fontScale } = useWindowDimensions();
   const minInputHeight = slim ? 36 : 44;
   const maxInputHeight = slim ? 90 : 110;
@@ -91,6 +92,12 @@ export function ChatComposer({
   const reasoningLabel = t(REASONING_OPTIONS.find((option) => option.id === chatPreferences.reasoning)?.labelKey || 'chat:composer.chooseReasoningLevel');
 
   const [inputHeight, setInputHeight] = useState(minInputHeight);
+  const displayedInputHeight = draft ? Math.min(maxInputHeight, Math.max(minInputHeight, inputHeight)) : minInputHeight;
+  const inputTextStyle = [styles.composerTextArea, slim && { fontSize: 15 }];
+  function updateInputHeight(height: number) {
+    const nextHeight = Math.min(maxInputHeight, Math.max(minInputHeight, Math.ceil(height)));
+    setInputHeight((current) => (current === nextHeight ? current : nextHeight));
+  }
 
   const modelPicker = (
     <ModelPicker
@@ -161,22 +168,40 @@ export function ChatComposer({
       ) : null}
 
       <View testID="chat-composer-card" style={[styles.composerCard, slim && { borderRadius: 22 }, { backgroundColor: palette.surfaceAlt }]}>
+        {Platform.OS === 'ios' ? (
+          // iOS Fabric may not emit content-size changes for fixed-height inputs.
+          <NativeText
+            testID="chat-prompt-measurement"
+            accessible={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            maxFontSizeMultiplier={1.5}
+            onLayout={({ nativeEvent }) => updateInputHeight(nativeEvent.layout.height)}
+            style={[
+              fonts.bodyLarge,
+              { fontWeight: undefined, lineHeight: undefined },
+              inputTextStyle,
+              styles.inputContentCompact,
+              // Match the card padding and input margins without affecting layout.
+              { position: 'absolute', top: 8, left: 8, right: 8, opacity: 0 },
+            ]}>
+            {`${draft}\u200b`}
+          </NativeText>
+        ) : null}
         <TextInput
           testID="chat-prompt-input"
           mode="flat"
           dense
           value={draft}
           onChangeText={onDraftChange}
-          onContentSizeChange={({ nativeEvent }) => {
-            const nextHeight = Math.min(maxInputHeight, Math.max(minInputHeight, Math.ceil(nativeEvent.contentSize.height)));
-            setInputHeight((current) => (current === nextHeight ? current : nextHeight));
-          }}
+          onContentSizeChange={Platform.OS === 'ios' ? undefined : ({ nativeEvent }) => updateInputHeight(nativeEvent.contentSize.height)}
           editable={!isSpeechInputListening}
           multiline
-          scrollEnabled={inputHeight >= maxInputHeight}
+          scrollEnabled={displayedInputHeight >= maxInputHeight}
           placeholder={t('chat:composer.placeholder')}
           placeholderTextColor={palette.muted}
-          style={[styles.composerTextArea, slim && { fontSize: 15 }, { height: inputHeight, color: palette.text }]}
+          style={[inputTextStyle, { height: displayedInputHeight, color: palette.text }]}
           contentStyle={styles.inputContentCompact}
           underlineColor="transparent"
           activeUnderlineColor="transparent"
