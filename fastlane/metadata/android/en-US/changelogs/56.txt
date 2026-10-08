@@ -1,0 +1,3 @@
+- Improved onboarding and settings experience with new Editor and General sections.
+- Better prompt inbox and attachment handling in chat.
+- New Support section for app rating and feedback.
