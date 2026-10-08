@@ -1,0 +1,3 @@
+- Workspace now provides scoped folder browsing, breadcrumbs, and workspace-wide file search.
+- Added full-screen text previews with conflict-checked editing where supported.
+- Added shared worktree selection and management across Workspace, Chat, and Terminal.

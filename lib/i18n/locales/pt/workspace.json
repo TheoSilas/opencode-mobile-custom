@@ -9,7 +9,7 @@
     "title": "Arquivos do espaço de trabalho",
     "branch": "Branch: {{branch}}",
     "searchAndInspect": "Buscar e inspecionar arquivos",
-    "searchPlaceholder": "Buscar arquivos",
+    "searchPlaceholder": "Pesquisar neste espaço de trabalho",
     "search": "Buscar",
     "changedFiles": "{{value}} arquivos alterados",
     "close": "Fechar arquivo",
@@ -23,7 +23,17 @@
     "searchGuidance": "Busque pelo nome para encontrar outros arquivos.",
     "searching": "Buscando…",
     "noMatches": "Nenhum arquivo corresponde a “{{query}}”.",
-    "resultsFor": "Resultados para “{{query}}”"
+    "resultsFor": "Resultados para “{{query}}”",
+    "searchScope": "Pesquisar em {{workspace}}",
+    "clearSearch": "Limpar pesquisa",
+    "loading": "Carregando arquivos…",
+    "emptyFolder": "Esta pasta está vazia.",
+    "openFolder": "Abrir pasta {{path}}",
+    "openFile": "Abrir arquivo {{path}}",
+    "discardTitle": "Descartar alterações?",
+    "discardMessage": "As alterações não salvas serão perdidas.",
+    "discard": "Descartar",
+    "preview": "Prévia do arquivo"
   },
   "worktrees": {
     "title": "Worktrees",
@@ -38,7 +48,11 @@
     "resetMessage": "Isso descarta as alterações não commitadas em {{directory}}.",
     "resetAction": "Redefinir",
     "removeTitle": "Remover o worktree?",
-    "removeMessage": "{{directory}} será removido. Isso não pode ser desfeito."
+    "removeMessage": "{{directory}} será removido. Isso não pode ser desfeito.",
+    "groupTitle": "Árvores de trabalho · {{project}}",
+    "selectGuidance": "Toque em um diretório para usá-lo como espaço de trabalho.",
+    "create": "Criar árvore de trabalho",
+    "manage": "Gerenciar {{name}}"
   },
   "picker": {
     "title": "Escolher espaço de trabalho",

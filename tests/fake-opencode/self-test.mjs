@@ -133,12 +133,13 @@ try {
   await request('/provider/openai/oauth/callback', json('POST', { method: 0, code: 'fake-code' }));
 
   assert((await request('/command')).some((command) => command.name === 'review'), 'Expected command fixture');
-  assert((await request('/find/file?query=demo')).includes('src/demo.ts'), 'Expected file search result');
+  await assertStatus('/file', 400);
+  assert((await request('/find/file?query=demo&directory=/workspace/demo-project')).includes('src/demo.ts'), 'Expected file search result');
   assert((await request('/find?pattern=OpenCode')).some((match) => match.path.text === 'README.md'), 'Expected text search result');
   assert((await request('/find/symbol?query=feature'))[0].name === 'feature', 'Expected symbol search result');
-  assert((await request('/file?path=src')).some((node) => node.name === 'demo.ts' && node.type === 'file'), 'Expected file list result');
+  assert((await request('/file?path=src&directory=/workspace/demo-project')).some((node) => node.name === 'demo.ts' && node.type === 'file'), 'Expected file list result');
   await assertStatus('/find', 400);
-  assert((await request('/file/content?path=src%2Fdemo.ts')).content.includes('1.18.3'), 'Expected file content');
+  assert((await request('/file/content?path=src%2Fdemo.ts&directory=/workspace/demo-project')).content.includes('1.18.3'), 'Expected file content');
   assert((await request('/file/status')).length === 1, 'Expected initial file status');
   assert((await request('/vcs')).branch === 'main', 'Expected VCS info');
   assert((await request('/vcs/status')).length === 0, 'Expected clean VCS status');
@@ -310,6 +311,19 @@ try {
   assert(missingPrompt.status === 404, 'V2 prompts must reject a missing session');
 
   const v2Api = OpenCode.make({ baseUrl: v2Origin });
+  for (const directory of ['/workspace/demo-project', '/workspace/secondary-project']) {
+    const listed = await v2Api.file.list({ location: { directory }, path: 'src' });
+    assert(listed.data.some((entry) => entry.path === 'src/demo.ts'), 'V2 directory entries must be relative to the workspace');
+    const found = await v2Api.file.find({ location: { directory }, query: 'demo' });
+    assert(found.data.some((entry) => entry.path === 'src/demo.ts'), 'V2 scoped file search missing');
+    const content = new TextDecoder().decode(await v2Api.file.read({ location: { directory }, path: 'src/demo.ts' }));
+    assert(content.includes(directory.endsWith('secondary-project') ? directory : 'OpenCode 1.18.3'), 'V2 file reads must respect the directory');
+  }
+  assert((await fetch(`${v2Origin}/api/fs/list`)).status === 400, 'V2 file listing requires location');
+  const createdWorktree = await v2Api.worktree.create({ projectID: 'project-demo', name: 'v2-smoke' });
+  assert((await v2Api.worktree.list({ projectID: 'project-demo' })).some((entry) => entry.directory === createdWorktree.directory), 'V2 worktree inventory missing');
+  assert((await v2Api.location.get({ location: { directory: createdWorktree.directory } })).project.id === 'project-demo', 'Worktrees retain their parent project');
+  await v2Api.worktree.remove({ projectID: 'project-demo', directory: createdWorktree.directory, force: true });
   await v2request('/api/session', json('POST', { title: 'Other workspace session' }));
   const scopedSessions = await v2Api.session.list({ directory: v2Directory });
   assert(scopedSessions.data.length === 1 && scopedSessions.data[0].id === v2Session.id, 'V2 scoped lists must exclude other workspace sessions');

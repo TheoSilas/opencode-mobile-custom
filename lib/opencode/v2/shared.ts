@@ -88,11 +88,9 @@ export function resolveV2Base(settings: OpencodeConnectionSettings) {
 }
 
 export function decodeFile(bytes: unknown): Record<string, unknown> {
-  if (typeof bytes === 'string') {
-    return { type: 'text', content: bytes };
-  }
   try {
-    const content = new TextDecoder('utf-8', { fatal: false }).decode(bytes as Uint8Array);
+    const content = typeof bytes === 'string' ? bytes : new TextDecoder('utf-8', { fatal: true }).decode(bytes as Uint8Array);
+    if (content.includes('\0')) return { type: 'binary', content: '', encoding: 'base64' };
     return { type: 'text', content };
   } catch {
     return { type: 'binary', content: '', encoding: 'base64' };

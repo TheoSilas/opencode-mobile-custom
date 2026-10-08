@@ -1,3 +1,4 @@
+import type { WorktreeCatalog } from '@/providers/use-worktree-state';
 import type { TerminalRuntime, TerminalStatus } from './terminal-types';
 import type { PendingPrompt } from '@/lib/opencode/prompt-inbox';
 import type { Dispatch, SetStateAction } from 'react';
@@ -22,7 +23,6 @@ import type {
   SessionStatus,
   Todo,
   VcsInfo,
-  Worktree,
 } from '@/lib/opencode/types';
 import type { AgentOption, ModelOption } from '@/providers/opencode-model-selection';
 import type { ChatPreferences } from '@/providers/opencode-preferences';
@@ -75,11 +75,10 @@ export type ProviderValuesInput = ActionInputs & {
   currentProjectPath?: string;
   serverRootPath?: string;
   isRefreshingWorkspaceCatalog: boolean;
-  workspaceFiles: string[];
   workspaceFileStatuses: File[];
   selectedWorkspaceFile?: { path: string; content: FileContent };
   vcsInfo?: VcsInfo;
-  worktrees: (string | Worktree)[];
+  worktrees: WorktreeCatalog;
   refreshWorktrees: () => Promise<void>;
   createWorktree: (name?: string, startCommand?: string) => Promise<void>;
   resetWorktree: (directory: string) => Promise<void>;

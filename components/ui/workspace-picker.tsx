@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text as NativeText, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 
+import { WorktreePicker } from '@/components/workspace/worktree-picker';
+import { useWorkspaceFiles } from '@/providers/opencode-contexts';
 import { ProjectOptions } from '@/components/onboarding/project-options';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -31,6 +33,7 @@ export function WorkspacePicker({ visible, onClose, projects, activePath, onSele
 }) {
   const { t } = useTranslation();
   const palette = Colors[useColorScheme() ?? 'light'];
+  const { worktrees } = useWorkspaceFiles();
   const [adding, setAdding] = useState(false);
   const [directory, setDirectory] = useState('');
   const [saving, setSaving] = useState(false);
@@ -49,9 +52,10 @@ export function WorkspacePicker({ visible, onClose, projects, activePath, onSele
         }}>{t('workspace:picker.add')}</Button>
       </View>
     </View> : <>
-    <Button testID="workspace-add-button" icon="plus" mode="outlined" onPress={() => setAdding(true)}>{t('workspace:picker.add')}</Button>
     {projects.length === 0 ? <Text style={{ color: palette.muted }}>{t('workspace:picker.empty')}</Text> : null}
-    <ProjectOptions activePath={activePath} onSelect={(path) => { onSelect(path); close(); }} projects={projects} />
+    <ProjectOptions activePath={activePath} onSelect={(path) => { onSelect(path); close(); }} projects={projects.filter((project) => project.path === worktrees.project?.root || !worktrees.entries.some((entry) => entry.directory === project.path))} />
+    {visible ? <WorktreePicker key={activePath} visible onSelect={(path) => { onSelect(path); close(); }} /> : null}
+    <Button testID="workspace-add-button" icon="plus" onPress={() => setAdding(true)}>{t('workspace:picker.add')}</Button>
     </>}
   </OverlaySheet>;
 }

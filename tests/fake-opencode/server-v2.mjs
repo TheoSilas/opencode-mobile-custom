@@ -1,3 +1,4 @@
+import { filesForDirectory, fileNodes, addWorktree } from './workspace.mjs';
 import http from 'node:http';
 import { Buffer } from 'node:buffer';
 import { WebSocketServer } from 'ws';
@@ -374,7 +375,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/api/location') {
       const project = resolveProject(state, requestUrl.searchParams.get('location[directory]'));
       if (!project) { sendJson(res, 400, { error: 'Directory is outside the server workspace.' }); return; }
-      sendJson(res, 200, { directory: project.worktree, project: { id: project.id, directory: project.worktree, canonical: project.worktree } });
+      sendJson(res, 200, { directory: requestUrl.searchParams.get('location[directory]') || project.worktree, project: { id: project.id, directory: project.worktree, canonical: project.worktree } });
       return;
     }
 
@@ -793,25 +794,28 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && pathname === '/api/fs/find') {
+    if (req.method === 'GET' && ['/api/fs/find', '/api/fs/list'].includes(pathname)) {
+      const directory = requireLocation(requestUrl, res);
+      if (!directory) return;
+      const files = filesForDirectory(state, directory);
+      if (!files) { sendJson(res, 400, { error: 'Unknown workspace' }); return; }
       const query = (requestUrl.searchParams.get('query') || '').toLowerCase();
-      sendJson(res, 200, {
-        location: location(),
-        data: Object.keys(state.files).filter((path) => path.toLowerCase().includes(query)).sort().map((path) => ({ path, type: 'file' })),
-      });
-      return;
-    }
-
-    if (req.method === 'GET' && pathname === '/api/fs/list') {
-      sendJson(res, 200, { location: location(), data: [] });
+      const entries = pathname === '/api/fs/find'
+        ? Object.keys(files).filter((path) => path.toLowerCase().includes(query)).sort().map((path) => ({ path, type: 'file' }))
+        : fileNodes(files, directory, requestUrl.searchParams.get('path') || '').map(({ path, type }) => ({ path, type }));
+      sendJson(res, 200, { location: { directory }, data: entries });
       return;
     }
 
     if (req.method === 'GET' && pathname.startsWith('/api/fs/read/')) {
+      const directory = requireLocation(requestUrl, res);
+      if (!directory) return;
+      const files = filesForDirectory(state, directory);
+      if (!files) { sendJson(res, 400, { error: 'Unknown workspace' }); return; }
       const requestedPath = decodeURIComponent(pathname.slice('/api/fs/read/'.length));
-      if (!(requestedPath in state.files)) return notFound(res);
+      if (!(requestedPath in files)) return notFound(res);
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
-      res.end(state.files[requestedPath]);
+      res.end(files[requestedPath]);
       return;
     }
 
@@ -872,8 +876,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && pathname === '/api/worktree') {
-      sendJson(res, 200, state.worktrees.map((worktree) => ({ directory: worktree.directory || worktree })));
+    if (pathname === '/api/worktree') {
+      const body = req.method === 'GET' ? {} : await readJson(req);
+      const projectID = requestUrl.searchParams.get('projectID') || body?.projectID;
+      if (!state.projects.some((entry) => entry.id === projectID)) { sendJson(res, 400, { error: 'A projectID is required' }); return; }
+      if (req.method === 'GET') {
+        sendJson(res, 200, state.worktrees.filter((entry) => entry.projectID === projectID).map(({ directory }) => ({ directory })));
+      } else if (req.method === 'POST') {
+        try { const entry = addWorktree(state, projectID, body.name); sendJson(res, 200, { directory: entry.directory }); }
+        catch (error) { sendJson(res, 400, { error: error.message }); }
+      } else if (req.method === 'DELETE') {
+        const index = state.worktrees.findIndex((entry) => entry.directory === body.directory && entry.projectID === projectID);
+        if (index < 0) { notFound(res); return; }
+        state.worktrees.splice(index, 1);
+        res.writeHead(204, { 'Access-Control-Allow-Origin': '*' }); res.end();
+      } else notFound(res);
       return;
     }
 

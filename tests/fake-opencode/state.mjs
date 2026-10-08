@@ -6,6 +6,8 @@ export function getNow() {
 
 export function resolveProject(state, directory) {
   if (!directory) return state.project;
+  const worktree = state.worktrees.find((entry) => entry.directory === directory);
+  if (worktree) return state.projects.find((entry) => entry.id === worktree.projectID);
   const existing = state.projects.find((project) => project.worktree === directory);
   if (existing) return existing;
   if (!directory.startsWith(`${state.rootPath}/`)) return undefined;
@@ -94,8 +96,10 @@ export function createState(scenario) {
       },
     },
     authByProvider: {},
+    filesByDirectory: {},
     files: {
       'app/(tabs)/index.tsx': 'export default function ChatLandingScreen() {\n  return null;\n}\n',
+      'assets/binary.dat': '\0binary',
       'README.md': '# Demo project\n\nDeterministic fake OpenCode workspace.\n',
       'src/demo.ts': 'export const demo = "OpenCode 1.18.3";\n',
       'src/feature.ts': 'export function feature() {\n  return true;\n}\n',

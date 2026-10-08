@@ -123,8 +123,9 @@ export function useWorkspaceCatalogActions({
     if (connectionScopeRef.current !== connectionAtStart) throw new Error('The connection changed while adding the workspace.');
     if (!project.worktree) throw new Error('OpenCode did not return a workspace path.');
     await loadWorkspaceCatalog(true);
-    selectProject(project.worktree);
-    return project.worktree;
+    if (connectionScopeRef.current !== connectionAtStart) throw new Error('The connection changed while adding the workspace.');
+    selectProject(path);
+    return path;
   }, [loadWorkspaceCatalog, selectProject, serverContract]);
 
   return { loadWorkspaceCatalog, refreshWorkspaceCatalog, selectProject, addWorkspace };

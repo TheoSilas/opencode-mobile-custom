@@ -9,7 +9,7 @@
     "title": "ワークスペースのファイル",
     "branch": "ブランチ: {{branch}}",
     "searchAndInspect": "ファイルを検索して表示",
-    "searchPlaceholder": "ファイルを検索",
+    "searchPlaceholder": "このワークスペースを検索",
     "search": "検索",
     "changedFiles": "{{value}} 件の変更ファイル",
     "close": "ファイルを閉じる",
@@ -23,7 +23,17 @@
     "searchGuidance": "ほかのファイルを探すにはファイル名で検索してください。",
     "searching": "検索中…",
     "noMatches": "「{{query}}」に一致するファイルがありません。",
-    "resultsFor": "「{{query}}」の検索結果"
+    "resultsFor": "「{{query}}」の検索結果",
+    "searchScope": "{{workspace}} 内を検索",
+    "clearSearch": "検索をクリア",
+    "loading": "ファイルを読み込み中…",
+    "emptyFolder": "このフォルダーは空です。",
+    "openFolder": "フォルダー {{path}} を開く",
+    "openFile": "ファイル {{path}} を開く",
+    "discardTitle": "編集を破棄しますか？",
+    "discardMessage": "未保存の編集内容は失われます。",
+    "discard": "破棄",
+    "preview": "ファイルのプレビュー"
   },
   "worktrees": {
     "title": "ワークツリー",
@@ -38,7 +48,11 @@
     "resetMessage": "{{directory}} の未コミットの変更が破棄されます。",
     "resetAction": "リセット",
     "removeTitle": "ワークツリーを削除しますか？",
-    "removeMessage": "{{directory}} が削除されます。これは元に戻せません。"
+    "removeMessage": "{{directory}} が削除されます。これは元に戻せません。",
+    "groupTitle": "ワークツリー · {{project}}",
+    "selectGuidance": "ディレクトリをタップしてワークスペースに設定します。",
+    "create": "ワークツリーを作成",
+    "manage": "{{name}} を管理"
   },
   "picker": {
     "title": "ワークスペースを選択",

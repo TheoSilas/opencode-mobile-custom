@@ -83,7 +83,6 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     setPendingQuestionsBySession,
     setSavedPermissions,
     setMcpAuthPrompt,
-    setWorkspaceFiles,
     setWorkspaceFileStatuses,
     setSelectedWorkspaceFile,
     setVcsInfo,
@@ -240,14 +239,13 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     setPendingQuestionsBySession({});
     setMcpAuthPrompt(undefined);
     permissionRules.resetPermissionRules();
-    setWorkspaceFiles([]);
     setWorkspaceFileStatuses([]);
     setSelectedWorkspaceFile(undefined);
     setVcsInfo(undefined);
     mcp.resetMcpState();
     terminal.resetTerminal();
     worktree.resetWorktrees();
-  }, [mcp.resetMcpState, permissionRules.resetPermissionRules, terminal.resetTerminal, transcript.reset, worktree.resetWorktrees, bootstrapPromiseRef, bootstrapTokenRef, busyNotificationsRef, pendingNotificationsRef, sessionRefreshOptionsRef, sessionRefreshTimeoutsRef, setArchivedSessions, setAvailableAgents, setAvailableModels, setAvailableProviders, setCommands, setCurrentConfig, setCurrentSessionId, setMcpAuthPrompt, setPendingPermissionsBySession, setPendingQuestionsBySession, setProviderAuthMethodsById, setSelectedWorkspaceFile, setSessionStatuses, setSessions, setVcsInfo, setWorkspaceFileStatuses, setWorkspaceFiles]);
+  }, [mcp.resetMcpState, permissionRules.resetPermissionRules, terminal.resetTerminal, transcript.reset, worktree.resetWorktrees, bootstrapPromiseRef, bootstrapTokenRef, busyNotificationsRef, pendingNotificationsRef, sessionRefreshOptionsRef, sessionRefreshTimeoutsRef, setArchivedSessions, setAvailableAgents, setAvailableModels, setAvailableProviders, setCommands, setCurrentConfig, setCurrentSessionId, setMcpAuthPrompt, setPendingPermissionsBySession, setPendingQuestionsBySession, setProviderAuthMethodsById, setSelectedWorkspaceFile, setSessionStatuses, setSessions, setVcsInfo, setWorkspaceFileStatuses]);
 
   const workspace = useWorkspaceActions({ ...state, client, catalogClient, isCurrentClient, isCurrentCatalogClient, clearProjectState, isHydrated, refreshMessages: inbox.refreshMessages });
 

@@ -1,3 +1,5 @@
+import type { useWorkspaceBrowser } from '@/providers/use-workspace-browser';
+import type { WorktreeCatalog } from '@/providers/use-worktree-state';
 import type { PendingPrompt } from '@/lib/opencode/prompt-inbox';
 import type {
   Command,
@@ -18,7 +20,6 @@ import type {
   SessionStatus,
   Todo,
   VcsInfo,
-  Worktree,
 } from '@/lib/opencode/types';
 import type {
   OpencodeConnectionSettings,
@@ -224,14 +225,13 @@ export type ProjectsContextValue = {
 };
 
 export type WorkspaceFilesContextValue = {
-  workspaceFiles: string[];
+  browser: ReturnType<typeof useWorkspaceBrowser>;
   workspaceFileStatuses: File[];
   selectedWorkspaceFile?: { path: string; content: FileContent };
   vcsInfo?: VcsInfo;
-  searchWorkspaceFiles: (query: string) => Promise<void>;
   openWorkspaceFile: (path: string) => Promise<void>;
   saveWorkspaceFile: (path: string, expectedContent: string, content: string) => Promise<void>;
-  worktrees: (string | Worktree)[];
+  worktrees: WorktreeCatalog;
   refreshWorktrees: () => Promise<void>;
   createWorktree: (name?: string, startCommand?: string) => Promise<void>;
   resetWorktree: (directory: string) => Promise<void>;

@@ -60,7 +60,6 @@ export type WorkspaceActionsInput = {
   setTodosBySession: Dispatch<SetStateAction<Record<string, Todo[]>>>;
   setPendingPermissionsBySession: Dispatch<SetStateAction<Record<string, PendingPermissionRequest[]>>>;
   setPendingQuestionsBySession: Dispatch<SetStateAction<Record<string, PendingQuestionRequest[]>>>;
-  setWorkspaceFiles: Dispatch<SetStateAction<string[]>>;
   setWorkspaceFileStatuses: Dispatch<SetStateAction<File[]>>;
   setSelectedWorkspaceFile: Dispatch<SetStateAction<{ path: string; content: FileContent } | undefined>>;
   setVcsInfo: Dispatch<SetStateAction<VcsInfo | undefined>>;
@@ -72,7 +71,6 @@ export type WorkspaceActionsInput = {
   diffScopeBySessionRef: { current: Record<string, DiffScope> };
   currentSessionIdRef: { current: string | undefined };
   messagesBySessionRef: { current: Record<string, SessionMessageRecord[]> };
-  workspaceSearchRequestRef: { current: number };
   workspaceFileRequestRef: { current: number };
   scopeGenerationRef: { current: number };
   sessionRefreshTimeoutsRef: { current: Record<string, ReturnType<typeof setTimeout>> };

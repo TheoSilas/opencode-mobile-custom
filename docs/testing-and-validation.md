@@ -651,3 +651,30 @@ the Android SDK is absent; release/FOSS APK builds remain unverified for the sam
 reason. Physical keyboard/IME/accessibility and sustained-output profiling remain
 manual acceptance work. The unsigned simulator build also emits existing
 notifications/SecureStore keychain entitlement warnings.
+
+## Scoped Workspace browser validation
+
+Both fake contracts now require scope on filesystem find/list/read, return distinct
+content for workspaces and worktrees, and retain owning project identity for
+worktree directories outside the main checkout. Self-tests exercise the installed
+V2 SDK's filesystem and worktree operations. Protocol tests cover safe relative
+paths, folder-first sorting, directory-only inventory and binary decoding. Provider
+runtime tests cover competing directory/search requests and switching servers
+with identical paths. Web flows cover initial folder lists, breadcrumbs, search
+across subfolders, preview/back, binary rejection, capability-gated editing,
+worktree selection/reload/removal, Terminal/Chat continuity, discard confirmation
+and recoverable save conflicts.
+
+Run `test:ci:static`, `test:fake-server:self`, `test:e2e:web` and the Android
+development build. Check physical-device Back/keyboard behavior, safe areas, larger
+text, screen-reader names, light/dark and slim layouts. Changes to fake-server and
+E2E files require explicit human validation under AGENTS.md.
+
+Implementation verification on 2026-10-08: `test:ci:static`, both fake-server
+self-tests, and all 99 web E2E tests passed. Additional browser checks covered
+390×844 dark/slim and 1440×1000 light layouts, keyboard search, full-screen preview
+return and picker bounds, with no uncaught browser errors. The Android development
+build stopped because no Android SDK location was configured. Native keyboard,
+Back, safe areas, large text, screen-reader behavior and real-server acceptance
+remain to be checked; explicit human validation of the changed test contracts is
+still required.

@@ -9,7 +9,7 @@
     "title": "Arbeitsbereichsdateien",
     "branch": "Branch: {{branch}}",
     "searchAndInspect": "Dateien suchen und prüfen",
-    "searchPlaceholder": "Dateien durchsuchen",
+    "searchPlaceholder": "Diesen Arbeitsbereich durchsuchen",
     "search": "Suchen",
     "changedFiles": "{{value}} geänderte Dateien",
     "close": "Datei schließen",
@@ -23,7 +23,17 @@
     "searchGuidance": "Suche nach Dateinamen, um weitere Dateien zu finden.",
     "searching": "Suche läuft…",
     "noMatches": "Keine Dateien entsprechen „{{query}}“.",
-    "resultsFor": "Ergebnisse für „{{query}}“"
+    "resultsFor": "Ergebnisse für „{{query}}“",
+    "searchScope": "Suche in {{workspace}}",
+    "clearSearch": "Suche löschen",
+    "loading": "Dateien werden geladen…",
+    "emptyFolder": "Dieser Ordner ist leer.",
+    "openFolder": "Ordner {{path}} öffnen",
+    "openFile": "Datei {{path}} öffnen",
+    "discardTitle": "Änderungen verwerfen?",
+    "discardMessage": "Nicht gespeicherte Änderungen gehen verloren.",
+    "discard": "Verwerfen",
+    "preview": "Dateivorschau"
   },
   "worktrees": {
     "title": "Worktrees",
@@ -38,7 +48,11 @@
     "resetMessage": "Dadurch werden nicht committete Änderungen in {{directory}} verworfen.",
     "resetAction": "Zurücksetzen",
     "removeTitle": "Worktree entfernen?",
-    "removeMessage": "{{directory}} wird entfernt. Das kann nicht rückgängig gemacht werden."
+    "removeMessage": "{{directory}} wird entfernt. Das kann nicht rückgängig gemacht werden.",
+    "groupTitle": "Worktrees · {{project}}",
+    "selectGuidance": "Ein Verzeichnis antippen, um es als Arbeitsbereich zu verwenden.",
+    "create": "Worktree erstellen",
+    "manage": "{{name}} verwalten"
   },
   "picker": {
     "title": "Arbeitsbereich wählen",

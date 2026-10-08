@@ -79,7 +79,6 @@ export function useOpencodeProviderState() {
   const [lastSessionByConnection, setLastSessionByConnection] = useState<Record<string, Record<string, string>>>({});
   const [favoriteSessions, setFavoriteSessions] = useState<FavoriteSession[]>([]);
   const [commands, setCommands] = useState<Command[]>([]);
-  const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [workspaceFileStatuses, setWorkspaceFileStatuses] = useState<File[]>([]);
   const [selectedWorkspaceFile, setSelectedWorkspaceFile] = useState<{ path: string; content: FileContent }>();
   const [vcsInfo, setVcsInfo] = useState<VcsInfo>();
@@ -115,7 +114,6 @@ export function useOpencodeProviderState() {
   const pendingNotificationsRef = useRef<Map<string, { sessionId: string; connectionScope: string; requestedAt: number }>>(new Map());
   const busyNotificationsRef = useRef<Set<string>>(new Set());
   const promptSubmissionRef = useRef<{ active: boolean; sessionId?: string }>({ active: false });
-  const workspaceSearchRequestRef = useRef(0);
   const workspaceFileRequestRef = useRef(0);
 
   // Latest-ref mirror. Updating refs in a layout effect (instead of during
@@ -174,7 +172,6 @@ export function useOpencodeProviderState() {
     lastSessionByConnection, setLastSessionByConnection,
     favoriteSessions, setFavoriteSessions,
     commands, setCommands,
-    workspaceFiles, setWorkspaceFiles,
     workspaceFileStatuses, setWorkspaceFileStatuses,
     selectedWorkspaceFile, setSelectedWorkspaceFile,
     vcsInfo, setVcsInfo,
@@ -205,7 +202,6 @@ export function useOpencodeProviderState() {
     pendingNotificationsRef,
     busyNotificationsRef,
     promptSubmissionRef,
-    workspaceSearchRequestRef,
     workspaceFileRequestRef,
   };
 }

@@ -76,13 +76,12 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     refreshWorkspaceCatalog,
     refreshServerFeatures,
     refreshDiagnostics,
-    workspaceFiles,
+    browser,
     workspaceFileStatuses,
     selectedWorkspaceFile,
     vcsInfo,
     selectProject,
     addWorkspace,
-    searchWorkspaceFiles,
     openWorkspaceFile,
     saveWorkspaceFile,
     worktrees,
@@ -317,8 +316,8 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const workspaceFilesValue = useMemo<WorkspaceFilesContextValue>(
-    () => ({ workspaceFiles, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, searchWorkspaceFiles, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree }),
-    [workspaceFiles, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, searchWorkspaceFiles, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree],
+    () => ({ browser, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree }),
+    [browser, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree],
   );
 
   const activeSessionsValue = useMemo(

@@ -136,7 +136,7 @@ and provider setup remain in Settings.
 - `app/(tabs)/index.tsx`
   Chat landing logic. Ensures a session exists and renders `ChatView` once available.
 - `app/(tabs)/workspace.tsx`
-  Project picker, active/archived session and worktree controls, plus conflict-checked text file editing.
+  Scoped folder browsing and search, shared workspace/worktree picker, and conflict-checked text file editing.
 - `app/(tabs)/settings.tsx`
   Settings screen controller for connection, providers, MCP servers, notifications, and voice.
 - `app/(tabs)/terminal.tsx`
@@ -182,6 +182,9 @@ and provider setup remain in Settings.
 - `providers/use-workspace-actions.ts`
   Workspace catalog, project selection, session/file refresh, file
   search/read/save, and diagnostics actions.
+- `providers/use-workspace-browser.ts`
+  Scoped directory/search snapshots and request-order guards, composed by the
+  workspace file actions and exposed as one files-context member.
 - `providers/use-session-actions.ts`
   Session lifecycle, favorites, permissions/questions, and
   `ensureActiveSession`.
@@ -235,7 +238,7 @@ and provider setup remain in Settings.
   V2 saved "always allow" rules: list, refresh, and remove, connection-scoped
   like the rest of the provider state.
 - `providers/use-worktree-state.ts`
-  Experimental worktree list plus its lifecycle actions.
+  Project-scoped worktree inventory, owning project identity, and guarded lifecycle actions.
 - `providers/use-active-sessions.ts`
   Connection-wide running/recent session snapshot for the Chat Library. Reads the
   unscoped catalog client, seeds on connect and on library open, polls every 20
@@ -561,16 +564,13 @@ Responsibilities:
 
 Responsibilities:
 
-- show connection summary for workspace context
-- refresh workspace catalog and sessions
-- select active project
-- create/open sessions
-- rename and permanently delete sessions
-- share/unshare sessions and copy a newly created share URL
-- archive active sessions; restore or permanently delete sessions from the experimental archived list
-- search, read, and edit text workspace files; saving re-reads for conflicts and applies a full-file VCS patch
-- create, list, reset, and remove worktrees through experimental endpoints
-- show changed-file count and current VCS branch
+- retain the Workspace tab and route, with Files as the main surface
+- browse folders and navigate breadcrumbs inside the selected directory
+- search across the active workspace, preview text, and retain the browsed folder on return
+- preserve conflict-checked text editing and confirm before discarding unsaved edits
+- show supported changed-file information and the current VCS branch
+- refresh the current folder or search, file status, and workspace catalog together
+- use the shared workspace picker for project/worktree selection and worktree management
 
 ### Settings Screen
 
@@ -704,3 +704,26 @@ an acknowledgement ID. The DOM replies only after xterm parses the batch.
 Provider resume cursors advance after that acknowledgement; growing output is
 never a React prop. Connection generations and scope IDs reject stale input.
 No credentials or socket URLs cross into the DOM surface.
+
+## Workspace file browser
+
+Workspace retains its tab label and route. Files is its main surface: the provider
+owns the current relative directory, sorted folder/file entries, submitted search,
+results, loading/error state and request-order guards. It retains the directory
+across tab switches and resets on scoped-client changes; it is not persisted.
+Search spans the selected workspace root and clearing it restores the browsed
+folder. Breadcrumb navigation cannot leave that root. Listing, search, preview
+and save require a selected directory. The OpenCode 2 filesystem adapter passes
+`location[directory]` on every request and rejects malformed UTF-8/binary content.
+Text editing retains the existing conflict-checked patch path and is unavailable
+on OpenCode 2. Unsaved edits require discard confirmation.
+
+The shared Workspace/Chat picker contains worktree inventory for the owning
+project, resolved from the scoped project API rather than path prefixes. Directory
+selection uses the existing provider workspace action and applies across Chat,
+Workspace and Terminal. Creation stays in the picker; reset/remove live in row
+menus, preserve confirmations and reject the active directory and primary checkout.
+OpenCode 2 hides reset/startup commands and maps directory-only inventory to names.
+The browser groups state and actions under one context member, keeping the public
+context below the 135-member ceiling. Screens and components call provider actions;
+services and protocol modules own requests and response normalization.

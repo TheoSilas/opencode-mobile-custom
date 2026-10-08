@@ -348,7 +348,7 @@ Responsibility:
 
 ### Responsibility
 
-- small reusable controls for the chat toolbar and Workspace tab strip
+- small reusable controls for the chat toolbar and Workspace header
 - accept a `slim` prop that shrinks control height, icon size, and label size for the slim-interface preference
 
 ## `components/chat/chat-diff.ts`
@@ -399,16 +399,16 @@ This is important to parity because the chat layout is intentionally dense and h
 ### Responsibility
 
 - wire project selection to the provider
-- render file search plus conflict-checked text editing and full-file patch save
-- render experimental worktree create/list/reset/remove controls
-- keep confirmations, rename/edit inputs, file query, and worktree forms local to the screen
+- wire the provider browser, preview, and shared workspace picker
+- combine folder/search, file status, and workspace catalog refresh
+- keep picker/preview visibility and screen feedback local
 
 ### Presentation
 
 - keeps its active-project title, path, and dropdown trigger in the header; the dropdown opens the shared workspace picker overlay
 - the shared picker can add a server directory as a workspace
-- keeps separate project sync and workspace refresh actions
-- separates files and worktrees with top tabs, without an enclosing panel border; chat lifecycle actions live in the Chat library
+- provides one workspace refresh action
+- shows files directly with breadcrumbs and scoped search; worktree controls live in the shared workspace picker
 - opens file viewing and editing in a focused full-screen surface
 
 ## `app/(tabs)/settings.tsx`
@@ -824,7 +824,7 @@ The domain values cover active/archived session lifecycle, commands, workspace e
 
 ### Responsibility
 
-- expose file find/read/status, VCS read/apply, and experimental worktree operations
+- expose file find/list/read/status, VCS read/apply, and experimental worktree operations
 
 ## `providers/services/mcp-service.ts`
 
@@ -914,3 +914,21 @@ platform clipboard. Touch scrolling stays local rather than generating shell
 mouse events. The Latest output control appears away from the scrollback bottom.
 Buttons have at least 44-point targets, accessible names and state, and xterm
 screen-reader mode is enabled. Native screen-reader/input validation remains required.
+
+## Workspace file browser components
+
+- `components/workspace/files-panel.tsx` renders sorted folders/files, breadcrumbs,
+  explicit workspace-wide search scope, changed files, loading/empty/error states,
+  and retry actions. Only the unsubmitted search input is local; listing/search
+  state and actions come from the provider's `browser` member.
+- `components/workspace/file-preview.tsx` renders the full-screen text preview,
+  local edit draft, save feedback and discard confirmation. It calls the existing
+  provider save action; unsupported editing is capability-gated.
+- `components/workspace/worktree-picker.tsx` renders the owning project's worktree
+  rows, selection indicators, creation form and row management menus inside the
+  shared `WorkspacePicker`. Forms, menu visibility and confirmations are local;
+  inventory and lifecycle actions remain provider-owned.
+
+These surfaces reuse the existing palette, theme, slim preference, inputs and
+picker overlay. Workspace retains its tab label and route. Chat uses the same
+picker and provider selection action; Terminal follows that directory.

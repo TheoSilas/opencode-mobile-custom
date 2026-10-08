@@ -436,7 +436,6 @@ test('happy path keeps the main chat flow stable', async ({ page, request }) => 
   await goToTab(page, 'Workspace');
   await expect(page.getByRole('tab', { name: 'Workspace' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('button', { name: /^Open chats/ })).toHaveCount(0);
-  await page.getByText('Files', { exact: true }).click();
   await expect(page.getByText('Modified', { exact: true })).toHaveCount(2);
 });
 
@@ -723,7 +722,7 @@ test('Chat and Workspace use the same workspace picker', async ({ page, request 
   const workspaceDropdown = page.getByRole('button', { name: 'Change workspace' });
   await expect(workspaceDropdown).toContainText('demo-project');
   await expect(workspaceDropdown).toContainText('/workspace/demo-project');
-  await expect(page.getByTestId('workspace-sync-button')).toBeVisible();
+  await expect(page.getByTestId('workspace-refresh-button')).toBeVisible();
   await workspaceDropdown.click();
   await expect(page.getByTestId('workspace-picker')).toBeVisible();
   await page.getByTestId('workspace-picker').getByRole('button', { name: 'Select secondary-project' }).click();
@@ -754,9 +753,8 @@ test('workspace file search opens deterministic file content', async ({ page, re
   await openReadyChat(page);
 
   await goToTab(page, 'Workspace');
-  await page.getByText('Files', { exact: true }).click();
   await page.getByTestId('workspace-file-search').fill('demo');
-  await page.getByText('Search', { exact: true }).click();
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByText('src/demo.ts', { exact: true }).last()).toBeVisible();
   await page.getByText('src/demo.ts', { exact: true }).last().click();
   await expect(page.getByText(/OpenCode 1\.18\.3/)).toBeVisible();
@@ -766,9 +764,8 @@ test('workspace files save through a conflict-checked VCS patch', async ({ page,
   await resetScenario(request, 'happy-path');
   await openReadyChat(page);
   await goToTab(page, 'Workspace');
-  await page.getByText('Files', { exact: true }).click();
   await page.getByTestId('workspace-file-search').fill('demo');
-  await page.getByText('Search', { exact: true }).click();
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   await page.getByText('src/demo.ts', { exact: true }).last().click();
   await page.getByText('Edit', { exact: true }).click();
   await page.getByTestId('workspace-file-editor').fill('export const demo = "OpenCode SDK 1.18.3";\n');
@@ -847,10 +844,12 @@ test('worktrees and MCP servers can be created', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   await openReadyChat(page);
   await goToTab(page, 'Workspace');
-  await page.getByRole('tab', { name: 'Worktrees' }).click();
+  await page.getByRole('button', { name: 'Change workspace' }).click();
+  await page.getByTestId('workspace-worktree-add').click();
   await page.getByTestId('workspace-worktree-name').fill('mobile-test');
   await page.getByTestId('workspace-worktree-create').click();
   await expect(page.getByText('mobile-test', { exact: true })).toBeVisible();
+  await page.getByTestId('workspace-picker').getByRole('button', { name: 'Close', exact: true }).click();
 
   await goToTab(page, 'Settings');
   await page.getByText('Advanced', { exact: true }).click();
@@ -1348,7 +1347,7 @@ test('OpenCode 2 adds a server workspace from the shared picker', async ({ page,
     await goToTab(page, 'Workspace');
     await Promise.all([
       page.waitForResponse((response) => response.url().includes('/api/project') && response.request().method() === 'GET'),
-      page.getByTestId('workspace-sync-button').click(),
+      page.getByTestId('workspace-refresh-button').click(),
     ]);
     await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/workspace/v2-new-project');
     await expect.poll(() => page.evaluate(() => globalThis.localStorage.getItem('opencode-mobile.active-project'))).toBe('/workspace/v2-new-project');
@@ -1952,4 +1951,98 @@ test('completed progress stays compact and patch review selects its turn after a
     await expect(page.getByText('app/(tabs)/index.tsx', { exact: true })).toBeVisible();
     await expect(page.getByText('src/feature.ts', { exact: true })).toHaveCount(0);
   } finally { server.kill('SIGTERM'); }
+});
+
+for (const contract of ['v1', 'v2']) {
+  test(`${contract} workspace browses scoped folders and switches worktrees across tabs`, async ({ page, request }) => {
+    const port = await getFreePort();
+    const server = contract === 'v1' ? spawnV1Server(port) : spawnV2Server(port);
+    try {
+      await resetScenario(request, 'happy-path');
+      await waitForServer(request, `http://127.0.0.1:${port}/${contract === 'v1' ? 'path' : 'api/info'}`);
+      await openReadyChat(page);
+      await connectToServer(page, `http://127.0.0.1:${port}`);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await goToTab(page, 'Workspace');
+      await expect(page.getByTestId('workspace-entry-src')).toBeVisible();
+      await expect(page.getByRole('tab', { name: 'Worktrees' })).toHaveCount(0);
+      await page.screenshot({ path: `/tmp/opencode-workspace-${contract}.png` });
+      await page.getByTestId('workspace-entry-src').click();
+      await expect(page.getByTestId('workspace-entry-src/demo.ts')).toBeVisible();
+      await goToTab(page, 'Chat');
+      await goToTab(page, 'Workspace');
+      await expect(page.getByTestId('workspace-entry-src/demo.ts')).toBeVisible();
+      await page.getByTestId('workspace-file-search').fill('README');
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await page.getByTestId('workspace-entry-README.md').click();
+      await expect(page.getByText(/# Demo project/)).toBeVisible();
+      await page.getByLabel('Close file').click();
+      await expect(page.getByText('Results for “README”')).toBeVisible();
+      await page.getByRole('button', { name: 'Clear search' }).click();
+      await expect(page.getByTestId('workspace-entry-src/demo.ts')).toBeVisible();
+      await page.getByRole('button', { name: 'demo-project', exact: true }).click();
+      await page.getByTestId('workspace-entry-assets').click();
+      await page.getByTestId('workspace-entry-assets/binary.dat').click();
+      await expect(page.getByText('Binary files cannot be previewed as text.')).toBeVisible();
+      await page.getByRole('button', { name: 'Change workspace' }).click();
+      const picker = page.getByTestId('workspace-picker');
+      await picker.getByRole('button', { name: 'Select secondary-project' }).click();
+      await page.getByTestId('workspace-entry-src').click();
+      await page.getByTestId('workspace-entry-src/demo.ts').click();
+      await expect(page.getByText(/export const workspace = "\/workspace\/secondary-project"/)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(contract === 'v1' ? 1 : 0);
+      await page.getByLabel('Close file').click();
+      await page.getByRole('button', { name: 'Change workspace' }).click();
+      await page.getByTestId('workspace-worktree-add').click();
+      await expect(page.getByTestId('workspace-worktree-command')).toHaveCount(contract === 'v1' ? 1 : 0);
+      await page.getByTestId('workspace-worktree-name').fill('scoped-task');
+      await page.getByTestId('workspace-worktree-create').click();
+      await expect(picker.getByRole('button', { name: 'Select scoped-task' })).toBeVisible();
+      await page.screenshot({ path: `/tmp/opencode-workspace-picker-${contract}.png` });
+      await picker.getByRole('button', { name: 'Select scoped-task' }).click();
+      await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/worktrees/scoped-task');
+      await page.getByTestId('workspace-entry-README.md').click();
+      await expect(page.getByText('# Worktree scoped-task', { exact: false })).toBeVisible();
+      await page.getByLabel('Close file').click();
+      await goToTab(page, 'Chat');
+      await sendPrompt(page, 'Work in the selected worktree');
+      await expect(page.getByText(/Finished: Work in the selected worktree/).first()).toBeVisible({ timeout: 20_000 });
+      await goToTab(page, 'Terminal');
+      await page.getByTestId('terminal-create-button').click();
+      await expect(page.getByTestId('terminal-output')).toBeVisible();
+      await goToTab(page, 'Workspace');
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Change workspace' })).toContainText('/worktrees/scoped-task');
+      await page.getByRole('button', { name: 'Change workspace' }).click();
+      await expect(picker.getByText('Worktrees · secondary-project')).toBeVisible();
+      await expect(picker.getByRole('button', { name: 'Manage scoped-task' })).toBeDisabled();
+      await picker.getByRole('button', { name: 'Select secondary-project' }).click();
+      await page.getByRole('button', { name: 'Change workspace' }).click();
+      await picker.getByRole('button', { name: 'Manage scoped-task' }).click();
+      await expect(picker.getByRole('button', { name: 'Reset', exact: true })).toHaveCount(contract === 'v1' ? 1 : 0);
+      page.once('dialog', (dialog) => dialog.accept());
+      await picker.getByRole('button', { name: 'Remove', exact: true }).click();
+      await expect(picker.getByRole('button', { name: 'Select scoped-task' })).toHaveCount(0);
+    } finally { server.kill('SIGTERM'); }
+  });
+}
+
+test('workspace editor confirms discarded edits and keeps conflict failures recoverable', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await openReadyChat(page);
+  await goToTab(page, 'Workspace');
+  await page.getByTestId('workspace-entry-src').click();
+  await page.getByTestId('workspace-entry-src/demo.ts').click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByTestId('workspace-file-editor').fill('unsaved draft');
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByLabel('Close file').click();
+  await expect(page.getByTestId('workspace-file-editor')).toHaveValue('unsaved draft');
+  await page.route('**/file/content?**', (route) => route.fulfill({ json: { type: 'text', content: 'changed on server' } }));
+  await page.getByTestId('workspace-file-save-button').click();
+  await expect(page.getByText('The file changed on the server. Reopen it before saving.')).toBeVisible();
+  await expect(page.getByTestId('workspace-file-editor')).toHaveValue('unsaved draft');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByLabel('Close file').click();
+  await expect(page.getByTestId('workspace-entry-src/demo.ts')).toBeVisible();
 });

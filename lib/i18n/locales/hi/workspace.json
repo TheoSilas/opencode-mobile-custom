@@ -9,7 +9,7 @@
     "title": "कार्यक्षेत्र फ़ाइलें",
     "branch": "ब्रांच: {{branch}}",
     "searchAndInspect": "फ़ाइलें खोजें और निरीक्षण करें",
-    "searchPlaceholder": "फ़ाइलें खोजें",
+    "searchPlaceholder": "इस कार्यक्षेत्र में खोजें",
     "search": "खोजें",
     "changedFiles": "{{value}} बदली फ़ाइलें",
     "close": "फ़ाइल बंद करें",
@@ -23,7 +23,17 @@
     "searchGuidance": "अन्य फ़ाइलों को खोजने के लिए फ़ाइल नाम लिखें।",
     "searching": "खोज जारी है…",
     "noMatches": "“{{query}}” से कोई फ़ाइल मेल नहीं खाती।",
-    "resultsFor": "“{{query}}” के परिणाम"
+    "resultsFor": "“{{query}}” के परिणाम",
+    "searchScope": "{{workspace}} में खोजें",
+    "clearSearch": "खोज साफ़ करें",
+    "loading": "फ़ाइलें लोड हो रही हैं…",
+    "emptyFolder": "यह फ़ोल्डर खाली है।",
+    "openFolder": "फ़ोल्डर {{path}} खोलें",
+    "openFile": "फ़ाइल {{path}} खोलें",
+    "discardTitle": "बदलाव छोड़ें?",
+    "discardMessage": "आपके बिना सहेजे बदलाव खो जाएंगे।",
+    "discard": "छोड़ें",
+    "preview": "फ़ाइल पूर्वावलोकन"
   },
   "worktrees": {
     "title": "वर्कट्री",
@@ -38,7 +48,11 @@
     "resetMessage": "इससे {{directory}} में अप्रतिबद्ध बदलाव खो जाएँगे।",
     "resetAction": "रीसेट करें",
     "removeTitle": "वर्कट्री निकालें?",
-    "removeMessage": "{{directory}} हटा दी जाएगी। इसे पूर्ववत नहीं किया जा सकता।"
+    "removeMessage": "{{directory}} हटा दी जाएगी। इसे पूर्ववत नहीं किया जा सकता।",
+    "groupTitle": "वर्कट्री · {{project}}",
+    "selectGuidance": "कार्य क्षेत्र के रूप में उपयोग करने के लिए निर्देशिका पर टैप करें।",
+    "create": "वर्कट्री बनाएँ",
+    "manage": "{{name}} प्रबंधित करें"
   },
   "picker": {
     "title": "कार्यक्षेत्र चुनें",

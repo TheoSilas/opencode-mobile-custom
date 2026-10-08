@@ -44,14 +44,14 @@ const promptLifecycleSource = await readSource('../providers/use-prompt-lifecycl
 const sessionActionsSource = await readSource('../providers/use-session-bootstrap-actions.ts');
 const connectionActionsSource = await readSource('../providers/use-connection-link-actions.ts');
 const providerEffectsSource = await readSource('../providers/use-opencode-provider-effects.ts');
-const names = ['searchWorkspaceFiles', 'openWorkspaceFile', 'saveWorkspaceFile', 'abortSession'];
+const names = [ 'openWorkspaceFile', 'saveWorkspaceFile', 'abortSession'];
 const declarations = [
-  extractDeclarations(workspaceActionsSource, ['searchWorkspaceFiles', 'openWorkspaceFile', 'saveWorkspaceFile']),
+  extractDeclarations(workspaceActionsSource, ['openWorkspaceFile', 'saveWorkspaceFile']),
   extractDeclarations(promptLifecycleSource, ['abortSession']),
 ].join('\n');
 let aborted = false;
 const client = { __opencode: { directory: '/repo' }, session: { abort: async () => { aborted = true; } } };
-let active = client, files = [], selected, patches = 0;
+let active = client, selected, patches = 0;
 const reads = new Map(), fileReads = new Map();
 const fileGate = deferred(), saveGate = deferred();
 const context = {
@@ -63,7 +63,7 @@ const context = {
     if (path.startsWith('selection-')) { const gate = deferred(); fileReads.set(path, gate); return gate.promise; }
     return path === 'save' ? saveGate.promise : fileGate.promise;
   },
-  setWorkspaceFiles: (value) => { files = value; }, setSelectedWorkspaceFile: (value) => { selected = value; },
+  setSelectedWorkspaceFile: (value) => { selected = value; },
   createFullFilePatch: () => 'patch', applyVcsPatch: async () => { patches++; }, refreshServerFeatures: async () => {}, refreshVcsDiff: async () => {},
   connectionScope: 'scope', pendingNotificationKey: () => 'key', pendingNotificationsRef: { current: new Map() },
   busyNotificationsRef: { current: new Set() }, promptSubmissionRef: { current: {} }, setSendingState: () => {},
@@ -73,10 +73,36 @@ const context = {
 };
 runInNewContext(ts.transpileModule(`${declarations}\nexports.actions = { ${names.join(', ')} };`, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, context);
 const actions = context.exports.actions;
-const first = actions.searchWorkspaceFiles('first'), last = actions.searchWorkspaceFiles('last');
+const workspaceProtocol = await loadTs('lib/opencode/workspace.ts', { '@/lib/compare-labels': { compareLabels: (a, b) => a.localeCompare(b) } });
+context.workspacePath = workspaceProtocol.workspacePath;
+const browserRuntime = hookRuntime();
+const directoryReads = new Map();
+const browserHook = await loadTs('providers/use-workspace-browser.ts', {
+  react: browserRuntime.react,
+  '@/lib/opencode/workspace': workspaceProtocol,
+  '@/providers/services/workspace-service': {
+    findFiles: context.findFiles,
+    listFiles: (_, path) => { const gate = deferred(); directoryReads.set(path, gate); return gate.promise; },
+  },
+});
+browserRuntime.mount(browserHook.useWorkspaceBrowser, { client, isCurrentClient: (candidate) => candidate === active });
+const searchFiles = (query) => browserRuntime.value.search(query);
+
+const first = searchFiles('first'), last = searchFiles('last');
 reads.get('last').resolve(['last.ts']); await last;
 reads.get('first').resolve(['first.ts']); await first;
-assert.deepEqual(files, ['last.ts'], 'older searches cannot replace newer results');
+browserRuntime.flush();
+assert.deepEqual(Array.from(browserRuntime.value.results), ['last.ts'], 'older searches cannot replace newer results');
+const firstDirectory = browserRuntime.value.openDirectory('src');
+const lastDirectory = browserRuntime.value.openDirectory('docs');
+directoryReads.get('docs').resolve([{ path: 'docs/guide.md', name: 'guide.md', type: 'file' }]); await lastDirectory;
+directoryReads.get('src').resolve([{ path: 'src/old.ts', name: 'old.ts', type: 'file' }]); await firstDirectory;
+browserRuntime.flush();
+assert.equal(browserRuntime.value.path, 'docs');
+assert.equal(browserRuntime.value.entries[0].path, 'docs/guide.md');
+await assert.rejects(browserRuntime.value.openDirectory('../outside'), /Invalid workspace path/);
+await searchFiles(''); browserRuntime.flush();
+assert.equal(browserRuntime.value.path, 'docs', 'clearing search retains the browsed directory');
 
 // Catalog omissions must not discard the persisted, app-selected directory.
 let workspaceCatalog = {
@@ -127,20 +153,30 @@ const staleWorkspaceResponse = makeWorkspaceCatalogActions('/workspace/other-clo
 await staleWorkspaceResponse.actions.refreshWorkspaceCatalog();
 assert.equal(staleWorkspaceResponse.activePath, '/workspace/other-clone');
 assert.equal(staleWorkspaceResponse.projects.length, 0, 'stale catalog responses remain ignored');
+const addedWorktree = makeWorkspaceCatalogActions('/workspace/main-clone');
+assert.equal(await addedWorktree.actions.addWorkspace('/worktrees/task'), '/worktrees/task');
+assert.equal(addedWorktree.activePath, '/worktrees/task', 'adding a directory preserves the requested worktree rather than selecting its owning project root');
 
 const olderFile = actions.openWorkspaceFile('selection-first'), newerFile = actions.openWorkspaceFile('selection-last');
 fileReads.get('selection-last').resolve({ type: 'text', content: 'latest selection' }); await newerFile;
 fileReads.get('selection-first').resolve({ type: 'text', content: 'obsolete selection' });
 await assert.rejects(olderFile, /superseded/);
 assert.equal(selected.path, 'selection-last');
-const staleSearch = actions.searchWorkspaceFiles('old-server');
+const staleSearch = searchFiles('old-server');
+const staleDirectory = browserRuntime.value.openDirectory('old-server');
 const staleFile = actions.openWorkspaceFile('old-server');
 const staleSave = actions.saveWorkspaceFile('save', 'original', 'edited');
 active = { __opencode: { directory: '/repo' } };
+browserRuntime.update({ client: active });
+directoryReads.get('old-server').resolve([{ path: 'old-server/wrong.ts', name: 'wrong.ts', type: 'file' }]);
+await staleDirectory; browserRuntime.flush();
+assert.equal(browserRuntime.value.initialized, false, 'a stale folder response cannot initialize the new server browser');
 reads.get('old-server').resolve(['wrong-server.ts']); fileGate.resolve({ type: 'text', content: 'wrong server' }); saveGate.resolve({ type: 'text', content: 'original' });
 await staleSearch;
 await assert.rejects(staleFile, /superseded/); await assert.rejects(staleSave, /workspace changed/);
-assert.deepEqual(files, ['last.ts']); assert.equal(selected.path, 'selection-last'); assert.equal(patches, 0);
+browserRuntime.update({ client: active });
+assert.equal(browserRuntime.value.initialized, false, 'a different server with the same path resets the browser');
+assert.deepEqual(Array.from(browserRuntime.value.results), []); assert.equal(selected.path, 'selection-last'); assert.equal(patches, 0);
 
 await actions.abortSession('s');
 assert.equal(aborted, true, 'notification storage failure must not prevent aborting server work');

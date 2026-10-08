@@ -10,7 +10,7 @@ export function buildProjectApi({ api, vcsLocation, ok }: V2Adapter): Record<str
       list: async () => ok((await api.project.list()).map(projectToV1)),
       current: async () => {
         const location = await api.location.get(vcsLocation);
-        return ok({ id: location.project.id, worktree: location.project.directory, time: { created: 0, initialized: 0 } });
+        return ok({ id: location.project.id, worktree: location.project.canonical, time: { created: 0, initialized: 0 } });
       },
     },
   };

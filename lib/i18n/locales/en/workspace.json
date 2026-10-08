@@ -9,7 +9,7 @@
     "title": "Workspace files",
     "branch": "Branch: {{branch}}",
     "searchAndInspect": "Search and inspect files",
-    "searchPlaceholder": "Search files",
+    "searchPlaceholder": "Search this workspace",
     "search": "Search",
     "changedFiles": "{{value}} changed files",
     "close": "Close file",
@@ -23,7 +23,17 @@
     "searchGuidance": "Search by filename to find other files.",
     "searching": "Searching…",
     "noMatches": "No files match “{{query}}”.",
-    "resultsFor": "Results for “{{query}}”"
+    "resultsFor": "Results for “{{query}}”",
+    "searchScope": "Search in {{workspace}}",
+    "clearSearch": "Clear search",
+    "loading": "Loading files…",
+    "emptyFolder": "This folder is empty.",
+    "openFolder": "Open folder {{path}}",
+    "openFile": "Open file {{path}}",
+    "discardTitle": "Discard edits?",
+    "discardMessage": "Your unsaved edits will be lost.",
+    "discard": "Discard",
+    "preview": "File preview"
   },
   "worktrees": {
     "title": "Worktrees",
@@ -38,7 +48,11 @@
     "resetMessage": "This discards uncommitted changes in {{directory}}.",
     "resetAction": "Reset",
     "removeTitle": "Remove worktree?",
-    "removeMessage": "{{directory}} will be removed. This cannot be undone."
+    "removeMessage": "{{directory}} will be removed. This cannot be undone.",
+    "groupTitle": "Worktrees · {{project}}",
+    "selectGuidance": "Tap a directory to use it as your workspace.",
+    "create": "Create worktree",
+    "manage": "Manage {{name}}"
   },
   "picker": {
     "title": "Choose workspace",

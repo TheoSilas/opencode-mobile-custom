@@ -9,7 +9,7 @@
     "title": "Fichiers de l'espace de travail",
     "branch": "Branche : {{branch}}",
     "searchAndInspect": "Rechercher et inspecter les fichiers",
-    "searchPlaceholder": "Rechercher des fichiers",
+    "searchPlaceholder": "Rechercher dans cet espace de travail",
     "search": "Rechercher",
     "changedFiles": "{{value}} fichiers modifiés",
     "close": "Fermer le fichier",
@@ -23,7 +23,17 @@
     "searchGuidance": "Recherchez par nom pour trouver d’autres fichiers.",
     "searching": "Recherche…",
     "noMatches": "Aucun fichier ne correspond à « {{query}} ».",
-    "resultsFor": "Résultats pour « {{query}} »"
+    "resultsFor": "Résultats pour « {{query}} »",
+    "searchScope": "Rechercher dans {{workspace}}",
+    "clearSearch": "Effacer la recherche",
+    "loading": "Chargement des fichiers…",
+    "emptyFolder": "Ce dossier est vide.",
+    "openFolder": "Ouvrir le dossier {{path}}",
+    "openFile": "Ouvrir le fichier {{path}}",
+    "discardTitle": "Abandonner les modifications ?",
+    "discardMessage": "Vos modifications non enregistrées seront perdues.",
+    "discard": "Abandonner",
+    "preview": "Aperçu du fichier"
   },
   "worktrees": {
     "title": "Arbres de travail",
@@ -38,7 +48,11 @@
     "resetMessage": "Cela supprime les modifications non validées dans {{directory}}.",
     "resetAction": "Réinitialiser",
     "removeTitle": "Retirer l'arbre de travail ?",
-    "removeMessage": "{{directory}} sera supprimé. Cette action est irréversible."
+    "removeMessage": "{{directory}} sera supprimé. Cette action est irréversible.",
+    "groupTitle": "Arbres de travail · {{project}}",
+    "selectGuidance": "Touchez un dossier pour en faire votre espace de travail.",
+    "create": "Créer un arbre de travail",
+    "manage": "Gérer {{name}}"
   },
   "picker": {
     "title": "Choisir un espace de travail",

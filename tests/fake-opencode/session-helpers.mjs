@@ -1,3 +1,5 @@
+import { resolveProject } from './state.mjs';
+
 export function createSessionHelpers({ getNow, getState, emitEvent }) {
   function getSession(sessionId) {
     return getState().sessions.find((session) => session.id === sessionId);
@@ -9,13 +11,13 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
 
   function createSession(title = '', directory) {
     const state = getState();
-    const project = state.projects.find((entry) => entry.worktree === directory) || state.project;
+    const project = resolveProject(state, directory) || state.project;
     const sessionId = `session-${state.nextSessionId++}`;
     const session = {
       id: sessionId,
       slug: sessionId,
       projectID: project.id,
-      directory: project.worktree,
+      directory: directory || project.worktree,
       title,
       version: '1.18.3',
       summary: {

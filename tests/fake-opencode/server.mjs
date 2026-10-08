@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { filesForDirectory, fileNodes, addWorktree } from './workspace.mjs';
 
 import http from 'node:http';
 import { URL } from 'node:url';
@@ -336,7 +337,9 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/find/file') {
       const query = (requestUrl.searchParams.get('query') || '').toLowerCase();
-      sendJson(res, 200, Object.keys(state.files).filter((path) => path.toLowerCase().includes(query)).sort());
+      const files = filesForDirectory(state, requestUrl.searchParams.get('directory'));
+      if (!files) { badRequest(res, 'A valid directory is required'); return; }
+      sendJson(res, 200, Object.keys(files).filter((path) => path.toLowerCase().includes(query)).sort());
       return;
     }
 
@@ -386,36 +389,24 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && pathname === '/file') {
-      const requestedPath = (requestUrl.searchParams.get('path') || '').replace(/^\/+|\/+$/g, '');
-      const prefix = requestedPath ? `${requestedPath}/` : '';
-      const nodes = new Map();
-      for (const path of Object.keys(state.files).sort()) {
-        if (!path.startsWith(prefix)) continue;
-        const remainder = path.slice(prefix.length);
-        const name = remainder.split('/')[0];
-        if (!name) continue;
-        const nodePath = `${prefix}${name}`;
-        nodes.set(nodePath, {
-          name,
-          path: nodePath,
-          absolute: `${state.project.worktree}/${nodePath}`,
-          type: remainder.includes('/') ? 'directory' : 'file',
-          ignored: false,
-        });
-      }
-      sendJson(res, 200, [...nodes.values()]);
+      const directory = requestUrl.searchParams.get('directory');
+      const files = filesForDirectory(state, directory);
+      if (!files) { badRequest(res, 'A valid directory is required'); return; }
+      sendJson(res, 200, fileNodes(files, directory, requestUrl.searchParams.get('path') || ''));
       return;
     }
 
     if (req.method === 'GET' && pathname === '/file/content') {
       const requestedPath = requestUrl.searchParams.get('path') || '';
-      if (!(requestedPath in state.files)) {
+      const files = filesForDirectory(state, requestUrl.searchParams.get('directory'));
+      if (!files) { badRequest(res, 'A valid directory is required'); return; }
+      if (!(requestedPath in files)) {
         notFound(res);
         return;
       }
       sendJson(res, 200, {
-        type: 'text',
-        content: state.files[requestedPath],
+        type: files[requestedPath].includes('\0') ? 'binary' : 'text',
+        content: files[requestedPath],
         diff: requestedPath === 'app/(tabs)/index.tsx' && state.workspaceTaskCompleted
           ? '@@ -1,1 +1,3 @@\n-export default function OldScreen() {}\n+export default function ChatLandingScreen() {\n+  return null;\n+}'
           : undefined,
@@ -889,18 +880,15 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/experimental/worktree') {
       if (req.method === 'GET') {
-        sendJson(res, 200, state.worktrees.map((worktree) => worktree.directory));
+        sendJson(res, 200, state.worktrees.filter((worktree) => worktree.projectID === resolveProject(state, requestUrl.searchParams.get('directory'))?.id).map((worktree) => worktree.directory));
         return;
       }
       const body = await readJson(req) || {};
       if (req.method === 'POST') {
-        const name = body.name?.trim() || `sandbox-${state.nextWorktreeId++}`;
-        if (!/^[a-zA-Z0-9._-]+$/.test(name) || state.worktrees.some((worktree) => worktree.name === name)) {
-          badRequest(res, 'Worktree name is invalid or already exists');
-          return;
-        }
-        const worktree = { name, branch: `worktree/${name}`, directory: `${state.rootPath}/${name}` };
-        state.worktrees.push(worktree);
+        const project = resolveProject(state, requestUrl.searchParams.get('directory'));
+        let worktree;
+        try { worktree = addWorktree(state, project?.id, body.name); }
+        catch (error) { badRequest(res, error.message); return; }
         sendJson(res, 200, worktree);
         return;
       }

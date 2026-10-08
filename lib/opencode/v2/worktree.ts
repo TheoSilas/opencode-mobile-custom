@@ -5,7 +5,7 @@ export function buildWorktreeApi({ api, getProjectID, ok }: V2Adapter): Record<s
     worktree: {
       list: async () => {
         const projectID = await getProjectID();
-        return ok(await api.worktree.list({ projectID }));
+        return ok((await api.worktree.list({ projectID })).map((entry) => entry.directory));
       },
       create: async (parameters: { worktreeCreateInput?: { name?: string } }) => {
         const projectID = await getProjectID();

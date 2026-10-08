@@ -1,11 +1,12 @@
 import { useCallback } from 'react';
 
+import { useWorkspaceBrowser } from '@/providers/use-workspace-browser';
+import { workspacePath } from '@/lib/opencode/workspace';
 import { createFullFilePatch } from '@/lib/opencode/workspace-patch';
 import { listCommands as svcListCommands } from '@/providers/services/session-service';
 import { loadDiagnostics } from '@/providers/services/diagnostics-service';
 import {
   applyVcsPatch,
-  findFiles,
   getFileStatus,
   getVcsInfo,
   readFile,
@@ -24,14 +25,14 @@ export function useWorkspaceFileActions({
   setWorkspaceFileStatuses,
   setVcsInfo,
   setDiagnostics,
-  setWorkspaceFiles,
   setSelectedWorkspaceFile,
-  workspaceSearchRequestRef,
   workspaceFileRequestRef,
   currentSessionIdRef,
   diffScopeBySessionRef,
   refreshVcsDiff,
 }: WorkspaceFileActionsInput) {
+  const browser = useWorkspaceBrowser({ client, isCurrentClient });
+
   const refreshServerFeatures = useCallback(async () => {
     if (!activeProjectPath) {
       setCommands([]);
@@ -59,22 +60,14 @@ export function useWorkspaceFileActions({
     }
   }, [client, isCurrentClient]);
 
-  const searchWorkspaceFiles = useCallback(async (query: string) => {
-    const request = ++workspaceSearchRequestRef.current;
-    const trimmed = query.trim();
-    const nextFiles = trimmed ? (await findFiles(client, trimmed)) || [] : [];
-    if (isCurrentClient(client) && request === workspaceSearchRequestRef.current) {
-      setWorkspaceFiles(nextFiles);
-    }
-  }, [client, isCurrentClient]);
-
   const openWorkspaceFile = useCallback(async (path: string) => {
+    path = workspacePath(path, client.__opencode.directory || '');
     const request = ++workspaceFileRequestRef.current;
     const content = await readFile(client, path);
     if (!content) {
       throw new Error('OpenCode did not return file content.');
     }
-    if (content.type === 'binary' || content.encoding === 'base64') {
+    if (content.type !== 'text' || content.encoding === 'base64') {
       throw new Error('Binary files cannot be previewed as text.');
     }
     if (!isCurrentClient(client) || request !== workspaceFileRequestRef.current) throw new Error('File selection was superseded.');
@@ -82,6 +75,7 @@ export function useWorkspaceFileActions({
   }, [client, isCurrentClient]);
 
   const saveWorkspaceFile = useCallback(async (path: string, expectedContent: string, content: string) => {
+    path = workspacePath(path, client.__opencode.directory || '');
     const request = workspaceFileRequestRef.current;
     const latest = await readFile(client, path);
     if (!isCurrentClient(client)) throw new Error('The workspace changed before saving.');
@@ -102,5 +96,5 @@ export function useWorkspaceFileActions({
     }
   }, [client, isCurrentClient, refreshServerFeatures, refreshVcsDiff]);
 
-  return { refreshServerFeatures, refreshDiagnostics, searchWorkspaceFiles, openWorkspaceFile, saveWorkspaceFile };
+  return { refreshServerFeatures, refreshDiagnostics, browser, openWorkspaceFile, saveWorkspaceFile };
 }

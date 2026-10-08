@@ -119,7 +119,7 @@ Primary fields:
 - `availableModels`
 - `availableAgents`
 - `commands`
-- `workspaceFiles`
+- `browser` (relative path, directory entries, search results/query, loading/error state, and listing/search actions)
 - `workspaceFileStatuses`
 - `selectedWorkspaceFile`
 - `vcsInfo`
@@ -159,7 +159,7 @@ Current fields:
 
 These values combine true application behavior settings and output-style preferences that are sent to the model as prompt instructions.
 
-`workspaceFiles`, selected file content, worktrees, and MCP status/config are server-derived and not persisted. Text edits remain local to the Workspace screen until the provider conflict-checks and saves them as a VCS patch. Search and file-open commits check the current client identity and request order; saves check client identity before applying a patch and only update the selected file if that selection is still current. Identical directory paths on different servers do not make a response current.
+`browser`, selected file content, worktree inventory/owning project identity, and MCP status/config are server-derived and not persisted. Text edits remain local to `FilePreview` until the provider conflict-checks and saves them as a VCS patch. Listing, search and file-open commits check the current client identity and request order; saves check client identity before applying a patch and only update the selected file if that selection is still current. Identical directory paths on different servers do not make a response current.
 
 ## Terminal State
 
@@ -659,7 +659,7 @@ The composer owns only temporary input-height state. Agent selection uses the ex
 
 Patch review resolves an assistant message's `parentID` only against user messages in the current session (`getUserTurnForMessage`). A match sets Turn scope and selects that user turn through the existing provider actions. Missing matches open the existing changes view without selecting a historical turn. The review callback is included in transcript memoization and list extra data.
 
-Workspace search results and request-scope guards remain provider-owned. `FilesPanel` owns submitted-query/loading/error presentation, and remounts on the password-free connection identity plus workspace path. It does not fetch, persist, or cache results. Setup still uses the existing connection-switch path exactly once per guarded submission.
+Workspace browser state and request-scope guards remain provider-owned. `FilesPanel` owns only the draft search input and renders provider loading/error state; it remounts on the password-free connection identity plus workspace path. It does not fetch, persist, or cache results. Setup still uses the existing connection-switch path exactly once per guarded submission.
 
 
 ## Session library recovery (#64)
@@ -668,3 +668,27 @@ The V1 experimental list with `archived=true` includes active sessions. The arch
 
 
 Transcript, diff, and todo cache pruning is paused while session bootstrap is loading. A pending deep-link target is also retained until selection completes, so early transcript reads survive slower capability/configuration requests when reopening a favorite from another workspace.
+
+## Workspace file browser
+
+Workspace retains its tab label and route. Files is its main surface: the provider
+owns the current relative directory, sorted folder/file entries, submitted search,
+results, loading/error state and request-order guards. It retains the directory
+across tab switches and resets on scoped-client changes; it is not persisted.
+Search spans the selected workspace root and clearing it restores the browsed
+folder. Breadcrumb navigation cannot leave that root. Listing, search, preview
+and save require a selected directory. The OpenCode 2 filesystem adapter passes
+`location[directory]` on every request and rejects malformed UTF-8/binary content.
+Text editing retains the existing conflict-checked patch path and is unavailable
+on OpenCode 2. Unsaved edits require discard confirmation.
+
+The shared Workspace/Chat picker contains worktree inventory for the owning
+project, resolved from the scoped project API rather than path prefixes. Adding a
+validated directory selects the requested path, including a worktree, rather than
+its owning project root. Selection uses the existing provider workspace action and applies across Chat,
+Workspace and Terminal. Creation stays in the picker; reset/remove live in row
+menus, preserve confirmations and reject the active directory and primary checkout.
+OpenCode 2 hides reset/startup commands and maps directory-only inventory to names.
+The browser groups state and actions under one context member, keeping the public
+context below the 135-member ceiling. Screens and components call provider actions;
+services and protocol modules own requests and response normalization.
