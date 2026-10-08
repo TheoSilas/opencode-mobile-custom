@@ -7,13 +7,12 @@ import { renderProviderIcon } from '@/components/ui/provider-icon';
 import { Fonts } from '@/constants/theme';
 import { getAddableProviders, getProviderCopy } from '@/components/settings/settings-utils';
 import type { ServerContract } from '@/lib/opencode/client';
-import type { ChatPreferences, ModelOption, ProviderAuthMethod, ProviderOption } from '@/providers/opencode-provider';
+import type { ModelOption, ProviderAuthMethod, ProviderOption } from '@/providers/opencode-provider';
 import type { Palette } from './setting-rows';
 
 type AiDefaultsSectionProps = {
   availableModels: ModelOption[];
   availableProviders: ProviderOption[];
-  chatPreferences: ChatPreferences;
   configuredProviders: ProviderOption[];
   contract: ServerContract;
   enabledModelIds: Set<string>;
@@ -31,7 +30,6 @@ type AiDefaultsSectionProps = {
 export function AiDefaultsSection({
   availableModels,
   availableProviders,
-  chatPreferences,
   configuredProviders,
   contract,
   enabledModelIds,

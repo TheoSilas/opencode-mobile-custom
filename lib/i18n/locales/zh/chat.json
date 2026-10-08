@@ -266,5 +266,16 @@
     "openingTitle": "正在打开会话",
     "loading": "正在从你的 OpenCode 服务器加载此会话。",
     "backToChat": "返回聊天"
+  },
+  "attachments": {
+    "preview": "预览{{name}}",
+    "play": "播放",
+    "pause": "暂停",
+    "openExternally": "在其他应用中打开",
+    "previewFailed": "无法预览或打开此文件。它可能不可用或不受支持。"
+  },
+  "pendingPrompts": {
+    "sending": "正在发送…",
+    "waiting": "等待处理…"
   }
 }

@@ -90,7 +90,18 @@
     "authorizationCodeHint": "After you sign in, copy the code shown and paste it here.",
     "setupUnavailable": "Setup details for this provider are unavailable right now.",
     "couldNotComplete": "Could not complete sign-in.",
-    "removeCredentials": "Remove {{provider}} credentials"
+    "removeCredentials": "Remove {{provider}} credentials",
+    "promptDelivery": {
+      "label": "Messages sent while working",
+      "steer": {
+        "label": "Steer",
+        "description": "Apply the message at the next step of the current response."
+      },
+      "queue": {
+        "label": "Append",
+        "description": "Queue the message for a later turn."
+      }
+    }
   },
   "providerCopy": {
     "openai": {

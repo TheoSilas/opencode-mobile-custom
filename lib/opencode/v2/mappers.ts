@@ -1,6 +1,20 @@
 import type { PendingQuestionPrompt, PendingQuestionRequest } from '../client';
 import { extractErrorMessage, numberField, stringField, type AdapterContext, type V2Form, type V2Message, type V2Permission } from './shared';
 
+export function fileToV1(file: unknown) {
+  const record = (file ?? {}) as Record<string, unknown>;
+  const source = (record.source ?? {}) as Record<string, unknown>;
+  const mime = stringField(record.mime, 'application/octet-stream');
+  return {
+    type: 'file' as const,
+    mime,
+    filename: stringField(record.name, 'Attachment'),
+    url: typeof record.data === 'string'
+      ? `data:${mime};base64,${record.data}`
+      : stringField(record.uri, stringField(source.uri)),
+  };
+}
+
 function toolContentToText(content: unknown): string {
   if (!Array.isArray(content)) return '';
   return content
@@ -37,6 +51,7 @@ function toolPartFromV2(messageId: string, sessionID: string, index: number, too
         status: 'completed',
         input,
         output: toolContentToText(state.content),
+        attachments: Array.isArray(state.content) ? state.content.filter((item) => item?.type === 'file').map(fileToV1) : [],
         title: stringField(tool.name, 'tool'),
         metadata: state.metadata,
       },
@@ -80,17 +95,11 @@ export function messageToV1(message: V2Message, sessionID: string): { info: Reco
     const files = (message as Record<string, unknown>).files;
     if (Array.isArray(files)) {
       files.forEach((file, index) => {
-        const record = (file ?? {}) as Record<string, unknown>;
-        const source = (record.source ?? {}) as Record<string, unknown>;
-        const inline = source.type === 'inline';
         parts.push({
           id: `${message.id}-file-${index}`,
           sessionID,
           messageID: message.id,
-          type: 'file',
-          mime: stringField(record.mime),
-          filename: stringField(record.name, 'Attachment'),
-          url: inline ? `data:${stringField(record.mime)};base64,${stringField(record.data)}` : stringField(source.uri),
+          ...fileToV1(file),
         });
       });
     }

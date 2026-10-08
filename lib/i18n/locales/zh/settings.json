@@ -90,7 +90,18 @@
     "authorizationCodeHint": "登录后，复制显示的代码并粘贴到此处。",
     "setupUnavailable": "此提供商的设置详情目前不可用。",
     "couldNotComplete": "无法完成登录。",
-    "removeCredentials": "移除 {{provider}} 的凭据"
+    "removeCredentials": "移除 {{provider}} 的凭据",
+    "promptDelivery": {
+      "label": "工作期间发送的消息",
+      "steer": {
+        "label": "引导",
+        "description": "在当前回复的下一步中应用此消息。"
+      },
+      "queue": {
+        "label": "追加",
+        "description": "将消息排队，等待后续轮次处理。"
+      }
+    }
   },
   "providerCopy": {
     "openai": {

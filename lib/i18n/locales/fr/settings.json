@@ -90,7 +90,18 @@
     "authorizationCodeHint": "Après t'être connecté, copie le code affiché et colle-le ici.",
     "setupUnavailable": "Les détails de configuration de ce fournisseur sont indisponibles pour le moment.",
     "couldNotComplete": "Impossible de terminer la connexion.",
-    "removeCredentials": "Supprimer les identifiants de {{provider}}"
+    "removeCredentials": "Supprimer les identifiants de {{provider}}",
+    "promptDelivery": {
+      "label": "Messages envoyés pendant une tâche",
+      "steer": {
+        "label": "Orienter",
+        "description": "Appliquer le message à la prochaine étape de la réponse en cours."
+      },
+      "queue": {
+        "label": "Ajouter",
+        "description": "Mettre le message en attente pour un prochain tour."
+      }
+    }
   },
   "providerCopy": {
     "openai": {

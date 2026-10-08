@@ -347,6 +347,25 @@ try {
   const missingInstruction = await fetch(`${v2Origin}/api/experimental/session/ses_missing/instructions/entries/x`, json('PUT', { value: 'x' }));
   assert(missingInstruction.status === 404, `V2 instruction put for a missing session returned ${missingInstruction.status}`);
 
+  await fetch(`${v2Origin}/__control/reset`, json('POST', { scenario: 'inbox' }));
+  const inboxSession = await v2Api.session.create({ title: 'Inbox contract' });
+  await v2Api.session.prompt({ sessionID: inboxSession.id, text: 'Initial response' });
+  const steered = await v2Api.session.prompt({ sessionID: inboxSession.id, text: 'Steering hint', delivery: 'steer' });
+  const queued = await v2Api.session.prompt({ sessionID: inboxSession.id, text: 'Later turn', delivery: 'queue', files: [{ uri: 'data:text/plain;base64,aGVsbG8=', name: 'notes.txt' }] });
+  assert((await v2Api.session.inbox.list({ sessionID: inboxSession.id })).length === 2, 'Inbox must retain both delivery modes');
+  assert(!(await v2Api.message.list({ sessionID: inboxSession.id })).data.some((item) => item.id === queued.id), 'Pending prompt must not enter the transcript before delivery');
+  await fetch(`${v2Origin}/__control/inbox`, json('POST', { sessionID: inboxSession.id, action: 'step' }));
+  assert((await v2Api.message.list({ sessionID: inboxSession.id })).data.some((item) => item.id === steered.id), 'Steer must enter at the next step');
+  assert((await v2Api.session.inbox.list({ sessionID: inboxSession.id }))[0].id === queued.id, 'Append must wait for a later turn');
+  await fetch(`${v2Origin}/__control/inbox`, json('POST', { sessionID: inboxSession.id, action: 'complete' }));
+  const deliveredFile = (await v2Api.message.list({ sessionID: inboxSession.id })).data.find((item) => item.id === queued.id).files[0];
+  assert(deliveredFile.data === 'aGVsbG8=' && deliveredFile.name === 'notes.txt', 'Inbox delivery must preserve attachment bytes');
+  const cancelled = await v2Api.session.prompt({ sessionID: inboxSession.id, text: 'Cancel this', delivery: 'queue' });
+  await v2Api.session.inbox.update({ sessionID: inboxSession.id, inboxID: cancelled.id, delivery: 'steer' });
+  assert((await v2Api.session.inbox.list({ sessionID: inboxSession.id }))[0].delivery === 'steer', 'Inbox update must change delivery');
+  await v2Api.session.inbox.cancel({ sessionID: inboxSession.id, inboxID: cancelled.id });
+  assert((await v2Api.session.inbox.list({ sessionID: inboxSession.id })).length === 0, 'Cancellation must remove the pending item');
+
   console.log('Fake OpenCode 1.18.3 server self-test passed.');
   console.log('Fake OpenCode 2.0 server self-test passed.');
 } finally {

@@ -54,6 +54,8 @@ export function createState(scenario) {
     workspaceTaskCompleted: false,
     sessions: [],
     messagesBySession: {},
+    inboxBySession: {},
+    activePromptBySession: {},
     sessionInitializations: {},
     sessionStatuses: {},
     instructionsBySession: {},

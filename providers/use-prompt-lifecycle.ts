@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } 
 import type { OpencodeConnectionSettings, ScopedOpencodeClient } from '@/lib/opencode/client';
 import type { SessionMessageRecord } from '@/lib/opencode/format';
 import type { Session, SessionStatus } from '@/lib/opencode/types';
+import type { PromptDelivery, PromptInput } from '@/lib/opencode/prompt-inbox';
 import { pendingNotificationKey } from '@/lib/notification-pending';
 import {
   clearPendingTaskFinishedNotification,
@@ -23,6 +24,7 @@ type TrackedPendingNotification = {
 };
 
 type PromptLifecycleInput = {
+  submitPrompt: (input: PromptInput, delivery: PromptDelivery) => Promise<void>;
   client: ScopedOpencodeClient;
   isCurrentClient: (candidate: object) => boolean;
   activeProjectPath?: string;
@@ -47,6 +49,7 @@ type PromptLifecycleInput = {
 };
 
 export function usePromptLifecycle({
+  submitPrompt,
   client,
   isCurrentClient,
   activeProjectPath,
@@ -173,13 +176,13 @@ export function usePromptLifecycle({
         }
         parts.push(...preparedFileParts);
 
-        await client.session.promptAsync({
+        await submitPrompt({
           sessionID: sessionId,
           agent: chatPreferences.mode,
           model: getSelectedModelParts(chatPreferences.modelId),
           system: buildSystemPrompt(chatPreferences),
           parts,
-        });
+        }, chatPreferences.promptDelivery ?? 'steer');
         promptAccepted = true;
         if (promptSubmissionRef.current.sessionId === sessionId) {
           promptSubmissionRef.current = { active: false, sessionId: undefined };
@@ -240,7 +243,7 @@ export function usePromptLifecycle({
         ));
       }
     },
-    [activeProjectPath, availableModels, busyNotificationsRef, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, pendingNotificationsRef, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, setCurrentSessionId, setPromptError, setSelectedDiffMessageBySession, settingsRef, summarizeSessionTitle],
+    [activeProjectPath, availableModels, busyNotificationsRef, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, pendingNotificationsRef, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, setCurrentSessionId, setPromptError, setSelectedDiffMessageBySession, settingsRef, submitPrompt, summarizeSessionTitle],
   );
 
   const abortSession = useCallback(

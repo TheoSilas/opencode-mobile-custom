@@ -123,17 +123,34 @@ function translate(eventMessage) {
   }
 }
 
-function emitEvent(eventMessage) {
+function emitV2Event(mapped) {
   if (suppressEvents) return;
-  const mapped = translate(eventMessage);
-  if (!mapped) return;
   const payload = `data: ${JSON.stringify(mapped)}\n\n`;
   for (const client of v2Clients) {
     client.write(payload);
   }
 }
 
+function emitEvent(eventMessage) {
+  const mapped = translate(eventMessage);
+  if (mapped) emitV2Event(mapped);
+}
+
 const helpers = createSessionHelpers({ emitEvent, getNow, getState: () => state });
+
+
+function deliverInboxItem(item) {
+  state.inboxBySession[item.sessionID] = (state.inboxBySession[item.sessionID] || []).filter((entry) => entry.id !== item.id);
+  state.activePromptBySession[item.sessionID] = item.payload.text;
+  helpers.handlePromptSubmission(item.sessionID, {
+    messageID: item.id,
+    parts: [
+      ...(item.payload.text ? [{ type: 'text', text: item.payload.text }] : []),
+      ...(item.payload.files || []).map((file) => ({ type: 'file', url: `data:${file.mime};base64,${file.data}`, mime: file.mime, filename: file.name })),
+    ],
+  });
+  emitV2Event(event('session.inbox.delivered', { sessionID: item.sessionID, inboxID: item.id }));
+}
 
 const FAKE_MODEL = { id: 'gpt-4.1-mini', providerID: 'openai' };
 // Deterministic per-assistant-call usage so V2 e2e can assert context
@@ -181,6 +198,10 @@ function messageToV2(record) {
       sessionID: record.info.sessionID,
       time: { created: record.info.time.created },
       text,
+      files: parts.filter((part) => part.type === 'file').map((part) => {
+        const match = part.url?.match(/^data:([^;,]+);base64,([\s\S]*)$/);
+        return { name: part.filename, mime: part.mime, data: match?.[2] || '', source: { type: 'inline' } };
+      }),
     };
   }
   const content = [];
@@ -560,20 +581,59 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && /^\/api\/session\/[^/]+\/inbox$/.test(pathname)) {
+      const sessionID = pathname.split('/')[3];
+      if (!helpers.getSession(sessionID)) return notFound(res);
+      sendJson(res, 200, { data: state.inboxBySession[sessionID] || [] });
+      return;
+    }
+
+    const inboxItemPath = pathname.match(/^\/api\/session\/([^/]+)\/inbox\/([^/]+)$/);
+    if (inboxItemPath && (req.method === 'DELETE' || req.method === 'PATCH')) {
+      const [, sessionID, inboxID] = inboxItemPath;
+      const item = (state.inboxBySession[sessionID] || []).find((entry) => entry.id === inboxID);
+      if (!item) return notFound(res);
+      if (req.method === 'DELETE') {
+        state.inboxBySession[sessionID] = state.inboxBySession[sessionID].filter((entry) => entry.id !== inboxID);
+        emitV2Event(event('session.inbox.cancelled', { sessionID, inboxID }));
+      } else {
+        const body = await readJson(req);
+        if (!['steer', 'queue'].includes(body?.delivery)) return sendJson(res, 400, { error: 'Invalid delivery' });
+        item.delivery = body.delivery;
+        emitV2Event(event('session.inbox.delivery.changed', { sessionID, inboxID, delivery: item.delivery }));
+      }
+      sendJson(res, 204);
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/__control/inbox') {
+      const body = await readJson(req);
+      const sessionID = body.sessionID;
+      if (!helpers.getSession(sessionID)) return notFound(res);
+      if (body.action === 'complete') helpers.completePrompt(sessionID, state.activePromptBySession[sessionID]);
+      const pending = state.inboxBySession[sessionID] || [];
+      const item = pending.find((entry) => body.action === 'complete' || entry.delivery === 'steer');
+      if (item) deliverInboxItem(item);
+      sendJson(res, 200, { data: state.inboxBySession[sessionID] || [] });
+      return;
+    }
+
     if (req.method === 'POST' && /^\/api\/session\/[^/]+\/prompt$/.test(pathname)) {
       const sessionID = pathname.split('/')[3];
       if (!helpers.getSession(sessionID)) return notFound(res);
       const body = await readJson(req);
-      helpers.handlePromptSubmission(sessionID, { parts: body?.text ? [{ type: 'text', text: body.text }] : [] });
-      const message = helpers.getMessages(sessionID).findLast((record) => record.info.role === 'user');
-      sendJson(res, 200, { data: {
-        id: message.info.id,
-        sessionID,
-        type: 'user',
-        payload: { text: body?.text || '' },
-        delivery: body?.delivery || 'steer',
-        time: message.info.time,
-      } });
+      const files = (body?.files || []).map((file) => {
+        const match = file.uri?.match(/^data:([^;,]+);base64,([\s\S]*)$/);
+        return { name: file.name, mime: match?.[1] || 'application/octet-stream', data: match?.[2] || '', source: { type: 'inline' } };
+      });
+      const item = {
+        id: `message-${state.nextMessageId++}`, sessionID, type: 'user',
+        payload: { text: body?.text || '', files }, delivery: body?.delivery || 'steer', time: { created: getNow() },
+      };
+      state.inboxBySession[sessionID] = [...(state.inboxBySession[sessionID] || []), item];
+      emitV2Event(event('session.inbox.enqueued', { sessionID, inboxID: item.id, item: { type: 'user', payload: item.payload, delivery: item.delivery } }));
+      if (state.scenario !== 'inbox' || state.sessionStatuses[sessionID]?.type === 'idle') deliverInboxItem(item);
+      sendJson(res, 200, { data: item });
       return;
     }
 

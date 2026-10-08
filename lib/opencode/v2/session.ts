@@ -1,9 +1,46 @@
 import { sessionToV1 } from '../v2-mappers';
-import { messageToV1 } from './mappers';
+import { fileToV1, messageToV1 } from './mappers';
+import type { PendingPrompt, PromptDelivery } from '../prompt-inbox';
 import { stringField, syncSessionInstructions, type V2Adapter, type V2Diff } from './shared';
 
 export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapter): Record<string, unknown> {
+  const inboxToPrompt = (item: Extract<Awaited<ReturnType<typeof api.session.inbox.list>>[number], { type: 'user' }>): PendingPrompt => ({
+    id: item.id, sessionId: item.sessionID, createdAt: item.time.created,
+    text: item.payload.text, delivery: item.delivery, state: 'waiting',
+    attachments: (item.payload.files ?? []).map((file) => {
+      const part = fileToV1(file);
+      return { uri: part.url, mime: part.mime, filename: part.filename };
+    }),
+  });
+  const submit = async (parameters: Record<string, unknown>, delivery: PromptDelivery = 'steer') => {
+    const sessionID = stringField(parameters.sessionID);
+    const agent = typeof parameters.agent === 'string' ? parameters.agent : undefined;
+    const model = parameters.model as { providerID?: string; modelID?: string } | undefined;
+    if (agent) await api.session.switchAgent({ sessionID, agent });
+    if (model?.providerID && model.modelID) {
+      await api.session.switchModel({ sessionID, model: { id: model.modelID, providerID: model.providerID } });
+    }
+    const parts = Array.isArray(parameters.parts) ? parameters.parts : [];
+    const text = parts
+      .filter((part) => part && typeof part === 'object' && (part as Record<string, unknown>).type === 'text')
+      .map((part) => stringField((part as Record<string, unknown>).text))
+      .join('\n\n');
+    const files = parts
+      .filter((part) => part && typeof part === 'object' && (part as Record<string, unknown>).type === 'file')
+      .map((part) => {
+        const record = part as Record<string, unknown>;
+        return { uri: stringField(record.url), name: stringField(record.filename, 'Attachment') };
+      });
+    await syncSessionInstructions(api, sessionID, parameters.system);
+    const admitted = await api.session.prompt({ sessionID, text, delivery, ...(files.length > 0 ? { files } : {}) });
+    return inboxToPrompt(admitted);
+  };
   return {
+    promptInbox: {
+      submit,
+      list: async (sessionId: string) => (await api.session.inbox.list({ sessionID: sessionId }))
+        .filter((item): item is Extract<typeof item, { type: 'user' }> => item.type === 'user').map(inboxToPrompt),
+    },
     session: {
       list: async () => {
         const response = await listSessionPage();
@@ -94,26 +131,7 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
         throw new Error('Session title summarization is not supported by OpenCode 2 servers.');
       },
       promptAsync: async (parameters: Record<string, unknown>) => {
-        const sessionID = stringField(parameters.sessionID);
-        const agent = typeof parameters.agent === 'string' ? parameters.agent : undefined;
-        const model = parameters.model as { providerID?: string; modelID?: string } | undefined;
-        if (agent) await api.session.switchAgent({ sessionID, agent });
-        if (model?.providerID && model.modelID) {
-          await api.session.switchModel({ sessionID, model: { id: model.modelID, providerID: model.providerID } });
-        }
-        const parts = Array.isArray(parameters.parts) ? parameters.parts : [];
-        const text = parts
-          .filter((part) => part && typeof part === 'object' && (part as Record<string, unknown>).type === 'text')
-          .map((part) => stringField((part as Record<string, unknown>).text))
-          .join('\n\n');
-        const files = parts
-          .filter((part) => part && typeof part === 'object' && (part as Record<string, unknown>).type === 'file')
-          .map((part) => {
-            const record = part as Record<string, unknown>;
-            return { uri: stringField(record.url), name: stringField(record.filename, 'Attachment') };
-          });
-        await syncSessionInstructions(api, sessionID, parameters.system);
-        await api.session.prompt({ sessionID, text, ...(files.length > 0 ? { files } : {}) });
+        await submit(parameters);
         return ok(undefined);
       },
       abort: async (parameters: { sessionID: string }) => {

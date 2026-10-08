@@ -90,7 +90,18 @@
     "authorizationCodeHint": "サインイン後、表示されたコードをコピーしてここに貼り付けてください。",
     "setupUnavailable": "このプロバイダーの設定詳細は現在利用できません。",
     "couldNotComplete": "サインインを完了できませんでした。",
-    "removeCredentials": "{{provider}}の認証情報を削除"
+    "removeCredentials": "{{provider}}の認証情報を削除",
+    "promptDelivery": {
+      "label": "作業中に送信するメッセージ",
+      "steer": {
+        "label": "方向修正",
+        "description": "現在の応答の次のステップでメッセージを反映します。"
+      },
+      "queue": {
+        "label": "追加",
+        "description": "メッセージを後のターンに向けてキューに追加します。"
+      }
+    }
   },
   "providerCopy": {
     "openai": {

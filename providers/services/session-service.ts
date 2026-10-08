@@ -4,6 +4,11 @@ import type { GlobalSession, Project } from '@/lib/opencode/types';
 import type { SessionMessageRecord } from '@/lib/opencode/format';
 import { requireData } from '@/providers/services/require-data';
 import { coalesceRead } from '@/lib/opencode/in-flight';
+import type { ScopedOpencodeClient } from '@/lib/opencode/client';
+
+export function getSessionInbox(client: ScopedOpencodeClient, sessionId: string) {
+  return coalesceRead(client, `inbox:${sessionId}`, () => client.promptInbox!.list(sessionId));
+}
 
 export async function loadWorkspaceCatalog(catalogClient: OpencodeClient) {
   const [pathResponse, projectsResponse, currentProjectResponse] = await Promise.all([

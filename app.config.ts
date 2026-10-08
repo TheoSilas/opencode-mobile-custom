@@ -188,6 +188,7 @@ const config: ExpoConfig = {
       },
     ],
     'expo-image',
+    'expo-video',
     'expo-secure-store',
     ...(isFossVariant ? [] : iapPlugin),
     'expo-status-bar',

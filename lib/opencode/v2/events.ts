@@ -63,6 +63,10 @@ export function mapV2Event(event: V2EventEnvelope, ctx: AdapterContext): V1Envel
     case 'session.tool.success':
     case 'session.tool.failed':
     case 'session.message.content.updated':
+    case 'session.inbox.enqueued':
+    case 'session.inbox.delivered':
+    case 'session.inbox.cancelled':
+    case 'session.inbox.delivery.changed':
     case 'session.synthetic':
     case 'session.skill.activated':
       return envelope('message.part.updated', { sessionID });

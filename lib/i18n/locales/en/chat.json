@@ -266,5 +266,16 @@
     "openingTitle": "Opening session",
     "loading": "Loading this session from your OpenCode server.",
     "backToChat": "Back to chat"
+  },
+  "attachments": {
+    "preview": "Preview {{name}}",
+    "play": "Play",
+    "pause": "Pause",
+    "openExternally": "Open in another app",
+    "previewFailed": "This file could not be previewed or opened. It may be unavailable or unsupported."
+  },
+  "pendingPrompts": {
+    "sending": "Sending…",
+    "waiting": "Waiting to be used…"
   }
 }

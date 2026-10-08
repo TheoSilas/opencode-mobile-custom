@@ -90,7 +90,18 @@
     "authorizationCodeHint": "Depois de entrar, copie o código exibido e cole aqui.",
     "setupUnavailable": "Os detalhes de configuração deste provedor estão indisponíveis no momento.",
     "couldNotComplete": "Não foi possível concluir o login.",
-    "removeCredentials": "Remover credenciais de {{provider}}"
+    "removeCredentials": "Remover credenciais de {{provider}}",
+    "promptDelivery": {
+      "label": "Mensagens enviadas durante uma tarefa",
+      "steer": {
+        "label": "Orientar",
+        "description": "Aplicar a mensagem na próxima etapa da resposta atual."
+      },
+      "queue": {
+        "label": "Acrescentar",
+        "description": "Colocar a mensagem na fila para uma interação posterior."
+      }
+    }
   },
   "providerCopy": {
     "openai": {

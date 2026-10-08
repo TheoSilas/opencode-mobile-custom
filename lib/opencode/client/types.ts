@@ -7,6 +7,7 @@ import Constants from 'expo-constants';
 
 import type { ConnectMetadata } from '@/lib/connect';
 import type { ProviderAuthValues } from '@/lib/opencode/types';
+import type { PromptInboxApi } from '@/lib/opencode/prompt-inbox';
 
 export type ServerContract = 'v1' | 'v2';
 
@@ -108,4 +109,5 @@ export type ScopedOpencodeClient = OpencodeClient & {
   __opencode: ClientMetadata;
   accounts?: ProviderAccountsApi;
   providerOAuth?: ProviderOAuthApi;
+  promptInbox?: PromptInboxApi;
 };

@@ -226,7 +226,11 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
     const state = getState();
     const promptText = body?.parts?.find((part) => part?.type === 'text')?.text?.trim() || '';
 
-    createMessage(sessionId, 'user', [{ type: 'text', text: promptText || 'Triggered from CI flow test.' }]);
+    const files = (body?.parts || []).filter((part) => part.type === 'file');
+    createMessage(sessionId, 'user', [
+      ...(promptText || !files.length ? [{ type: 'text', text: promptText || 'Triggered from CI flow test.' }] : []),
+      ...files,
+    ], body?.messageID ? { id: body.messageID } : {});
     state.sessionStatuses[sessionId] = { type: 'busy' };
     emitEvent({
       type: 'session.status',
@@ -235,6 +239,11 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
         status: { type: 'busy' },
       },
     });
+
+    if (state.scenario === 'inbox') {
+      createMessage(sessionId, 'assistant', [{ type: 'text', text: `Working on: ${promptText}` }]);
+      return;
+    }
 
     if (state.scenario === 'permission') {
       createPermissionRequest(sessionId);
@@ -303,6 +312,7 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
 
   return {
     createSession,
+    completePrompt,
     forkSession,
     getMessages,
     getSession,

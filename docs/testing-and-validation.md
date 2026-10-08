@@ -1,5 +1,23 @@
 # Testing And Validation
 
+## Feed attachments and OpenCode 2 inbox
+
+`tests/vitest/feed.test.ts` covers picker data normalization, preview decoding
+and limits, native temporary-file cleanup, V2 file mapping, file-only messages,
+delivery preferences, inbox events and provider admission/reconciliation races.
+The fake V2 server exposes deterministic inbox step/completion controls plus
+list/cancel/delivery changes; its self-test checks delivery IDs and file bytes.
+Web flows cover square previews, document downloads, sent-file placement and
+reload, Steer/Append selection, multiple waiting messages, inbox recovery,
+polling delivery and rejected-send draft retention. Browser review also checks
+inline MP4 playback with contain fit; native acceptance covers video playback
+alongside audio play/pause/background/close and temporary-file cleanup.
+
+Run all three CI gates. Fake-server and E2E changes require explicit human
+validation under AGENTS.md. Native acceptance remains required for media
+playback/background/close, temporary-file cleanup, document handoff, keyboard
+layout, safe areas and screen-reader actions on iOS and Android.
+
 ## Current Strategy
 
 This repository validates behavior primarily through end-to-end flow tests and static checks, not broad unit-test coverage.

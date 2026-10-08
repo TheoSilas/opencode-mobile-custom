@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { Buffer } from 'node:buffer';
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -308,6 +309,117 @@ async function waitForServer(request, url, timeoutMs = 10_000) {
 
   throw new Error(`Timed out waiting for fake server at ${url}`);
 }
+
+async function attachFile(page, name, mimeType, buffer) {
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByTestId('chat-attach-button').click();
+  await (await chooser).setFiles({ name, mimeType, buffer });
+}
+
+test('attachment tiles preview images, text and documents above the related message', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openReadyChat(page);
+  const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64');
+  await attachFile(page, 'pixel.png', 'image/png', image);
+  const tile = page.getByTestId('attachment-tile');
+  await expect(tile).toHaveCount(1);
+  expect((await tile.boundingBox()).width).toBe(56);
+  await expect(tile).toHaveText('');
+  await tile.click();
+  await expect(page.getByTestId('attachment-image-preview')).toBeVisible();
+  await page.getByTestId('attachment-preview').getByRole('button', { name: 'Close', exact: true }).first().click();
+  const wave = Buffer.alloc(44 + 16000);
+  wave.write('RIFF'); wave.writeUInt32LE(wave.length - 8, 4); wave.write('WAVEfmt ', 8);
+  wave.writeUInt32LE(16, 16); wave.writeUInt16LE(1, 20); wave.writeUInt16LE(1, 22);
+  wave.writeUInt32LE(8000, 24); wave.writeUInt32LE(16000, 28); wave.writeUInt16LE(2, 32); wave.writeUInt16LE(16, 34);
+  wave.write('data', 36); wave.writeUInt32LE(16000, 40);
+  await attachFile(page, 'sound.wav', 'audio/wav', wave);
+  await tile.nth(1).click();
+  const play = page.getByTestId('attachment-audio-play');
+  await expect(play).toBeEnabled();
+  await play.click();
+  await expect(play).toContainText('Pause');
+  await page.getByTestId('attachment-preview').getByRole('button', { name: 'Close', exact: true }).first().click();
+  await page.getByTestId('attachment-remove').nth(1).click();
+  await attachFile(page, 'preview.pdf', 'application/pdf', Buffer.from('%PDF-1.4\npreview'));
+  await tile.nth(1).click();
+  const download = page.waitForEvent('download');
+  await page.getByTestId('attachment-open-external').click();
+  expect((await download).suggestedFilename()).toBe('preview.pdf');
+  await page.getByTestId('attachment-preview').getByRole('button', { name: 'Close', exact: true }).first().click();
+  await page.getByTestId('attachment-remove').nth(1).click();
+  await sendPrompt(page, 'Explain the attached pixel');
+  const message = page.locator('[data-testid^="transcript-message-"]').filter({ has: page.getByText('Explain the attached pixel', { exact: true }) });
+  await expect(message.getByTestId('attachment-tile')).toBeVisible();
+  const previewBox = await message.getByTestId('attachment-tile').boundingBox();
+  const textBox = await message.getByText('Explain the attached pixel', { exact: true }).boundingBox();
+  expect(previewBox.y + previewBox.height).toBeLessThanOrEqual(textBox.y);
+  await page.reload();
+  await expect(message.getByTestId('attachment-tile')).toBeVisible({ timeout: 20_000 });
+  await message.getByTestId('attachment-tile').click();
+  await expect(page.getByTestId('attachment-image-preview')).toBeVisible();
+});
+
+test('OpenCode 2 keeps steer and append prompts pinned until delivery and recovers them after reload', async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const port = await getFreePort();
+  const origin = `http://127.0.0.1:${port}`;
+  const server = spawnV2Server(port, 'inbox');
+  try {
+    await waitForServer(request, `${origin}/api/info`);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openReadyChat(page);
+    await connectToServer(page, origin);
+    const admission = page.waitForResponse((response) => response.url().endsWith('/prompt') && response.request().method() === 'POST');
+    await sendPrompt(page, 'Keep working on the first task');
+    const sessionID = (await (await admission).json()).data.sessionID;
+    await expect(page.getByText('Working on: Keep working on the first task', { exact: true })).toBeVisible();
+    await sendPrompt(page, 'Steer at the next step');
+    const pending = page.getByTestId('pending-prompts');
+    await expect(pending).toContainText('Waiting to be used… · Steer');
+    await expect(pending.getByTestId('pending-prompt')).toHaveCount(1);
+    expect((await pending.boundingBox()).y).toBeLessThan((await page.getByPlaceholder('Ask anything...').boundingBox()).y);
+    await goToTab(page, 'Settings');
+    await page.getByRole('button', { name: /^Advanced/ }).click();
+    await page.getByRole('button', { name: /Messages sent while working/ }).click();
+    await page.getByText('Append', { exact: true }).click();
+    await goToTab(page, 'Chat');
+    await attachFile(page, 'notes.txt', 'text/plain', Buffer.from('Preview café notes'));
+    await page.getByTestId('attachment-tile').click();
+    await expect(page.getByTestId('attachment-text-preview')).toHaveText('Preview café notes');
+    await page.getByTestId('attachment-preview').getByRole('button', { name: 'Close', exact: true }).first().click();
+    await sendPrompt(page, 'Append these notes');
+    await sendPrompt(page, 'Append the final task');
+    await expect(pending.getByTestId('pending-prompt')).toHaveCount(3);
+    await expect(pending).not.toContainText('Sending…');
+    await expect(page.getByPlaceholder('Ask anything...')).toHaveValue('');
+    await expect(pending).toContainText('Waiting to be used… · Append');
+    await page.reload();
+    await expect(pending.getByTestId('pending-prompt')).toHaveCount(3, { timeout: 20_000 });
+    expect(sessionID).toBeTruthy();
+    await request.post(`${origin}/__control/inbox`, { data: { sessionID, action: 'step' } });
+    await expect(pending.getByTestId('pending-prompt')).toHaveCount(2);
+    await expect(page.getByText('Steer at the next step', { exact: true })).toHaveCount(1);
+    await request.post(`${origin}/__control/event-stream`, { data: { suppress: true, disconnect: true } });
+    await request.post(`${origin}/__control/inbox`, { data: { sessionID, action: 'complete' } });
+    await expect(pending.getByTestId('pending-prompt')).toHaveCount(1, { timeout: 20_000 });
+    const message = page.locator('[data-testid^="transcript-message-"]').filter({ has: page.getByText('Append these notes', { exact: true }) });
+    await expect(message.getByTestId('attachment-tile')).toBeVisible();
+    await message.getByTestId('attachment-tile').click();
+    await expect(page.getByTestId('attachment-text-preview')).toHaveText('Preview café notes');
+    await page.getByTestId('attachment-preview').getByRole('button', { name: 'Close', exact: true }).first().click();
+    await request.post(`${origin}/__control/inbox`, { data: { sessionID, action: 'complete' } });
+    await expect(pending).not.toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Append the final task', { exact: true })).toHaveCount(1);
+    await page.route('**/api/session/*/prompt', (route) => route.fulfill({ status: 500, json: { error: 'Rejected prompt' } }));
+    await sendPrompt(page, 'Retry my failed message');
+    await expect(page.getByPlaceholder('Ask anything...')).toHaveValue('Retry my failed message');
+    await expect(pending).not.toBeVisible();
+  } finally {
+    server.kill();
+  }
+});
 
 test('happy path keeps the main chat flow stable', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');

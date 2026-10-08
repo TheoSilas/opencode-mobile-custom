@@ -1,3 +1,4 @@
+import type { PendingPrompt } from '@/lib/opencode/prompt-inbox';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { PendingPermissionRequest, PendingQuestionRequest, ServerContract, OpencodeConnectionSettings } from '@/lib/opencode/client';
@@ -90,6 +91,7 @@ export type ProviderValuesInput = ActionInputs & {
   refreshActiveSessions: () => Promise<void>;
   setActiveSessionsVisible: Dispatch<SetStateAction<boolean>>;
   currentSessionId?: string;
+  pendingPromptsBySession: Record<string, PendingPrompt[]>;
   messagesBySession: Record<string, SessionMessageRecord[]>;
   diffScopeBySession: Record<string, DiffScope>;
   diffsBySession: Record<string, FileDiff[]>;

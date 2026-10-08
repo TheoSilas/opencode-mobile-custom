@@ -16,6 +16,7 @@ export function normalizeTranscriptFontSize(value: number | undefined) {
 
 export type ChatPreferences = {
   mode: string;
+  promptDelivery: 'steer' | 'queue';
   transcriptFontSize: number;
   // Flat transcript renders messages full-width without bubble chrome so more
   // of the conversation is visible at once. Defaults to the bubble layout.
@@ -49,6 +50,7 @@ export type ChatPreferences = {
 
 export const defaultChatPreferences: ChatPreferences = {
   mode: 'build',
+  promptDelivery: 'steer',
   transcriptFontSize: DEFAULT_TRANSCRIPT_FONT_SIZE,
   flatTranscript: false,
   slimInterface: false,

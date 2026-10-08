@@ -266,5 +266,16 @@
     "openingTitle": "Abrindo sessão",
     "loading": "Carregando esta sessão do seu servidor OpenCode.",
     "backToChat": "Voltar para o chat"
+  },
+  "attachments": {
+    "preview": "Pré-visualizar {{name}}",
+    "play": "Reproduzir",
+    "pause": "Pausar",
+    "openExternally": "Abrir em outro aplicativo",
+    "previewFailed": "Não foi possível visualizar ou abrir este arquivo. Ele pode estar indisponível ou não ser compatível."
+  },
+  "pendingPrompts": {
+    "sending": "Enviando…",
+    "waiting": "Aguardando ser considerado…"
   }
 }

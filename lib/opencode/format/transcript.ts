@@ -51,6 +51,9 @@ export function toTranscriptEntry(record: SessionMessageRecord): TranscriptEntry
             kind: 'file',
             label: attachment.filename || 'Tool attachment',
             body: attachment.mime || 'Attachment',
+            uri: attachment.url,
+            mime: attachment.mime,
+            filename: attachment.filename,
           });
         });
       }
@@ -73,6 +76,9 @@ export function toTranscriptEntry(record: SessionMessageRecord): TranscriptEntry
         kind: 'file',
         label: part.filename || 'File attachment',
         body: part.mime || 'Attachment',
+        uri: part.url,
+        mime: part.mime,
+        filename: part.filename,
       });
       return;
     }

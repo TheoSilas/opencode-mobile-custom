@@ -20,6 +20,7 @@ import {
   DiagnosticsSection,
   LanguageSection,
   NotificationsSection,
+  SettingSelectField,
   SupportSection,
   VoiceSection,
 } from '@/components/settings/settings-sections';
@@ -156,7 +157,7 @@ export default function SettingsScreen() {
       title: t('settings:screen.categories.ai'),
       summary: t('settings:screen.summaries.configuredCount', { value: configuredProviders.length }),
       onPress: () => setOpenSection('ai'),
-      render: () => <AiDefaultsSection availableModels={availableModels} availableProviders={availableProviders} chatPreferences={chatPreferences} configuredProviders={configuredProviders} contract={serverCapabilities.contract} enabledModelIds={enabledModelIds} expandedProviderId={expandedProviderId} onActivateProviderAccount={(credentialId) => void providerAccounts.activate(credentialId)} onExpandedProviderChange={setExpandedProviderId} onModelToggle={handleModelToggle} onRemoveProvider={handleRemoveProvider} onRemoveProviderAccount={(credentialId) => void providerAccounts.remove(credentialId)} onStartProviderConfiguration={providerConfig.startProviderConfiguration} palette={palette} providerAuthMethodsById={providerAuthMethodsById} />,
+      render: () => <AiDefaultsSection availableModels={availableModels} availableProviders={availableProviders} configuredProviders={configuredProviders} contract={serverCapabilities.contract} enabledModelIds={enabledModelIds} expandedProviderId={expandedProviderId} onActivateProviderAccount={(credentialId) => void providerAccounts.activate(credentialId)} onExpandedProviderChange={setExpandedProviderId} onModelToggle={handleModelToggle} onRemoveProvider={handleRemoveProvider} onRemoveProviderAccount={(credentialId) => void providerAccounts.remove(credentialId)} onStartProviderConfiguration={providerConfig.startProviderConfiguration} palette={palette} providerAuthMethodsById={providerAuthMethodsById} />,
     },
     {
       id: 'notifications',
@@ -182,6 +183,14 @@ export default function SettingsScreen() {
       onPress: () => setOpenSection('advanced'),
       render: () => (
         <>
+          {serverCapabilities.contract === 'v2' ? <SettingSelectField
+            label={t('settings:providers.promptDelivery.label')}
+            valueLabel={t(`settings:providers.promptDelivery.${chatPreferences.promptDelivery || 'steer'}.label`)}
+            selectedValue={chatPreferences.promptDelivery || 'steer'}
+            options={(['steer', 'queue'] as const).map((value) => ({ value, label: t(`settings:providers.promptDelivery.${value}.label`), description: t(`settings:providers.promptDelivery.${value}.description`) }))}
+            onValueChange={(promptDelivery) => updateChatPreferences({ promptDelivery })}
+            palette={palette}
+          /> : null}
           <McpSection configs={currentConfig?.mcp} mcpStatuses={mcpStatuses} onAdd={addMcpServer} onCompleteOAuth={completeMcpOAuth} onConnect={connectMcpServer} onDisconnect={disconnectMcpServer} onRefresh={refreshMcpServers} onSetEnabled={setMcpServerEnabled} onStartOAuth={async (name) => { const url = await startMcpOAuth(name); if (!url) { await refreshMcpServers(); return false; } await WebBrowser.openBrowserAsync(url); return true; }} oauthAvailable={serverCapabilities.mcpOAuth} palette={palette} />
           <DiagnosticsSection diagnostics={diagnostics} eventStreamStatus={eventStreamStatus} formatterAvailable={serverCapabilities.formatter} lspAvailable={serverCapabilities.lsp} onRefresh={() => void refreshDiagnostics()} palette={palette} />
         </>

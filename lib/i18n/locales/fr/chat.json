@@ -266,5 +266,16 @@
     "openingTitle": "Ouverture de la session",
     "loading": "Chargement de cette session depuis ton serveur OpenCode.",
     "backToChat": "Revenir au chat"
+  },
+  "attachments": {
+    "preview": "Aperçu de {{name}}",
+    "play": "Lire",
+    "pause": "Pause",
+    "openExternally": "Ouvrir dans une autre application",
+    "previewFailed": "Impossible de prévisualiser ou d’ouvrir ce fichier. Il est peut-être indisponible ou non pris en charge."
+  },
+  "pendingPrompts": {
+    "sending": "Envoi…",
+    "waiting": "En attente de prise en compte…"
   }
 }

@@ -16,25 +16,26 @@ export function shouldPoll(streamConnected: boolean, busy: boolean) {
 }
 
 export function useOpencodeRealtime({ catalogClient, activeProjectPath, connected, busy,
-  currentSessionId, conversationSessionId, ...actions
+  currentSessionId, conversationSessionId, pendingSessionIds = [], ...actions
 }: RealtimeActions & {
   catalogClient: ScopedOpencodeClient;
   activeProjectPath?: string;
   connected: boolean;
   busy: boolean;
+  pendingSessionIds?: string[];
   currentSessionId?: string;
   conversationSessionId?: string;
 }) {
   const [eventStreamStatus, setEventStreamStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
-  const latest = useRef({ ...actions, currentSessionId, conversationSessionId });
+  const latest = useRef({ ...actions, currentSessionId, conversationSessionId, pendingSessionIds });
   useLayoutEffect(() => {
-    latest.current = { ...actions, currentSessionId, conversationSessionId };
+    latest.current = { ...actions, currentSessionId, conversationSessionId, pendingSessionIds };
   });
   const inFlight = useRef<Promise<unknown> | undefined>(undefined);
   const reconcile = useCallback((full = false) => {
     if (inFlight.current) return inFlight.current;
     const next = latest.current;
-    const sessions = new Set([next.currentSessionId, next.conversationSessionId].filter((id): id is string => Boolean(id)));
+    const sessions = new Set([...next.pendingSessionIds, next.currentSessionId, next.conversationSessionId].filter((id): id is string => Boolean(id)));
     const result = Promise.allSettled([
       next.refreshSessions(true), next.refreshPendingInteractions(),
       ...[...sessions].flatMap((id) => [next.refreshMessages(id, true, full ? { full: true } : undefined), next.refreshSessionDiff(id, true), next.refreshSessionTodos(id)]),

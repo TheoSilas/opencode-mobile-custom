@@ -90,7 +90,18 @@
     "authorizationCodeHint": "Después de iniciar sesión, copia el código que se muestra y pégalo aquí.",
     "setupUnavailable": "Los detalles de configuración de este proveedor no están disponibles ahora mismo.",
     "couldNotComplete": "No se pudo completar el inicio de sesión.",
-    "removeCredentials": "Eliminar credenciales de {{provider}}"
+    "removeCredentials": "Eliminar credenciales de {{provider}}",
+    "promptDelivery": {
+      "label": "Mensajes enviados durante una tarea",
+      "steer": {
+        "label": "Orientar",
+        "description": "Aplicar el mensaje en el siguiente paso de la respuesta actual."
+      },
+      "queue": {
+        "label": "Añadir",
+        "description": "Poner el mensaje en cola para un turno posterior."
+      }
+    }
   },
   "providerCopy": {
     "openai": {

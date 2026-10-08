@@ -558,6 +558,18 @@ Current implementation assumes these invariants:
 - pending permissions and questions are keyed by `sessionID` and only active/sending-session entries are surfaced
 - attachment capability is checked against the selected model before send
 - local attachment files larger than 10 MB are rejected before base64 encoding
+- OpenCode 2 prompt admission retains the server inbox ID, text, files and
+  delivery mode. Pending messages stay above the composer until their ID appears
+  in the transcript or the server removes them. Inbox reads precede transcript
+  reads; failed reads retain pending entries. Local sending placeholders are
+  removed on failure, leaving composer retry behavior intact. Pending state is
+  scoped to the client and session, recovered from the server on open/reload,
+  and included in realtime polling reconciliation.
+- `promptDelivery` is a persisted chat preference (`steer` by default or `queue`,
+  labeled Append). The top of Advanced Settings exposes it only for OpenCode 2.
+  V1 submissions retain their existing behavior.
+- File transcript details preserve URI, MIME type and filename, including V2
+  returned file bytes. File-only assistant messages remain displayable.
 - `SessionMessageRecord` objects stored in `messagesBySession` are never mutated in place; `mergeSessionMessageRecords` in `lib/opencode/format.ts` adopts a new record object when content changes and preserves record and array references when nothing changed, keeping the WeakMap caches in `toTranscriptEntry` and `getSessionPreviewById` correct
 
 ## Non-Persisted But Behavioral State

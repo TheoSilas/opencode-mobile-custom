@@ -1,5 +1,25 @@
 # Component Inventory
 
+## Chat attachments and pending messages
+
+`attachment-strip.tsx` renders shared 56 px square tiles in the composer,
+pending stack and message cards, above each message's text. Images fill the tile;
+audio and documents use icons. Filename labels remain available to assistive
+technology. Composer removal is a separate 44 px action.
+
+`attachment-preview.tsx` uses the existing overlay sheet for images, selectable
+text, explicit audio playback, and inline video playback. Closing/backgrounding
+stops media; temporary native files are released. PDF/Office documents use the
+system share/viewer on native and browser download/open on web. Preview loading
+and URI/file handling live in `lib/attachment-preview.ts`, with the existing
+10 MB limit. Image tiles and the full image preview use contain fit; the preview
+fills the sheet's available height.
+
+`pending-prompts.tsx` renders provider-derived OpenCode 2 sending/waiting entries
+in a bounded, scrollable stack directly above the composer. It does not own
+prompt admission or delivery state. Steer/Append selection lives at the top of
+the Advanced Settings section.
+
 ## Purpose
 
 This document inventories the current UI and support components, their responsibilities, and their prop contracts where relevant to parity.

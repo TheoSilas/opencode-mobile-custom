@@ -5,6 +5,7 @@ import { Button, Card, FAB, Snackbar, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatComposer } from '@/components/chat/chat-composer';
+import { PendingPrompts } from '@/components/chat/pending-prompts';
 import { ChatContent } from '@/components/chat/chat-content';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { ChatLibrary } from '@/components/chat/chat-library';
@@ -31,7 +32,7 @@ export function ChatView() {
     handleSendPrompt, handleSpeakEntry, handleToggleRecording, handleVoiceRecovery,
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
-    pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
+    pendingPrompts, pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
     rejectQuestion, replyToPermission, replyToQuestion, revertSession, retryAttempt, running, selectDiffMessage,
     selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage,
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,
@@ -189,6 +190,7 @@ export function ChatView() {
           </View>
         ) : null}
 
+        <PendingPrompts key={currentSessionId} prompts={pendingPrompts} />
         <ChatComposer
           key={`${currentSessionId}:${currentPendingPermissions.map((item) => item.id).join()}:${currentPendingQuestions.map((item) => item.id).join()}`}
           attachments={attachments}

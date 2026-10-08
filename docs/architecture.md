@@ -189,6 +189,9 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
 - `providers/use-prompt-lifecycle.ts`
   `sendPrompt`/`abortSession`, the submission guard, and task-completion
   notification tracking.
+- `providers/use-prompt-inbox.ts`
+  OpenCode 2 prompt admission and session-scoped pending messages. Wraps the
+  existing transcript refresh to reconcile inbox delivery through SSE and polling.
 - `providers/use-capabilities-actions.ts`
   Chat capability discovery, provider auth/OAuth, and auto-approve.
 - `providers/use-connection-actions.ts`

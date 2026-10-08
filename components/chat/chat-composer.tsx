@@ -6,6 +6,7 @@ import { Chip, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 import { Colors } from '@/constants/theme';
 import { TextInput } from '@/components/ui/text-input';
 import { NativeSelect } from '@/components/ui/native-select';
+import { AttachmentStrip } from '@/components/chat/attachment-strip';
 import { ModelPicker } from '@/components/chat/model-picker';
 import { styles, slimStyles } from '@/components/chat/chat-view-styles';
 import { getAutoApproveIcon, REASONING_OPTIONS } from '@/components/chat/chat-view-utils';
@@ -130,24 +131,7 @@ export function ChatComposer({
         </View>
       ) : null}
 
-      {attachments.length > 0 ? (
-        <View style={styles.attachmentRow}>
-          {attachments.map((att, idx) => (
-            <View key={`${att.uri}-${idx}`} style={[styles.attachmentChip, { backgroundColor: palette.background }]}>
-              <Text numberOfLines={1} variant="labelLarge" style={[styles.attachmentLabel, { color: palette.text }]}>
-                {att.filename || att.uri}
-              </Text>
-              <IconButton
-                accessibilityLabel={t('chat:composer.removeAttachment', { name: att.filename || t('chat:composer.attachment') })}
-                icon="close"
-                size={18}
-                style={styles.attachmentRemoveButton}
-                onPress={() => onRemoveAttachment(idx)}
-              />
-            </View>
-          ))}
-        </View>
-      ) : null}
+      {attachments.length > 0 ? <AttachmentStrip attachments={attachments} onRemove={onRemoveAttachment} /> : null}
 
       {draft.startsWith('/') && !draft.includes(' ') && commands.length > 0 ? (
         <View style={styles.attachmentRow}>

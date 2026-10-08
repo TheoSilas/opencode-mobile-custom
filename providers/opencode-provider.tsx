@@ -34,6 +34,7 @@ import { useOpencodeProviderEffects } from '@/providers/use-opencode-provider-ef
 import { useWorkspaceActions } from '@/providers/use-workspace-actions';
 import { useCapabilitiesActions } from '@/providers/use-capabilities-actions';
 import { useSessionActions } from '@/providers/use-session-actions';
+import { usePromptInbox } from '@/providers/use-prompt-inbox';
 import { usePromptLifecycle } from '@/providers/use-prompt-lifecycle';
 import { useConnectionActions } from '@/providers/use-connection-actions';
 import { useOpencodeProviderValues } from '@/providers/opencode-provider-values';
@@ -174,6 +175,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   );
 
   const transcript = useTranscriptState({ ...state, client, isCurrentClient });
+  const inbox = usePromptInbox({ client, isCurrentClient, refreshMessages: transcript.refreshMessages });
   const terminal = useTerminalState({
     ...state,
     client,
@@ -224,7 +226,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     worktree.resetWorktrees();
   }, [mcp.resetMcpState, terminal.resetTerminal, transcript.reset, worktree.resetWorktrees, bootstrapPromiseRef, bootstrapTokenRef, busyNotificationsRef, pendingNotificationsRef, sessionRefreshOptionsRef, sessionRefreshTimeoutsRef, setArchivedSessions, setAvailableAgents, setAvailableModels, setAvailableProviders, setCommands, setCurrentConfig, setCurrentSessionId, setPendingPermissionsBySession, setPendingQuestionsBySession, setProviderAuthMethodsById, setSelectedWorkspaceFile, setSessionStatuses, setSessions, setVcsInfo, setWorkspaceFileStatuses, setWorkspaceFiles]);
 
-  const workspace = useWorkspaceActions({ ...state, client, catalogClient, isCurrentClient, isCurrentCatalogClient, clearProjectState, isHydrated, refreshMessages: transcript.refreshMessages });
+  const workspace = useWorkspaceActions({ ...state, client, catalogClient, isCurrentClient, isCurrentCatalogClient, clearProjectState, isHydrated, refreshMessages: inbox.refreshMessages });
 
   const capabilities = useCapabilitiesActions({ ...state, client, isCurrentClient });
 
@@ -235,18 +237,19 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     catalogClient,
     isCurrentClient,
     isCurrentCatalogClient,
-    refreshMessages: transcript.refreshMessages,
+    refreshMessages: inbox.refreshMessages,
     refreshActiveSessions: activeSessionsHook.refreshActiveSessions,
     refreshChatCapabilities: capabilities.refreshChatCapabilities,
   });
   const ensureActiveSessionRef = useRef(sessionActions.ensureActiveSession);
 
   const prompt = usePromptLifecycle({
+    submitPrompt: inbox.submitPrompt,
     ...state,
     ...workspace,
     client,
     isCurrentClient,
-    refreshMessages: transcript.refreshMessages,
+    refreshMessages: inbox.refreshMessages,
     summarizeSessionTitle: sessionActions.summarizeSessionTitle,
   });
 
@@ -317,13 +320,14 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     catalogClient,
     activeProjectPath: state.activeProjectPath,
     connected: state.connection.status === 'connected',
-    busy: prompt.sendingState.active || conversationPhase !== 'off' || Object.values(state.sessionStatuses).some((status) => status.type !== 'idle'),
+    pendingSessionIds: Object.keys(inbox.pendingPromptsBySession).filter((id) => inbox.pendingPromptsBySession[id].length > 0),
+    busy: Object.values(inbox.pendingPromptsBySession).some((prompts) => prompts.length > 0) || prompt.sendingState.active || conversationPhase !== 'off' || Object.values(state.sessionStatuses).some((status) => status.type !== 'idle'),
     currentSessionId: state.currentSessionId,
     conversationSessionId,
     onEvent: handleEvent,
     refreshSessions: workspace.refreshSessions,
     refreshPendingInteractions: workspace.refreshPendingInteractions,
-    refreshMessages: transcript.refreshMessages,
+    refreshMessages: inbox.refreshMessages,
     refreshSessionDiff: workspace.refreshSessionDiff,
     refreshSessionTodos: workspace.refreshSessionTodos,
   });
@@ -352,6 +356,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const values = useOpencodeProviderValues({
     ...state,
     ...transcript,
+    pendingPromptsBySession: inbox.pendingPromptsBySession,
     ...terminal,
     ...worktree,
     ...mcp,

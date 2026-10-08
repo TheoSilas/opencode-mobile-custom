@@ -266,5 +266,16 @@
     "openingTitle": "セッションを開いています",
     "loading": "OpenCode サーバーからこのセッションを読み込んでいます。",
     "backToChat": "チャットに戻る"
+  },
+  "attachments": {
+    "preview": "{{name}}をプレビュー",
+    "play": "再生",
+    "pause": "一時停止",
+    "openExternally": "別のアプリで開く",
+    "previewFailed": "このファイルをプレビューまたは開くことができませんでした。利用できないか、対応していない可能性があります。"
+  },
+  "pendingPrompts": {
+    "sending": "送信中…",
+    "waiting": "反映待ち…"
   }
 }

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Keyboard, StyleSheet, View } from 'react-native';
 import { Chip, IconButton, Surface, Text } from 'react-native-paper';
 
+import { AttachmentStrip } from '@/components/chat/attachment-strip';
 import { MarkdownText } from '@/components/chat/chat-markdown';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -43,6 +44,7 @@ function TranscriptMessageImpl({
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
   const isUser = entry.role === 'user';
+  const attachments = entry.details.filter((detail) => detail.kind === 'file').map((detail) => ({ uri: detail.uri || '', mime: detail.mime, filename: detail.filename || detail.label }));
   const patchSummary = t('chat:cards.updatedPatches', { count: entry.details.filter((detail) => detail.kind === 'patch').length });
   const detailSummary = summarizeTranscriptDetails(entry.details, { patches: (count) => t('chat:cards.updatedPatches', { count }), files: (count) => t('chat:cards.fileCount', { count }) });
   const textColor = flat ? palette.text : isUser ? palette.onBubbleUser : palette.onBubbleAssistant;
@@ -54,6 +56,7 @@ function TranscriptMessageImpl({
     <View style={[styles.messageRow, flat ? styles.messageRowFlat : isUser && styles.messageRowUser]}>
       <View onTouchEnd={Keyboard.dismiss} style={styles.messageTouchable}>
         <Surface
+          testID={`transcript-message-${entry.id}`}
           style={[
             styles.messageBubble,
             flat ? styles.messageFlat : isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant,
@@ -101,6 +104,7 @@ function TranscriptMessageImpl({
               </Text>
             </View>
           </View>
+          {attachments.length > 0 ? <AttachmentStrip attachments={attachments} /> : null}
           {entry.text ? (
             <MarkdownText
               text={entry.text}

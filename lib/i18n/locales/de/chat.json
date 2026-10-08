@@ -266,5 +266,16 @@
     "openingTitle": "Sitzung wird geöffnet",
     "loading": "Diese Sitzung wird von deinem OpenCode-Server geladen.",
     "backToChat": "Zurück zum Chat"
+  },
+  "attachments": {
+    "preview": "Vorschau von {{name}}",
+    "play": "Abspielen",
+    "pause": "Pause",
+    "openExternally": "In anderer App öffnen",
+    "previewFailed": "Diese Datei konnte nicht angezeigt oder geöffnet werden. Sie ist möglicherweise nicht verfügbar oder wird nicht unterstützt."
+  },
+  "pendingPrompts": {
+    "sending": "Wird gesendet…",
+    "waiting": "Wartet auf Berücksichtigung…"
   }
 }

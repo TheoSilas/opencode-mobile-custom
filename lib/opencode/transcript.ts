@@ -34,7 +34,7 @@ export function isTranscriptDisplayMessage(entry: TranscriptEntry) {
     return true;
   }
 
-  return Boolean(entry.text.trim() || entry.error);
+  return Boolean(entry.text.trim() || entry.error || entry.details.some((detail) => detail.kind === 'file'));
 }
 
 export function summarizeTranscriptDetails(details: TranscriptDetail[], labels?: { patches: (count: number) => string; files: (count: number) => string }) {

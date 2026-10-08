@@ -2,6 +2,7 @@ import { Alert, Platform } from 'react-native';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { TranscriptEntry } from '@/lib/opencode/format';
+import { pickedAttachment } from '@/lib/attachment-preview';
 import { speakText, stopSpeaking } from '@/lib/voice/speech-output';
 import type { ChatPreferences } from '@/providers/opencode-provider-types';
 
@@ -98,15 +99,9 @@ export function useChatViewActions({
         const next = [...current];
 
         result.assets.forEach((asset) => {
-          const uri = asset.base64
-            ? `data:${asset.mimeType || 'application/octet-stream'};base64,${asset.base64}`
-            : asset.uri;
-          if (!next.some((attachment) => attachment.uri === uri)) {
-            next.push({
-              uri,
-              mime: asset.mimeType || 'application/octet-stream',
-              filename: asset.name,
-            });
+          const attachment = pickedAttachment(asset);
+          if (!next.some((current) => current.uri === attachment.uri)) {
+            next.push(attachment);
           }
         });
 

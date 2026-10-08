@@ -1,3 +1,4 @@
+import type { PendingPrompt } from '@/lib/opencode/prompt-inbox';
 import type {
   Command,
   Config,
@@ -265,6 +266,7 @@ export type SessionContextValue = {
 };
 
 export type ChatContextValue = {
+  pendingPrompts: PendingPrompt[];
   currentMessages: SessionMessageRecord[];
   currentTranscript: TranscriptEntry[];
   currentUsage: SessionUsage;

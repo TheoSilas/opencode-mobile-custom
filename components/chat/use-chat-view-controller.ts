@@ -34,7 +34,7 @@ export function useChatViewController() {
   const { connection, settings, serverCapabilities } = useConnection();
   const { conversation, clearConversationFeedback, toggleConversationMode } = useConversation();
   const {
-    abortSession, clearPromptError, commands, currentDiffs, currentDiffScope, currentMessages,
+    pendingPrompts, abortSession, clearPromptError, commands, currentDiffs, currentDiffScope, currentMessages,
     currentPendingPermissions, currentPendingQuestions, currentTodos, currentTranscript, currentUsage,
     diffTurns, executeCommand, isRefreshingDiffs, isRefreshingMessages,
     latestAssistantTurnUsage, promptError, refreshCurrentSession, refreshDiffs, rejectQuestion,
@@ -400,7 +400,7 @@ export function useChatViewController() {
     handleSendPrompt, handleSpeakEntry, handleToggleRecording, handleVoiceRecovery,
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
-    pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
+    pendingPrompts, pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
     rejectQuestion, replyToPermission, replyToQuestion, revertSession, retryAttempt, running, selectDiffMessage,
     selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage,
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,

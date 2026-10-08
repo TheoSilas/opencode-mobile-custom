@@ -90,7 +90,18 @@
     "authorizationCodeHint": "Kopiere nach der Anmeldung den angezeigten Code und füge ihn hier ein.",
     "setupUnavailable": "Die Einrichtungsdetails für diesen Anbieter sind derzeit nicht verfügbar.",
     "couldNotComplete": "Anmeldung konnte nicht abgeschlossen werden.",
-    "removeCredentials": "Zugangsdaten für {{provider}} entfernen"
+    "removeCredentials": "Zugangsdaten für {{provider}} entfernen",
+    "promptDelivery": {
+      "label": "Nachrichten während einer Aufgabe",
+      "steer": {
+        "label": "Lenken",
+        "description": "Die Nachricht im nächsten Schritt der aktuellen Antwort berücksichtigen."
+      },
+      "queue": {
+        "label": "Anhängen",
+        "description": "Die Nachricht für einen späteren Gesprächsschritt vormerken."
+      }
+    }
   },
   "providerCopy": {
     "openai": {

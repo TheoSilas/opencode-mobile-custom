@@ -90,7 +90,18 @@
     "authorizationCodeHint": "साइन-इन करने के बाद, दिखाया गया कोड कॉपी करें और यहाँ पेस्ट करें।",
     "setupUnavailable": "इस प्रदाता के सेटअप विवरण अभी उपलब्ध नहीं हैं।",
     "couldNotComplete": "साइन-इन पूरा नहीं किया जा सका।",
-    "removeCredentials": "{{provider}} के क्रेडेंशियल हटाएँ"
+    "removeCredentials": "{{provider}} के क्रेडेंशियल हटाएँ",
+    "promptDelivery": {
+      "label": "काम के दौरान भेजे गए संदेश",
+      "steer": {
+        "label": "निर्देश दें",
+        "description": "मौजूदा उत्तर के अगले चरण में संदेश लागू करें।"
+      },
+      "queue": {
+        "label": "जोड़ें",
+        "description": "संदेश को अगले संवाद के लिए कतार में रखें।"
+      }
+    }
   },
   "providerCopy": {
     "openai": {
