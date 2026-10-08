@@ -28,8 +28,8 @@ function MarkdownTextImpl({ text, color, fontSize, mutedColor }: { text: string;
     h6: { fontSize: 13 * scale, fontWeight: '700', color },
     list: { fontSize, color, lineHeight: 26 * scale, bulletColor: color, markerColor: color, gapWidth: 10 },
     link: { color, underline: true },
-    code: { fontFamily: 'monospace', fontSize: 15 * scale, color, backgroundColor: 'rgba(0,0,0,0.08)' },
-    codeBlock: { fontFamily: 'monospace', fontSize: 15 * scale, lineHeight: 18 * scale, color, backgroundColor: 'rgba(0,0,0,0.08)', padding: 14, borderRadius: 14 },
+    code: { fontSize: 15 * scale, color, backgroundColor: 'rgba(0,0,0,0.08)' },
+    codeBlock: { fontSize: 15 * scale, lineHeight: 18 * scale, color, backgroundColor: 'rgba(0,0,0,0.08)', padding: 14, borderRadius: 14 },
     blockquote: { color, fontSize: 15 * scale, borderColor: mutedColor, borderWidth: 3 },
     table: {
       fontSize: 15 * scale,
