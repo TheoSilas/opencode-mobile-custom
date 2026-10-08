@@ -6,6 +6,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 
 import { resolveConnectionCredentials } from '@/lib/connection-profiles';
+import { isActivityCompletionManaged } from '@/lib/activity-notifications';
 import { i18n } from '@/lib/i18n';
 import { buildClient, detectServerContract, type OpencodeConnectionSettings } from '@/lib/opencode/client';
 import {
@@ -16,7 +17,7 @@ import {
 } from '@/lib/notification-pending';
 import { PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY } from '@/lib/storage-keys';
 
-const TASK_FINISHED_CHANNEL_ID = 'task-finished';
+const TASK_FINISHED_CHANNEL_ID = 'task-finished-silent';
 const CHAT_COMPLETION_TASK_NAME = 'opencode-chat-completion-monitor';
 const BACKGROUND_MINIMUM_INTERVAL_MINUTES = 15;
 
@@ -105,8 +106,7 @@ function buildTaskFinishedContent(title: string, body: string): Notifications.No
   return {
     title,
     body,
-    sound: true,
-    ...(Platform.OS === 'android' ? { channelId: TASK_FINISHED_CHANNEL_ID } : {}),
+    sound: Platform.OS !== 'android',
   };
 }
 
@@ -115,9 +115,11 @@ async function scheduleLocalNotification(title: string, body: string) {
     return null;
   }
 
+  await configureNotificationChannelAsync();
+
   return Notifications.scheduleNotificationAsync({
     content: buildTaskFinishedContent(title, body),
-    trigger: null,
+    trigger: Platform.OS === 'android' ? { channelId: TASK_FINISHED_CHANNEL_ID } : null,
   });
 }
 
@@ -185,7 +187,7 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(CHAT_COMPLETION_TASK_NAM
           }
           // Re-check ownership after the network read: a new prompt for this
           // session must not be notified or removed by the older monitor pass.
-          await completePendingNotification(key, pending, () => scheduleTaskFinishedNotification(session?.title || pending.sessionTitle));
+          await completePendingNotification(key, pending, () => notifyTaskFinished(session?.title || pending.sessionTitle, pending.connectionScope));
         } catch {
           continue;
         }
@@ -205,8 +207,9 @@ async function configureNotificationChannelAsync() {
 
   await Notifications.setNotificationChannelAsync(TASK_FINISHED_CHANNEL_ID, {
     name: 'Task finished',
-    importance: Notifications.AndroidImportance.DEFAULT,
-    vibrationPattern: [0, 180, 120, 180],
+    importance: Notifications.AndroidImportance.LOW,
+    sound: null,
+    enableVibrate: false,
   });
 }
 
@@ -279,7 +282,7 @@ export async function initializeNotifications() {
     handleNotification: async () => ({
       shouldShowBanner: true,
       shouldShowList: true,
-      shouldPlaySound: true,
+      shouldPlaySound: Platform.OS !== 'android',
       shouldSetBadge: false,
     }),
   });
@@ -289,26 +292,32 @@ export async function initializeNotifications() {
   initialized = true;
 }
 
-export async function trackPendingTaskFinishedNotification(input: PendingNotificationSession) {
+export async function trackPendingTaskFinishedNotification(input: PendingNotificationSession, onlyIfAbsent = false) {
   return withPendingSessions(async () => {
     const current = await readPendingNotificationSessions();
-    current[pendingNotificationKey(input.connectionScope, input.sessionId)] = input;
+    const key = pendingNotificationKey(input.connectionScope, input.sessionId);
+    if (onlyIfAbsent && current[key]) return current[key];
+    current[key] = input;
     await writePendingNotificationSessions(current);
+    return input;
   });
 }
 
-export async function clearPendingTaskFinishedNotification(connectionScope: string, sessionId: string) {
+export async function clearPendingTaskFinishedNotification(connectionScope: string, sessionId: string, requestedAt?: number) {
   return withPendingSessions(async () => {
     const current = await readPendingNotificationSessions();
     const key = pendingNotificationKey(connectionScope, sessionId);
-    if (!current[key]) return;
+    if (!current[key]) return false;
+    if (requestedAt !== undefined && current[key].requestedAt !== requestedAt) return false;
     delete current[key];
     await writePendingNotificationSessions(current);
+    return true;
   });
 }
 
 // Notification copy is translated here, at the lib boundary, so callers pass
 // only the session title and never render notification strings themselves.
-export async function notifyTaskFinished(sessionTitle?: string) {
+export async function notifyTaskFinished(sessionTitle?: string, connectionScope?: string) {
+  if (isActivityCompletionManaged(connectionScope)) return;
   await scheduleTaskFinishedNotification(sessionTitle);
 }

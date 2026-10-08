@@ -67,6 +67,7 @@ export type ConversationPhase = 'off' | 'listening' | 'submitting' | 'waiting' |
 export type SessionDeepLinkTarget = {
   sessionId: string;
   projectPath?: string;
+  connectionScope?: string;
 };
 
 export const CONVERSATION_KEEP_AWAKE_TAG = 'opencode-conversation-mode';

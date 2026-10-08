@@ -27,6 +27,7 @@ import {
 import { useOpencodeRealtime } from '@/providers/use-opencode-realtime';
 import { useConversationState } from '@/providers/use-conversation-state';
 import { useActiveSessions } from '@/providers/use-active-sessions';
+import { useActivityNotifications } from '@/providers/use-activity-notifications';
 import { usePermissionRulesState } from '@/providers/use-permission-rules-state';
 import { useTranscriptState } from '@/providers/use-transcript-state';
 import { useMcpState } from '@/providers/use-mcp-state';
@@ -339,6 +340,12 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const handleActivityEvent = useActivityNotifications({
+    catalogClient, settings: state.settings, contract: state.serverContract,
+    connectionScope: state.connectionScope, connected: state.connection.status === 'connected',
+    currentSessionId: state.currentSessionId, sessions: state.sessions, sendingState: prompt.sendingState, promptError: prompt.promptError,
+  });
+
   const { eventStreamStatus } = useOpencodeRealtime({
     catalogClient,
     activeProjectPath: state.activeProjectPath,
@@ -348,6 +355,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     currentSessionId: state.currentSessionId,
     conversationSessionId,
     onEvent: handleEvent,
+    onGlobalEvent: handleActivityEvent,
     refreshSessions: workspace.refreshSessions,
     refreshPendingInteractions: workspace.refreshPendingInteractions,
     refreshMessages: inbox.refreshMessages,

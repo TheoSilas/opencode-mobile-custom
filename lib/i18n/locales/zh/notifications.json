@@ -2,5 +2,21 @@
   "taskFinished": {
     "title": "OpenCode 已完成任务",
     "bodyFallback": "任务完成"
+  },
+  "activity": {
+    "working": "处理中",
+    "thinking": "思考中",
+    "needsInput": "需要您的输入",
+    "retrying": "正在重试",
+    "queued": "排队中",
+    "finished": "可以查看结果",
+    "failed": "任务失败",
+    "stopped": "任务已停止",
+    "reconnecting": "正在重新连接",
+    "paused": "监控已暂停。打开应用以恢复。",
+    "stopMonitoring": "停止监控",
+    "channel": "任务活动",
+    "untitled": "无标题任务",
+    "tasks": "{{count}} 个任务正在运行"
   }
 }

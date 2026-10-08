@@ -501,6 +501,27 @@ Behavior:
 Parity implication:
 
 - notification tracking is coupled to prompt submission and session status transitions
+- Android native builds automatically show one silent ongoing activity notification
+  for all tasks on the connected server, including other workspaces and desktop
+  tasks. It shows the active count and selected task's tool, thinking, retry,
+  queued, or needs-input state. Subagents count as their root task. Notification
+  taps open the owning connection, workspace, and session.
+- While work is monitored, an Android foreground service keeps provider SSE and
+  polling alive when the app is backgrounded or locked. Android 16+ is asked to
+  promote the notification to a status-bar chip; OS settings and device support
+  determine whether it appears. Older devices use a normal ongoing notification.
+- Once all tasks finish, monitoring stops and the same notification becomes a
+  dismissible silent result. Failed or interrupted tasks show their actual state.
+  No notification is posted before activity. Stop monitoring and dismissal leave
+  server jobs running and suppress that notification cycle until a new task starts.
+- Idle background discovery is not continuous: desktop work started afterward
+  is discovered when the app resumes. Foreground discovery polls every 20 seconds,
+  with events triggering reconciliation; monitored work polls every 5 seconds.
+  Force-stop, removing the app from Recents, and process termination end live
+  monitoring. Android service timeouts leave a silent monitoring-paused result.
+- Android completion notifications use a silent channel, including the periodic
+  fallback. iOS completion behavior is unchanged. Live activity requires a rebuilt
+  native app and is disabled on web, Expo Go, and E2E runs.
 - a rewrite should preserve both in-app completion flushing and background completion checking
 
 ## Persistence Requirements

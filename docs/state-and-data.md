@@ -568,6 +568,23 @@ This logic prevents stale persisted provider/model values from breaking the UI w
 
 ## Notification Tracking Data
 
+On Android native builds, the provider also observes all tasks on the connected
+server, including other workspaces and desktop submissions. It holds a transient
+server-wide snapshot plus observed root IDs, connection scope, and notification
+cycle. Busy descendants, retries, queued inbox messages, and pending interactions
+keep their root active. The selected notification task prioritizes blockers,
+then the current running chat, then recency. The four-item Chat Library cap does
+not apply. Retry statuses reuse the provider's existing reconciliation policy.
+
+Only successful catalog, status, interaction, inbox, and transcript reads can
+end monitoring; failed reads preserve active work and display Reconnecting.
+Completion record deletion returns whether the matching record was removed,
+so the provider and activity observer cannot both emit completion notifications.
+Observed desktop tasks reuse the non-secret pending DTO below; insert-if-absent
+does not overwrite a prompt's existing timestamp, and conditional deletion
+cannot remove a later submission. Connection switches retain durable records
+while clearing the previous connection's live notification.
+
 Pending completion notification storage records:
 
 - `sessionId`

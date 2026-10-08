@@ -87,6 +87,14 @@ describe('session reads', () => {
     expect(v1.nextBefore).toBe('4280');
   });
 
+  it('does not report idle when the V2 active-session read fails', async () => {
+    const active = vi.spyOn(api.session, 'active').mockRejectedValueOnce(new Error('offline'));
+    await expect(client.session.status()).rejects.toThrow('offline');
+    active.mockResolvedValueOnce(undefined as never);
+    await expect(client.session.status()).rejects.toThrow('did not return active sessions');
+    active.mockRestore();
+  });
+
   it('coalesces outstanding reads per client scope and never caches settled ones', async () => {
     const old: any = {}, next: any = {};
     const slow = deferred();

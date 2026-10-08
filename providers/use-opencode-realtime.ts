@@ -4,6 +4,7 @@ import type { ScopedOpencodeClient } from '@/lib/opencode/client';
 
 type RealtimeActions = {
   onEvent: (event: GlobalEvent['payload']) => void;
+  onGlobalEvent?: (event: GlobalEvent['payload']) => void;
   refreshSessions: (silent: boolean) => Promise<unknown>;
   refreshPendingInteractions: () => Promise<unknown>;
   refreshMessages: (sessionId: string, silent: boolean, options?: { full?: boolean }) => Promise<unknown>;
@@ -69,6 +70,7 @@ export function useOpencodeRealtime({ catalogClient, activeProjectPath, connecte
               reconciled = true;
               void reconcile(true);
             }
+            latest.current.onGlobalEvent?.(envelope.payload);
             if (envelope.directory === activeProjectPath || !envelope.directory) latest.current.onEvent(envelope.payload);
           }
           if (!controller.signal.aborted) throw new Error('OpenCode event stream ended.');

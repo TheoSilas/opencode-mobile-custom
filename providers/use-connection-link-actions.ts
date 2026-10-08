@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 import { findProfileByConnectionScope, getProfilePassword, loadConnectionProfiles } from '@/lib/connection-profiles';
-import { getConnectionScope } from '@/lib/connection-scope';
 import { buildClient } from '@/lib/opencode/client';
 import type { SessionDeepLinkTarget } from '@/providers/opencode-provider-types';
 import { restoreSession as svcRestoreSession } from '@/providers/services/session-service';
@@ -38,6 +37,15 @@ export function useConnectionLinkActions({
     return connectionScopeRef.current === scope;
   }, [connectionScopeRef]);
 
+  const switchToScope = useCallback(async (scope: string) => {
+    if (scope === connectionScopeRef.current) return;
+    const profile = findProfileByConnectionScope(await loadConnectionProfiles(), scope);
+    if (!profile) throw new Error('The saved connection for this session no longer exists.');
+    const password = await getProfilePassword(profile.id);
+    await switchConnection({ serverUrl: profile.serverUrl, username: profile.username, password, connect: profile.connect }, profile.modelPreferences);
+    if (!await waitForConnectionScope(scope)) throw new Error('Could not switch to the connection that owns this session.');
+  }, [connectionScopeRef, switchConnection, waitForConnectionScope]);
+
   const openDeepLinkSession = useCallback(
     async (target: SessionDeepLinkTarget, signal?: AbortSignal): Promise<{ ok: boolean; error?: string }> => {
       const sessionId = target.sessionId.trim();
@@ -69,6 +77,15 @@ export function useConnectionLinkActions({
       const connectionStatus = () => connectionRef.current.status;
       if (!sessionId) {
         return finish({ ok: false, error: 'This session link is missing a session ID.' });
+      }
+
+      if (target.connectionScope) {
+        try {
+          await switchToScope(target.connectionScope);
+        } catch (error) {
+          return finish({ ok: false, error: error instanceof Error ? error.message : 'Could not open the connection for this session.' });
+        }
+        if (!ownsOperation()) return finish({ ok: false, error: 'This session link was superseded.' });
       }
 
       if (connectionStatus() !== 'connected') {
@@ -140,32 +157,19 @@ export function useConnectionLinkActions({
 
       return finish({ ok: false, error: `Session ${sessionId} was not found in the ${targetProjectPath} project.` });
     },
-    [activeProjectPathRef, connect, connectionRef, currentSessionIdRef, deepLinkOperationRef, ensureActiveSessionRef, pendingDeepLinkTargetRef, selectProject, serverGenerationRef, serverProjectsRef],
+    [activeProjectPathRef, connect, connectionRef, currentSessionIdRef, deepLinkOperationRef, ensureActiveSessionRef, pendingDeepLinkTargetRef, selectProject, serverGenerationRef, serverProjectsRef, switchToScope],
   );
 
   const openSessionInProject = useCallback(async (projectPath: string, sessionId: string, targetConnectionScope?: string) => {
     if (targetConnectionScope && targetConnectionScope !== connectionScopeRef.current) {
-      const profiles = await loadConnectionProfiles();
-      const profile = findProfileByConnectionScope(profiles, targetConnectionScope);
-      if (!profile) {
-        throw new Error('This favorite belongs to a saved connection that no longer exists.');
-      }
-      const password = await getProfilePassword(profile.id);
-      await switchConnection({
-        serverUrl: profile.serverUrl,
-        username: profile.username,
-        password,
-      }, profile.modelPreferences);
-      if (!await waitForConnectionScope(getConnectionScope(settingsRef.current))) {
-        throw new Error('Could not switch to the connection that owns this favorite.');
-      }
+      await switchToScope(targetConnectionScope);
     }
 
     const result = await openDeepLinkSession({ sessionId, projectPath });
     if (!result.ok) {
       throw new Error(result.error || 'Could not open the session.');
     }
-  }, [connectionScopeRef, openDeepLinkSession, settingsRef, switchConnection, waitForConnectionScope]);
+  }, [connectionScopeRef, openDeepLinkSession, switchToScope]);
 
   const restoreSession = useCallback(async (sessionId: string, options?: { projectPath?: string; open?: boolean }) => {
     const projectPath = options?.projectPath || activeProjectPathRef.current;

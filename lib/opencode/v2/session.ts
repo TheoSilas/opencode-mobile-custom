@@ -48,9 +48,10 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
       },
       status: async () => {
         const [active, list] = await Promise.all([
-          api.session.active().catch(() => ({}) as Record<string, unknown>),
+          api.session.active(),
           listSessionPage(),
         ]);
+        if (active == null) throw new Error('OpenCode did not return active sessions.');
         const statuses: Record<string, unknown> = {};
         (list.data ?? []).forEach((session) => {
           statuses[session.id] = { type: 'idle' };

@@ -54,7 +54,7 @@ const backgroundTaskStubUri = `data:text/javascript,${encodeURIComponent(`
   export async function registerTaskAsync() {}
 `)}`;
 const notificationsStubUri = `data:text/javascript,${encodeURIComponent(`
-  export const AndroidImportance = { DEFAULT: 3 };
+  export const AndroidImportance = { DEFAULT: 3, LOW: 2 };
   export function setNotificationHandler() {}
   export async function setNotificationChannelAsync() {}
   export async function scheduleNotificationAsync(request) { globalThis.__notificationsTestScheduled.push(request); return 'notification-id'; }
@@ -96,6 +96,7 @@ const notificationPendingUri = await transpileToDataUri('lib/notification-pendin
   [/from '@\/lib\/connection-scope'/g, `from "${connectionScopeUri}"`],
 ]);
 const notificationsUri = await transpileToDataUri('lib/notifications.ts', [
+  [/from '@\/lib\/activity-notifications'/g, `from "data:text/javascript,export function isActivityCompletionManaged() { return false; }"`],
   [/from '@react-native-async-storage\/async-storage'/g, `from "${asyncStorageStubUri}"`],
   [/from 'expo-background-task'/g, `from "${backgroundTaskStubUri}"`],
   [/from 'expo-constants'/g, `from "${constantsStubUri}"`],
@@ -177,6 +178,8 @@ function readPending() {
 
   assert.equal(globalThis.__notificationsTestScheduled.length, 1);
   assert.equal(globalThis.__notificationsTestScheduled[0].content.body, 'B task');
+  assert.equal(globalThis.__notificationsTestScheduled[0].content.sound, false);
+  assert.equal(globalThis.__notificationsTestScheduled[0].trigger.channelId, 'task-finished-silent');
 
   const aBuild = globalThis.__notificationsTestBuilds.find(({ settings }) => settings.serverUrl.includes('a.example'));
   assert.equal(aBuild.settings.password, 'secret-a');
@@ -229,6 +232,12 @@ assert.equal(Object.keys(readPending()).length, 3);
 await Promise.all([clearPendingTaskFinishedNotification(scopeA, 'one'), trackPendingTaskFinishedNotification(record('four'))]);
 assert.equal(Object.keys(readPending()).length, 3);
 assert.ok(readPending()[pendingNotificationKey(scopeA, 'four')]);
+
+// The observer adopts a submitted turn instead of replacing its identity.
+assert.equal((await trackPendingTaskFinishedNotification(record('four', 20), true)).requestedAt, 10);
+assert.equal(await clearPendingTaskFinishedNotification(scopeA, 'four', 20), false);
+assert.equal(await clearPendingTaskFinishedNotification(scopeA, 'four', 10), true);
+assert.equal(await clearPendingTaskFinishedNotification(scopeA, 'four', 10), false);
 
 const original = storage.get(storageKeys.PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY);
 globalThis.__notificationsFailRead = true;

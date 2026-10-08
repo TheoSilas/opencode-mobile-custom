@@ -2,5 +2,21 @@
   "taskFinished": {
     "title": "OpenCode ने एक कार्य पूरा किया",
     "bodyFallback": "कार्य पूर्ण"
+  },
+  "activity": {
+    "working": "कार्यरत",
+    "thinking": "सोच रहा है",
+    "needsInput": "आपके उत्तर की आवश्यकता है",
+    "retrying": "पुनः प्रयास",
+    "queued": "कतार में",
+    "finished": "समीक्षा के लिए तैयार",
+    "failed": "कार्य विफल हुआ",
+    "stopped": "कार्य रोक दिया गया",
+    "reconnecting": "फिर से जुड़ रहा है",
+    "paused": "निगरानी रुकी है। जारी रखने के लिए ऐप खोलें।",
+    "stopMonitoring": "निगरानी रोकें",
+    "channel": "कार्य गतिविधि",
+    "untitled": "बिना शीर्षक का कार्य",
+    "tasks": "{{count}} कार्य चल रहे हैं"
   }
 }

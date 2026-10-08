@@ -325,7 +325,7 @@ console.log('provider-owned profile ordering, rollback, and callback stability c
 const sessionNames = ['restoreSession', 'ensureActiveSession', 'openDeepLinkSession'];
 const sessionDeclarations = [
   extractDeclarations(sessionActionsSource, ['ensureActiveSession']),
-  extractDeclarations(connectionActionsSource, ['restoreSession', 'openDeepLinkSession']),
+  extractDeclarations(connectionActionsSource, ['waitForConnectionScope', 'switchToScope', 'restoreSession', 'openDeepLinkSession']),
 ].join('\n');
 let restoreGate, restoreFailure, restoredDirectory, reopened, createdSessions = 0, fetchedSessions = 0;
 const target = { id: 'target' };
@@ -349,6 +349,11 @@ const sessionContext = {
   setCurrentSessionId: (id) => { sessionContext.currentSessionIdRef.current = id; }, setLastSessionByConnection: () => {},
   deepLinkOperationRef: {}, currentSessionIdRef: {}, serverProjectsRef: { current: [{ worktree: '/repo' }] },
   connect: async () => {}, selectProject: () => {}, ensureActiveSessionRef: {}, setTimeout, Date,
+  connectionScopeRef: { current: 'scope' },
+  loadConnectionProfiles: async () => [{ id: 'saved', serverUrl: 'https://other', username: '', scope: 'other' }],
+  findProfileByConnectionScope: (profiles, scope) => profiles.find((profile) => profile.scope === scope),
+  getProfilePassword: async () => 'secret',
+  switchConnection: async () => { sessionContext.connectionScopeRef.current = 'other'; sessionContext.serverGenerationRef.current++; },
 };
 runInNewContext(ts.transpileModule(`${sessionDeclarations}\nexports.actions = { ${sessionNames.join(', ')} };`, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, sessionContext);
 const sessionActions = sessionContext.exports.actions;
@@ -380,6 +385,10 @@ assert.match((await sessionActions.openDeepLinkSession({ sessionId: 'target', pr
   /not available from the configured server/, 'other unlisted workspaces remain rejected');
 assert.equal(sessionContext.pendingDeepLinkTargetRef.current, undefined);
 sessionContext.serverProjectsRef.current = [{ worktree: '/repo' }];
+
+assert.equal((await sessionActions.openDeepLinkSession({ sessionId: 'target', projectPath: '/repo', connectionScope: 'other' })).ok, true,
+  'notification links select their owning saved connection before opening a session');
+assert.match((await sessionActions.openDeepLinkSession({ sessionId: 'target', projectPath: '/repo', connectionScope: 'removed' })).error, /no longer exists/);
 
 // A genuine supersession is cancellation of an earlier request, not a new URL.
 const firstOpenGate = deferred();

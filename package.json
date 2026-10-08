@@ -1,6 +1,6 @@
 {
   "name": "opencode-mobile",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.58",
   "scripts": {
     "start": "expo start",

@@ -2,5 +2,21 @@
   "taskFinished": {
     "title": "OpenCode がタスクを完了しました",
     "bodyFallback": "タスク完了"
+  },
+  "activity": {
+    "working": "作業中",
+    "thinking": "思考中",
+    "needsInput": "入力が必要です",
+    "retrying": "再試行中",
+    "queued": "待機中",
+    "finished": "確認できます",
+    "failed": "タスクが失敗しました",
+    "stopped": "タスクを停止しました",
+    "reconnecting": "再接続中",
+    "paused": "監視を一時停止しました。アプリを開くと再開します。",
+    "stopMonitoring": "監視を停止",
+    "channel": "タスクのアクティビティ",
+    "untitled": "無題のタスク",
+    "tasks": "{{count}} 件のタスクを実行中"
   }
 }

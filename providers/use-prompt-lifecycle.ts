@@ -310,14 +310,14 @@ export function usePromptLifecycle({
           await clearPendingTaskFinishedNotification(connectionScope, sessionId).catch(() => undefined);
           continue;
         }
-        await clearPendingTaskFinishedNotification(connectionScope, sessionId);
+        const cleared = await clearPendingTaskFinishedNotification(connectionScope, sessionId, pending.requestedAt);
         if (cancelled) {
           return;
         }
 
         pendingNotificationsRef.current.delete(key);
         busyNotificationsRef.current.delete(key);
-        await notifyTaskFinished(session.title);
+        if (cleared) await notifyTaskFinished(session.title, connectionScope);
       }
     }
 

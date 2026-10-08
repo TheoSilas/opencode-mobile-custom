@@ -142,7 +142,9 @@ and provider setup remain in Settings.
 - `app/(tabs)/terminal.tsx`
   Thin Terminal-tab route for creating, opening, using, and terminating interactive project PTYs.
 - `app/session/[id].tsx`
-  Session deep-link resolver. Parses `sessionId` + `project`, delegates to `openDeepLinkSession()`, then replaces onto the Chat tab.
+  Session deep-link resolver. Parses `sessionId`, `project`, and optional
+  `connectionScope`, delegates to `openDeepLinkSession()`, then replaces onto
+  the Chat tab. Connection switching and credential resolution stay in the provider.
 - `app/onboarding/*.tsx`
   First-run setup assistant steps (presentation, permissions, connect,
   workspace, ready). Thin controllers over provider state; they do not own
@@ -348,6 +350,20 @@ independent of onboarding completion. See [Cloud Link pilot](connect.md).
   Provider copy and option lists.
 
 ### Platform Integrations
+
+Android activity notifications are orchestrated by `use-activity-notifications`
+inside the provider. The observer reads the connection-wide catalog through
+the existing session service, receives global events before workspace filtering,
+and polls independently of the Chat Library. `providers/services/activity-service`
+aggregates scoped interaction, inbox, and newest-transcript reads; activity
+selection folds descendants into their root tasks. No screen owns this state.
+
+The local Expo module in `modules/opencode-activity` owns the Android notification
+and a `dataSync` foreground service. Its Headless JS task only keeps React Native
+timers alive; network reads and lifecycle decisions remain in the provider.
+`index.js` registers that task before loading Expo Router. Native sources are
+autolinked from `modules/` and survive a clean prebuild. iOS, web, Expo Go, and
+E2E runs do not start this service.
 
 - `lib/notifications.ts`
   Local notifications, background monitoring task, and notification debug status.

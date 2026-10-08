@@ -2,5 +2,21 @@
   "taskFinished": {
     "title": "OpenCode hat eine Aufgabe abgeschlossen",
     "bodyFallback": "Aufgabe abgeschlossen"
+  },
+  "activity": {
+    "working": "Aktiv",
+    "thinking": "Denkt nach",
+    "needsInput": "Eingabe erforderlich",
+    "retrying": "Neuer Versuch",
+    "queued": "In Warteschlange",
+    "finished": "Bereit zur Prüfung",
+    "failed": "Aufgabe fehlgeschlagen",
+    "stopped": "Aufgabe gestoppt",
+    "reconnecting": "Verbindung wird hergestellt",
+    "paused": "Überwachung pausiert. App zum Fortsetzen öffnen.",
+    "stopMonitoring": "Überwachung stoppen",
+    "channel": "Aufgabenaktivität",
+    "untitled": "Unbenannte Aufgabe",
+    "tasks": "{{count}} Aufgaben laufen"
   }
 }

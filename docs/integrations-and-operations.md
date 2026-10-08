@@ -79,10 +79,15 @@ Used for persistence of user settings and lightweight workflow continuity state.
 - local task-complete notifications
 - Android notification channel configuration
 - optional periodic background session-completion checks on supported native builds
+- Android server-wide activity notifications through a local Expo module and
+  `dataSync` foreground service; its Headless JS keepalive preserves provider
+  SSE/polling while work is active, without FCM or an additional npm dependency
 
 Important current rule:
 
 - background monitoring is considered unsupported on web and unsupported in Expo Go (`Constants.appOwnership === 'expo'`)
+- live activity stops at idle, dismissal, scope changes, service timeout, or
+  process termination; periodic completion monitoring remains the fallback
 
 ### Voice Output
 

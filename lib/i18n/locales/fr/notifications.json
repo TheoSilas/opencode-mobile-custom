@@ -2,5 +2,21 @@
   "taskFinished": {
     "title": "OpenCode a terminé une tâche",
     "bodyFallback": "Tâche terminée"
+  },
+  "activity": {
+    "working": "En cours",
+    "thinking": "Réflexion",
+    "needsInput": "Votre réponse est requise",
+    "retrying": "Nouvelle tentative",
+    "queued": "En attente",
+    "finished": "Prêt à vérifier",
+    "failed": "Échec de la tâche",
+    "stopped": "Tâche arrêtée",
+    "reconnecting": "Reconnexion",
+    "paused": "Suivi suspendu. Ouvrez l’application pour reprendre.",
+    "stopMonitoring": "Arrêter le suivi",
+    "channel": "Activité des tâches",
+    "untitled": "Tâche sans titre",
+    "tasks": "{{count}} tâches en cours"
   }
 }

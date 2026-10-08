@@ -382,6 +382,23 @@ serialized profile saves with credential rollback and callback stability.
 hydration, ordered/deduplicated writes, and preserving unread records.
 `test:notifications-background` covers concurrent changes, transient reads/writes,
 malformed data, and a re-sent task during background completion checks.
+The Vitest activity-notifications suite exercises the real provider observer,
+aggregation service, and selectors with native/network boundaries mocked. It
+covers multiple workspaces, descendants, blockers, retry/queue states, failed
+reads, foreground permission changes, background polling, completion cleanup,
+dismissal cycle keys, and stale reads after connection changes. V2 status tests
+reject network failures and missing active-session responses instead of idle.
+Provider-runtime also covers connection-scoped notification links.
+
+Native acceptance remains required for activity notifications: start work, leave
+the app and lock the device, confirm action updates, resolve a blocker, and check
+the silent final result. Repeat with several desktop tasks, disabled notification
+permission, disabled promotion, Stop monitoring, shade dismissal, network loss,
+removing Recents, and a shortened Android foreground-service timeout. Confirm a
+new task can show after dismissal and that no idle polling service remains.
+Check Android 16+ promotion and a pre-16 normal notification fallback; verify
+production and FOSS clean prebuilds preserve the module and release shrinking
+preserves Expo records. Web E2E cannot establish status-bar or battery behavior.
 the Vitest `record-preservation` suite is now part of the static CI gate.
 
 ### Workspace Mutation And Management Flows
