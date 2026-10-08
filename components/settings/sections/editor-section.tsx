@@ -1,18 +1,21 @@
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { HelperText } from 'react-native-paper';
+import { HelperText, Text } from 'react-native-paper';
 
 import { NumericSlider } from '@/components/ui/numeric-slider';
+import type { ServerContract } from '@/lib/opencode/client';
 import type { ChatPreferences } from '@/providers/opencode-provider';
 import { normalizeTranscriptFontSize, TRANSCRIPT_FONT_SIZE_MAX, TRANSCRIPT_FONT_SIZE_MIN } from '@/providers/opencode-preferences';
-import { SettingSwitchRow, type Palette } from './setting-rows';
+import { SettingSelectField, SettingSwitchRow, type Palette } from './setting-rows';
 
-export function AppearanceSection({
+export function EditorSection({
   chatPreferences,
+  contract,
   palette,
   updateChatPreferences,
 }: {
   chatPreferences: ChatPreferences;
+  contract: ServerContract;
   palette: Palette;
   updateChatPreferences: (patch: Partial<ChatPreferences>) => void;
 }) {
@@ -20,7 +23,16 @@ export function AppearanceSection({
   const fontSize = normalizeTranscriptFontSize(chatPreferences.transcriptFontSize);
 
   return (
-    <View style={styles.section}>
+    <View testID="settings-editor-section" style={styles.section}>
+      <Text accessibilityRole="header" variant="titleLarge" style={[styles.title, { color: palette.text }]}>{t('settings:editor.title')}</Text>
+      {contract === 'v2' ? <SettingSelectField
+        label={t('settings:providers.promptDelivery.label')}
+        valueLabel={t(`settings:providers.promptDelivery.${chatPreferences.promptDelivery || 'steer'}.label`)}
+        selectedValue={chatPreferences.promptDelivery || 'steer'}
+        options={(['steer', 'queue'] as const).map((value) => ({ value, label: t(`settings:providers.promptDelivery.${value}.label`), description: t(`settings:providers.promptDelivery.${value}.description`) }))}
+        onValueChange={(promptDelivery) => updateChatPreferences({ promptDelivery })}
+        palette={palette}
+      /> : null}
       <NumericSlider
         label={t('settings:appearance.chatTextSize')}
         minimum={TRANSCRIPT_FONT_SIZE_MIN}
@@ -39,17 +51,11 @@ export function AppearanceSection({
         palette={palette}
         value={chatPreferences.flatTranscript === true}
       />
-      <SettingSwitchRow
-        title={t('settings:appearance.slimInterface.title')}
-        description={t('settings:appearance.slimInterface.description')}
-        onValueChange={(slimInterface) => updateChatPreferences({ slimInterface })}
-        palette={palette}
-        value={chatPreferences.slimInterface === true}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   section: { gap: 14, paddingBottom: 8 },
+  title: { fontWeight: '600' },
 });

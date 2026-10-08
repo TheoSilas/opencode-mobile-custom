@@ -105,8 +105,9 @@ of those domains.
 
 ### First-Run Onboarding
 
-The assistant is a short, functional setup flow rather than a marketing
-carousel: welcome, connect, workspace, preferences, permissions, and ready.
+The assistant has five steps: app presentation, permissions, add connection,
+workspace, and ready. Presentation has only Continue navigation; preferences
+and provider setup remain in Settings.
 
 - Completion lives in `opencode-mobile.onboarding-version` (managed by
   `providers/onboarding-state.ts`) and represents completion only. Connection
@@ -122,13 +123,10 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
   completion from triggering a duplicate reconnect.
 - The assistant reuses existing infrastructure: `switchConnection` for the
   server step, `selectProject`/`addWorkspace` for the workspace step,
-  `updateChatPreferences` plus `ModelPicker`/settings sections for preferences,
-  and `useNotificationSetup`/`lib/voice/permissions.ts` for permissions. The
-  provider configuration dialog state machine is shared through
-  `components/settings/use-provider-configuration.tsx`.
+  and `useNotificationSetup`/`lib/voice/permissions.ts` for permissions.
 - Every configured step can be skipped: connect and workspace each expose a
   `skip` action that advances one step without persisting anything, matching
-  the existing preferences and permissions skips. Skipping never mutates
+  the permissions skip. Skipping never mutates
   settings, so a setup can be completed with no server or workspace and the
   app lands on the chat workspace prompt, where the user can configure later.
 
@@ -145,8 +143,8 @@ carousel: welcome, connect, workspace, preferences, permissions, and ready.
 - `app/session/[id].tsx`
   Session deep-link resolver. Parses `sessionId` + `project`, delegates to `openDeepLinkSession()`, then replaces onto the Chat tab.
 - `app/onboarding/*.tsx`
-  First-run setup assistant steps (welcome, connect, workspace, preferences,
-  permissions, ready). Thin controllers over provider state; they do not own
+  First-run setup assistant steps (presentation, permissions, connect,
+  workspace, ready). Thin controllers over provider state; they do not own
   connection/workspace/preference persistence.
 
 ### Provider Layer
@@ -581,7 +579,8 @@ Responsibilities:
 - manage voice and response-style preferences
 - adjust the chat transcript text size, bubble/flat layout, and slim interface density
 - choose the app interface language
-- launch the Setup assistant, which reopens the onboarding flow in review mode seeded from the current connection, workspace, preferences, and permissions without wiping any of them
+- group chat text size, flat conversation and V2 Steer/Append delivery under Advanced → Editor; group slim interface, language and Reset onboarding under Advanced → General
+- launch Reset onboarding at the presentation screen, with the permissions, connection and workspace steps seeded from current state without wiping configuration
 
 ### Terminal Screen
 

@@ -15,12 +15,11 @@ import { Colors, Fonts } from '@/constants/theme';
 import { McpSection } from '@/components/settings/mcp-section';
 import {
   AiDefaultsSection,
-  AppearanceSection,
+  EditorSection,
   ConnectionSection,
   DiagnosticsSection,
-  LanguageSection,
+  GeneralSection,
   NotificationsSection,
-  SettingSelectField,
   SupportSection,
   VoiceSection,
 } from '@/components/settings/settings-sections';
@@ -29,13 +28,11 @@ import { useProviderConfiguration } from '@/components/settings/use-provider-con
 import { useVoiceSetup } from '@/components/settings/use-voice-setup';
 import {
   getProviderCopy,
-  LANGUAGE_OPTIONS,
   RESPONSE_SCOPE_OPTIONS,
   WORKING_SOUND_OPTIONS,
 } from '@/components/settings/settings-utils';
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { normalizeTranscriptFontSize } from '@/providers/opencode-preferences';
 import { getSpeechVoiceOptions, type SpeechVoiceOption } from '@/lib/voice/speech-output';
 import { useCapabilities, useConnection, useMcp, useOnboarding, usePreferences } from '@/providers/opencode-contexts';
 
@@ -114,10 +111,6 @@ export default function SettingsScreen() {
     () => WORKING_SOUND_OPTIONS.find((option) => option.value === chatPreferences.workingSoundVariant) || WORKING_SOUND_OPTIONS[0],
     [chatPreferences.workingSoundVariant],
   );
-  const selectedLanguageLabel = useMemo(
-    () => LANGUAGE_OPTIONS.find((option) => option.value === chatPreferences.language)?.label || t('common:labels.systemDefault'),
-    [chatPreferences.language, t],
-  );
 
   function handleModelToggle(modelId: string, checked: boolean) {
     const nextEnabledModelIds = checked
@@ -183,46 +176,16 @@ export default function SettingsScreen() {
       onPress: () => setOpenSection('advanced'),
       render: () => (
         <>
-          {serverCapabilities.contract === 'v2' ? <SettingSelectField
-            label={t('settings:providers.promptDelivery.label')}
-            valueLabel={t(`settings:providers.promptDelivery.${chatPreferences.promptDelivery || 'steer'}.label`)}
-            selectedValue={chatPreferences.promptDelivery || 'steer'}
-            options={(['steer', 'queue'] as const).map((value) => ({ value, label: t(`settings:providers.promptDelivery.${value}.label`), description: t(`settings:providers.promptDelivery.${value}.description`) }))}
-            onValueChange={(promptDelivery) => updateChatPreferences({ promptDelivery })}
-            palette={palette}
-          /> : null}
+          <EditorSection chatPreferences={chatPreferences} contract={serverCapabilities.contract} palette={palette} updateChatPreferences={updateChatPreferences} />
+          <GeneralSection chatPreferences={chatPreferences} palette={palette} updateChatPreferences={updateChatPreferences} onResetOnboarding={() => {
+            setOpenSection(undefined);
+            startOnboardingReview();
+            router.push('/onboarding');
+          }} />
           <McpSection configs={currentConfig?.mcp} mcpStatuses={mcpStatuses} onAdd={addMcpServer} onCompleteOAuth={completeMcpOAuth} onConnect={connectMcpServer} onDisconnect={disconnectMcpServer} onRefresh={refreshMcpServers} onSetEnabled={setMcpServerEnabled} onStartOAuth={async (name) => { const url = await startMcpOAuth(name); if (!url) { await refreshMcpServers(); return false; } await WebBrowser.openBrowserAsync(url); return true; }} oauthAvailable={serverCapabilities.mcpOAuth} palette={palette} />
           <DiagnosticsSection diagnostics={diagnostics} eventStreamStatus={eventStreamStatus} formatterAvailable={serverCapabilities.formatter} lspAvailable={serverCapabilities.lsp} onRefresh={() => void refreshDiagnostics()} palette={palette} />
         </>
       ),
-    },
-    {
-      id: 'appearance',
-      icon: 'format-size',
-      title: t('settings:screen.categories.appearance'),
-      summary: `${normalizeTranscriptFontSize(chatPreferences.transcriptFontSize)} px`,
-      onPress: () => setOpenSection('appearance'),
-      render: () => <AppearanceSection chatPreferences={chatPreferences} palette={palette} updateChatPreferences={updateChatPreferences} />,
-    },
-    {
-      id: 'language',
-      icon: 'translate',
-      title: t('settings:language.title'),
-      summary: selectedLanguageLabel,
-      onPress: () => setOpenSection('language'),
-      render: () => <LanguageSection chatPreferences={chatPreferences} palette={palette} updateChatPreferences={updateChatPreferences} />,
-    },
-    {
-      id: 'setup',
-      icon: 'rocket-launch-outline',
-      title: t('onboarding:settingsAssistant.title'),
-      summary: t('onboarding:settingsAssistant.summary'),
-      // Review mode keeps the tab navigator mounted and seeds each step from the
-      // current configuration, so re-running never wipes anything.
-      onPress: () => {
-        startOnboardingReview();
-        router.push('/onboarding/connect');
-      },
     },
     {
       id: 'support',

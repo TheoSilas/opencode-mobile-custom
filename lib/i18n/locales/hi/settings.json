@@ -13,7 +13,7 @@
       "configuredCount": "{{value}} कॉन्फ़िगर किए गए",
       "replyPlaybackOn": "उत्तर प्लेबैक चालू",
       "replyPlaybackOff": "उत्तर प्लेबैक बंद",
-      "advanced": "MCP सर्वर और निदान",
+      "advanced": "एडिटर, सामान्य, MCP सर्वर और निदान",
       "support": "ऐप को रेट करें, फ़ीडबैक भेजें, सहायता पाएँ"
     }
   },
@@ -354,5 +354,12 @@
     "subscribe": "सदस्यता लें",
     "options": "कनेक्शन विकल्प",
     "learnMore": "Cloud Link के बारे में और जानें"
+  },
+  "editor": {
+    "title": "एडिटर"
+  },
+  "general": {
+    "title": "सामान्य",
+    "resetOnboarding": "प्रारंभिक सेटअप फिर से शुरू करें"
   }
 }

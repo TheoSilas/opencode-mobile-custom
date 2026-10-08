@@ -13,7 +13,7 @@
       "configuredCount": "{{value}} configurés",
       "replyPlaybackOn": "Lecture des réponses activée",
       "replyPlaybackOff": "Lecture des réponses désactivée",
-      "advanced": "Serveurs MCP et diagnostics",
+      "advanced": "Éditeur, général, serveurs MCP et diagnostics",
       "support": "Notez l'app, envoyez vos retours, obtenez de l'aide"
     }
   },
@@ -354,5 +354,12 @@
     "subscribe": "S’abonner",
     "options": "Options de connexion",
     "learnMore": "En savoir plus sur Cloud Link"
+  },
+  "editor": {
+    "title": "Éditeur"
+  },
+  "general": {
+    "title": "Général",
+    "resetOnboarding": "Relancer la configuration initiale"
   }
 }

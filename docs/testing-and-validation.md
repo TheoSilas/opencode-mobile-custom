@@ -400,12 +400,12 @@ the Vitest `record-preservation` suite is now part of the static CI gate.
 `tests/e2e/onboarding.spec.mjs` deliberately omits the `opencode-mobile.onboarding-version`
 seed used by `flows.spec.mjs`, so the assistant is exercised:
 
-- fresh install shows the welcome step, walks connect → workspace → preferences skip → permissions skip → ready, enters chat, and does not reappear on relaunch
+- fresh install shows an informational presentation with only Continue, walks permissions → connect → workspace → ready with step numbers 1–5, checks back navigation, verifies Ready only summarizes connection/workspace, enters chat, and does not reappear on relaunch
 - every configured step can be skipped (connect and workspace included) and finishing without a workspace lands on the chat workspace prompt
 - a failed connection keeps the entered values and allows a retry
 - an installation with a stored settings key but no onboarding marker skips onboarding (upgrade migration)
 - clearing `localStorage` shows onboarding again
-- Settings reopens the Setup assistant with the connection prefilled and returns the app to a working chat without wiping configuration
+- Advanced groups Editor and General controls; General → Reset onboarding restarts at the presentation, then reviews permissions and the prefilled connection before returning to a working chat without wiping configuration
 
 Existing-install fixtures seed storage before application scripts run, avoiding
 a race with hydration and the initial onboarding-marker write. A tab-scoped

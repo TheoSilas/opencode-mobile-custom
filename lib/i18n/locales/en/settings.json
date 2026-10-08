@@ -13,7 +13,7 @@
       "configuredCount": "{{value}} configured",
       "replyPlaybackOn": "Reply playback on",
       "replyPlaybackOff": "Reply playback off",
-      "advanced": "MCP servers and diagnostics",
+      "advanced": "Editor, general, MCP servers and diagnostics",
       "support": "Rate the app, send feedback, get help"
     }
   },
@@ -354,5 +354,12 @@
     "subscribe": "Subscribe",
     "options": "Connection options",
     "learnMore": "Learn more about Cloud Link"
+  },
+  "editor": {
+    "title": "Editor"
+  },
+  "general": {
+    "title": "General",
+    "resetOnboarding": "Reset onboarding"
   }
 }

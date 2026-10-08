@@ -1,21 +1,21 @@
 {
   "welcome": {
     "title": "OpenCode Mobile",
-    "subtitle": "Connect to the OpenCode server you already run.",
-    "body": "OpenCode Mobile is a client for an existing OpenCode server. You point it at your server, pick a workspace, and start coding. The server keeps running the models and the work.",
-    "start": "Start setup",
+    "subtitle": "Your OpenCode projects, wherever you are.",
+    "body": "OpenCode Mobile brings your OpenCode server to your phone. Chat with coding agents, follow their work, and review changes across your projects.",
+    "start": "Continue",
     "points": {
       "server": {
-        "title": "Connect to your server",
-        "description": "Enter the URL of your OpenCode server. Credentials stay on this device."
+        "title": "Your server does the work",
+        "description": "Models and tasks run on your OpenCode server. This app keeps you connected to them."
       },
       "workspace": {
-        "title": "Choose a workspace",
-        "description": "Pick the project folder the server should work in. You can change it later."
+        "title": "Projects and conversations",
+        "description": "Project workspaces keep chats, files, and changes together."
       },
       "optional": {
-        "title": "Tune it later",
-        "description": "Preferences and permissions are optional and can be changed any time in Settings."
+        "title": "Voice and task updates",
+        "description": "Voice input and completion notifications help you keep up with work on the go."
       }
     }
   },
@@ -37,18 +37,6 @@
     "skip": "Skip",
     "empty": "This server did not report any projects. Add a directory on the server to get started.",
     "loading": "Loading workspaces…"
-  },
-  "preferences": {
-    "title": "Basic preferences",
-    "subtitle": "Optional. Everything here can be changed later in Settings.",
-    "model": "Default model",
-    "modelHint": "Leave this on the server default if you are not sure.",
-    "provider": {
-      "title": "No AI provider configured",
-      "body": "Your OpenCode server has no AI provider configured yet. You can continue and set one up later from Settings › AI & providers."
-    },
-    "skip": "Skip",
-    "continue": "Continue"
   },
   "permissions": {
     "title": "Permissions",
@@ -76,17 +64,13 @@
     "server": "Server",
     "workspace": "Workspace",
     "workspaceMissing": "No workspace selected",
-    "model": "Model",
-    "serverDefault": "Server default",
-    "notifications": "Notifications",
-    "voice": "Voice input",
-    "footnote": "You can change any of this later in Settings.",
+    "footnote": "Puedes cambiar la conexión o el espacio de trabajo en Ajustes.",
     "start": "Start coding",
     "done": "Done"
   },
   "settingsAssistant": {
     "title": "Setup assistant",
-    "summary": "Review connection, workspace, preferences, and permissions"
+    "summary": "Review permissions, connection, and workspace"
   },
   "reviewSetup": "Revisar configuración",
   "stepIndicator": "Paso {{step}} de {{totalSteps}}"

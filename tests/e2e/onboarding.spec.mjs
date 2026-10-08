@@ -43,8 +43,18 @@ test('fresh install walks through onboarding into a working chat', async ({ page
 
   await expect(page.getByTestId('onboarding-welcome')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Start a new task')).toHaveCount(0);
+  await expect(page.getByText('Step 1 of 5', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('onboarding-welcome').getByRole('button')).toHaveCount(1);
 
   await page.getByTestId('onboarding-welcome-start').click();
+  await expect(page.getByTestId('onboarding-permissions')).toBeVisible();
+  await expect(page.getByText('Step 2 of 5', { exact: true })).toBeVisible();
+  await page.getByTestId('onboarding-permissions-skip').click();
+  await expect(page.getByTestId('onboarding-connect')).toBeVisible();
+  await expect(page.getByText('Step 3 of 5', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.getByTestId('onboarding-permissions')).toBeVisible();
+  await page.getByTestId('onboarding-permissions-continue').click();
   await expect(page.getByTestId('onboarding-connect')).toBeVisible();
   await expect(page.getByTestId('onboarding-connect-test')).toHaveCount(0);
   await expect(page.getByTestId('connection-method-chooser')).toBeVisible();
@@ -55,14 +65,14 @@ test('fresh install walks through onboarding into a working chat', async ({ page
   await page.getByTestId('connection-profile-save-confirm').click();
 
   await expect(page.getByTestId('onboarding-workspace')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Step 4 of 5', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^Select / }).first().click();
 
-  await expect(page.getByTestId('onboarding-preferences')).toBeVisible();
-  await page.getByTestId('onboarding-preferences-skip').click();
-
-  await expect(page.getByTestId('onboarding-permissions')).toBeVisible();
-  await page.getByTestId('onboarding-permissions-skip').click();
-
+  await expect(page.getByTestId('onboarding-ready')).toBeVisible();
+  await expect(page.getByText('Step 5 of 5', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.getByTestId('onboarding-workspace')).toBeVisible();
+  await page.getByTestId('onboarding-workspace-continue').click();
   await expect(page.getByTestId('onboarding-ready')).toBeVisible();
   await page.getByTestId('onboarding-ready-start').click();
 
@@ -79,6 +89,8 @@ test('every onboarding step can be skipped', async ({ page }) => {
 
   await expect(page.getByTestId('onboarding-welcome')).toBeVisible({ timeout: 30_000 });
   await page.getByTestId('onboarding-welcome-start').click();
+  await expect(page.getByTestId('onboarding-permissions')).toBeVisible();
+  await page.getByTestId('onboarding-permissions-skip').click();
 
   // Skip the connection step without contacting a server.
   await expect(page.getByTestId('onboarding-connect')).toBeVisible();
@@ -87,11 +99,6 @@ test('every onboarding step can be skipped', async ({ page }) => {
   // No connection was made, so the workspace step has nothing to pick.
   await expect(page.getByTestId('onboarding-workspace')).toBeVisible();
   await page.getByTestId('onboarding-workspace-skip').click();
-
-  await expect(page.getByTestId('onboarding-preferences')).toBeVisible();
-  await page.getByTestId('onboarding-preferences-skip').click();
-  await expect(page.getByTestId('onboarding-permissions')).toBeVisible();
-  await page.getByTestId('onboarding-permissions-skip').click();
 
   await expect(page.getByTestId('onboarding-ready')).toBeVisible();
   await page.getByTestId('onboarding-ready-start').click();
@@ -106,6 +113,8 @@ test('every onboarding step can be skipped', async ({ page }) => {
 test('a failed connection keeps entered values and allows retry', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByTestId('onboarding-welcome-start').click();
+  await expect(page.getByTestId('onboarding-permissions')).toBeVisible();
+  await page.getByTestId('onboarding-permissions-skip').click();
 
   await openManual(page);
   const url = page.getByTestId('connection-profile-url-input');
@@ -144,27 +153,37 @@ test('clearing app data shows onboarding again', async ({ page }) => {
   await expect(page.getByTestId('onboarding-welcome')).toBeVisible({ timeout: 30_000 });
 });
 
-test('Settings reopens the setup assistant without wiping the connection', async ({ page }) => {
+test('Advanced groups editor and general settings and resets onboarding without wiping the connection', async ({ page }) => {
   await seedExistingInstall(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await waitForChat(page);
 
   await page.getByRole('tab', { name: 'Settings' }).click();
-  const setupAssistant = page.getByRole('button', { name: /^Setup assistant/ });
-  await expect(setupAssistant).toBeVisible({ timeout: 15_000 });
-  await setupAssistant.click();
+  await page.getByRole('button', { name: /^Advanced/ }).click();
+  const editor = page.getByTestId('settings-editor-section');
+  const general = page.getByTestId('settings-general-section');
+  await expect(editor.getByRole('heading', { name: 'Editor', exact: true })).toBeVisible();
+  await expect(editor.getByText('Chat text size', { exact: true })).toBeVisible();
+  await expect(editor.getByRole('switch', { name: 'Flat conversation', exact: true })).toBeVisible();
+  await expect(editor.getByRole('switch', { name: 'Slim interface', exact: true })).toHaveCount(0);
+  await expect(general.getByRole('heading', { name: 'General', exact: true })).toBeVisible();
+  await expect(general.getByRole('switch', { name: 'Slim interface', exact: true })).toBeVisible();
+  await expect(general.getByText('Language', { exact: true })).toBeVisible();
+  await general.getByRole('button', { name: 'Reset onboarding', exact: true }).click();
 
-  await expect(page.getByTestId('onboarding-connect')).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText('Review setup · Step 2 of 6')).toBeVisible();
+  await expect(page.getByTestId('onboarding-welcome')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Review setup · Step 1 of 5')).toBeVisible();
+  await page.getByTestId('onboarding-welcome-start').click();
+  await expect(page.getByTestId('onboarding-permissions')).toBeVisible();
+  await page.getByTestId('onboarding-permissions-continue').click();
+  await expect(page.getByTestId('onboarding-connect')).toBeVisible();
+  await expect(page.getByText('Review setup · Step 3 of 5')).toBeVisible();
   await openManual(page);
   await expect(page.getByTestId('connection-profile-url-input')).toHaveValue(FAKE_SERVER_URL);
 
   await page.getByTestId('connection-profile-save-confirm').click();
   await expect(page.getByTestId('onboarding-workspace')).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: /^Select / }).first().click();
-  await expect(page.getByTestId('onboarding-preferences')).toBeVisible({ timeout: 20_000 });
-  await page.getByTestId('onboarding-preferences-skip').click();
-  await page.getByTestId('onboarding-permissions-skip').click();
   await expect(page.getByTestId('onboarding-ready')).toBeVisible();
   await page.getByTestId('onboarding-ready-start').click();
 
@@ -177,6 +196,8 @@ test('Settings reopens the setup assistant without wiping the connection', async
 test('connection prevents duplicate submissions and disables Skip while validating', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByTestId('onboarding-welcome-start').click();
+  await expect(page.getByTestId('onboarding-permissions')).toBeVisible();
+  await page.getByTestId('onboarding-permissions-skip').click();
   await openManual(page);
   await page.getByTestId('connection-profile-url-input').fill(FAKE_SERVER_URL);
   let probes = 0;

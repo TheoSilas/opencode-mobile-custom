@@ -34,7 +34,7 @@ export default function OnboardingWorkspaceScreen() {
   function choose(path: string) {
     // Persists through the existing active-project mechanism.
     selectProject(path);
-    router.push('/onboarding/preferences');
+    router.push('/onboarding/ready');
   }
 
   async function submitAdd() {
@@ -45,7 +45,7 @@ export default function OnboardingWorkspaceScreen() {
     setAddError(undefined);
     try {
       await addWorkspace(directory);
-      router.push('/onboarding/preferences');
+      router.push('/onboarding/ready');
     } catch (reason) {
       setAddError(reason instanceof Error ? reason.message : t('workspace:errors.addWorkspace'));
     } finally {
@@ -55,8 +55,8 @@ export default function OnboardingWorkspaceScreen() {
 
   return (
     <OnboardingStep
-      step={3}
-      totalSteps={6}
+      step={4}
+      totalSteps={5}
       title={t('onboarding:workspace.title')}
       subtitle={t('onboarding:workspace.subtitle')}
       testID="onboarding-workspace"
@@ -69,7 +69,7 @@ export default function OnboardingWorkspaceScreen() {
             style={{ marginRight: 'auto' }}
             testID="onboarding-workspace-skip"
             disabled={isRefreshingWorkspaceCatalog || isAdding}
-            onPress={() => router.push('/onboarding/preferences')}>
+            onPress={() => router.push('/onboarding/ready')}>
             {t('onboarding:workspace.skip')}
           </Button>
           <Button

@@ -44,8 +44,8 @@ export default function OnboardingPermissionsScreen() {
 
   return (
     <OnboardingStep
-      step={5}
-      totalSteps={6}
+      step={2}
+      totalSteps={5}
       title={t('onboarding:permissions.title')}
       subtitle={t('onboarding:permissions.subtitle')}
       testID="onboarding-permissions"
@@ -56,13 +56,13 @@ export default function OnboardingPermissionsScreen() {
             mode="text"
             style={{ marginRight: 'auto' }}
             testID="onboarding-permissions-skip"
-            onPress={() => router.push('/onboarding/ready')}>
+            onPress={() => router.push('/onboarding/connect')}>
             {t('onboarding:permissions.skip')}
           </Button>
           <Button
             mode="contained"
             testID="onboarding-permissions-continue"
-            onPress={() => router.push('/onboarding/ready')}>
+            onPress={() => router.push('/onboarding/connect')}>
             {t('onboarding:permissions.continue')}
           </Button>
         </>

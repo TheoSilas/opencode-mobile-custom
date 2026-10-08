@@ -62,8 +62,8 @@ export function buildEffectiveMethods(
 }
 
 /**
- * Provider credential configuration state machine shared by Settings and the
- * onboarding assistant. It owns only dialog/UI state; provider requests go
+ * Provider credential configuration state machine for Settings.
+ * It owns only dialog/UI state; provider requests go
  * through the provider context (`setProviderAuth`, `startProviderOAuth`, ...).
  *
  * The flow is two full-screen steps: pick a login method, then configure it

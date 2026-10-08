@@ -18,7 +18,9 @@ fills the sheet's available height.
 `pending-prompts.tsx` renders provider-derived OpenCode 2 sending/waiting entries
 in a bounded, scrollable stack directly above the composer. It does not own
 prompt admission or delivery state. Steer/Append selection lives at the top of
-the Advanced Settings section.
+the Editor group in Advanced Settings, alongside chat text size and flat
+conversation. The General group contains slim interface, language and Reset
+onboarding, which reopens the existing setup review without clearing settings.
 
 ## Purpose
 
@@ -460,7 +462,8 @@ Domain state/actions come from `useConnection().connectSetup`; see [Cloud Link](
 
 ### Exported sections
 
-- `AppearanceSection`
+- `EditorSection`
+- `GeneralSection`
 - `ConnectionSection`
 - `AiDefaultsSection`
 - `NotificationsSection`
@@ -615,9 +618,11 @@ Main relevant props:
 
 Responsibility:
 
-- the six first-run setup steps: welcome, connect, workspace, preferences, permissions, ready
-- connect, workspace, preferences, and permissions are skippable; skipping advances one step without persisting anything
-- thin controllers only; connection/workspace/preference persistence and permission requests are delegated to the provider and existing helpers
+- the five first-run setup steps: app presentation, permissions, add connection, workspace, ready
+- presentation only describes the app, with Continue navigation; preferences and provider setup live in Settings
+- permissions, connect and workspace are skippable; skipping advances one step without persisting anything
+- ready summarizes only the connection and workspace, then completes first-run setup or closes review mode
+- thin controllers only; connection/workspace persistence and permission requests are delegated to the provider and existing helpers
 - seeded from current provider state so re-running from Settings reviews rather than resets
 
 ## `components/onboarding/onboarding-step.tsx`
@@ -644,7 +649,7 @@ Responsibility:
 
 ## `components/settings/use-provider-configuration.tsx`
 
-- provider credential dialog state machine (manual API key and OAuth, including the code callback) shared by Settings and onboarding
+- provider credential dialog state machine (manual API key and OAuth, including the code callback) used by Settings
 - returns the dialogs as `dialog` plus `feedback`/`setFeedback`
 
 ## `lib/voice/permissions.ts`

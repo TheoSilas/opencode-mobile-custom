@@ -13,7 +13,7 @@
       "configuredCount": "{{value}} 件設定済み",
       "replyPlaybackOn": "返信の再生オン",
       "replyPlaybackOff": "返信の再生オフ",
-      "advanced": "MCP サーバーと診断",
+      "advanced": "エディター、一般、MCPサーバー、診断",
       "support": "アプリを評価、フィードバック、サポート"
     }
   },
@@ -354,5 +354,12 @@
     "subscribe": "登録する",
     "options": "接続オプション",
     "learnMore": "Cloud Linkについて詳しく"
+  },
+  "editor": {
+    "title": "エディター"
+  },
+  "general": {
+    "title": "一般",
+    "resetOnboarding": "初期設定をやり直す"
   }
 }

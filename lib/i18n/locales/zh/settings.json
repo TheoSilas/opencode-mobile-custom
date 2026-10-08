@@ -13,7 +13,7 @@
       "configuredCount": "已配置 {{value}} 个",
       "replyPlaybackOn": "回复播放已开启",
       "replyPlaybackOff": "回复播放已关闭",
-      "advanced": "MCP 服务器与诊断",
+      "advanced": "编辑器、常规、MCP 服务器和诊断",
       "support": "评价应用、发送反馈、获取帮助"
     }
   },
@@ -354,5 +354,12 @@
     "subscribe": "订阅",
     "options": "连接选项",
     "learnMore": "了解 Cloud Link"
+  },
+  "editor": {
+    "title": "编辑器"
+  },
+  "general": {
+    "title": "常规",
+    "resetOnboarding": "重新进行初始设置"
   }
 }

@@ -13,7 +13,7 @@
       "configuredCount": "{{value}} konfiguriert",
       "replyPlaybackOn": "Antwortwiedergabe an",
       "replyPlaybackOff": "Antwortwiedergabe aus",
-      "advanced": "MCP-Server und Diagnose",
+      "advanced": "Editor, Allgemeines, MCP-Server und Diagnose",
       "support": "App bewerten, Feedback senden, Hilfe erhalten"
     }
   },
@@ -354,5 +354,12 @@
     "subscribe": "Abonnieren",
     "options": "Verbindungsoptionen",
     "learnMore": "Mehr über Cloud Link erfahren"
+  },
+  "editor": {
+    "title": "Editor"
+  },
+  "general": {
+    "title": "Allgemein",
+    "resetOnboarding": "Einrichtung neu starten"
   }
 }

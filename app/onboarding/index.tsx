@@ -16,7 +16,7 @@ export default function OnboardingWelcomeScreen() {
   return (
     <OnboardingStep
       step={1}
-      totalSteps={6}
+      totalSteps={5}
       title={t('onboarding:welcome.title')}
       subtitle={t('onboarding:welcome.subtitle')}
       testID="onboarding-welcome"
@@ -24,7 +24,7 @@ export default function OnboardingWelcomeScreen() {
         <Button
           mode="contained"
           testID="onboarding-welcome-start"
-          onPress={() => router.push('/onboarding/connect')}>
+          onPress={() => router.push('/onboarding/permissions')}>
           {t('onboarding:welcome.start')}
         </Button>
       }>
@@ -52,7 +52,7 @@ export default function OnboardingWelcomeScreen() {
           description={t('onboarding:welcome.points.optional.description')}
           titleStyle={{ color: palette.text }}
           descriptionStyle={{ color: palette.muted }}
-          left={(props) => <List.Icon {...props} icon="tune" color={palette.tint} />}
+          left={(props) => <List.Icon {...props} icon="microphone-outline" color={palette.tint} />}
         />
       </List.Section>
     </OnboardingStep>

@@ -11,7 +11,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 /**
  * Shared chrome for every onboarding step: back affordance, step progress,
  * title/subtitle, a scrollable body, and a pinned footer for the primary
- * action. Keeping it in one place keeps the six steps short and consistent.
+ * action. Keeping it in one place keeps the five steps short and consistent.
  */
 export function OnboardingStep({
   step,

@@ -1,37 +1,24 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { Button, List, Text } from 'react-native-paper';
 
 import { OnboardingStep } from '@/components/onboarding/onboarding-step';
-import { useNotificationSetup } from '@/components/settings/use-notification-setup';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getNormalizedServerUrl } from '@/lib/opencode/client';
-import { getVoiceInputPermissionAsync, type VoiceInputPermission } from '@/lib/voice/permissions';
-import { useCapabilities, useConnection, useOnboarding, usePreferences, useWorkspace } from '@/providers/opencode-contexts';
+import { useConnection, useOnboarding, useWorkspace } from '@/providers/opencode-contexts';
 
 export default function OnboardingReadyScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const palette = Colors[useColorScheme() ?? 'light'];
   const { activeProject } = useWorkspace();
-  const { availableModels } = useCapabilities();
-  const { chatPreferences } = usePreferences();
   const { settings } = useConnection();
   const { onboardingActive, completeOnboarding, stopOnboardingReview } = useOnboarding();
-  const notifications = useNotificationSetup();
-  const [voice, setVoice] = useState<VoiceInputPermission>();
   const [isFinishing, setIsFinishing] = useState(false);
-
-  useEffect(() => {
-    void getVoiceInputPermissionAsync().then(setVoice);
-  }, []);
-
-  const selectedModel = availableModels.find((model) => model.id === chatPreferences.modelId);
-  const notificationsGranted = Boolean(notifications.status?.permissionGranted);
   const serverLabel = getNormalizedServerUrl(settings.serverUrl);
   const usernameSuffix = settings.username.trim() ? ` (${settings.username.trim()})` : '';
 
@@ -56,8 +43,8 @@ export default function OnboardingReadyScreen() {
 
   return (
     <OnboardingStep
-      step={6}
-      totalSteps={6}
+      step={5}
+      totalSteps={5}
       title={t('onboarding:ready.title')}
       subtitle={t('onboarding:ready.subtitle')}
       testID="onboarding-ready"
@@ -86,27 +73,6 @@ export default function OnboardingReadyScreen() {
           titleStyle={{ color: palette.muted, fontSize: 13 }}
           descriptionStyle={{ color: palette.text }}
           left={(props) => <List.Icon {...props} icon="folder-outline" color={palette.tint} />}
-        />
-        <List.Item
-          title={t('onboarding:ready.model')}
-          description={selectedModel ? `${selectedModel.providerLabel} · ${selectedModel.label}` : t('onboarding:ready.serverDefault')}
-          titleStyle={{ color: palette.muted, fontSize: 13 }}
-          descriptionStyle={{ color: palette.text }}
-          left={(props) => <List.Icon {...props} icon="creation" color={palette.tint} />}
-        />
-        <List.Item
-          title={t('onboarding:ready.notifications')}
-          description={notificationsGranted ? t('common:labels.enabled') : t('common:labels.off')}
-          titleStyle={{ color: palette.muted, fontSize: 13 }}
-          descriptionStyle={{ color: palette.text }}
-          left={(props) => <List.Icon {...props} icon="bell-outline" color={palette.tint} />}
-        />
-        <List.Item
-          title={t('onboarding:ready.voice')}
-          description={voice?.granted ? t('common:labels.enabled') : t('common:labels.off')}
-          titleStyle={{ color: palette.muted, fontSize: 13 }}
-          descriptionStyle={{ color: palette.text }}
-          left={(props) => <List.Icon {...props} icon="microphone-outline" color={palette.tint} />}
         />
       </View>
       <View style={styles.footerNote}>
