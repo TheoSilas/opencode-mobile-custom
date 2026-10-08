@@ -98,6 +98,9 @@ for (const dir of layerDirs) {
   }
 }
 assert.ok(keyboardSurfaces > 0, 'Keyboard layout surfaces must be checked.');
+for (const screen of ['components/chat/chat-view.tsx', 'components/terminal/terminal-screen.tsx']) {
+  assert.doesNotMatch(await read(screen), /keyboardVerticalOffset/, `${screen}: full-screen avoidance must not add the header's safe-area inset again`);
+}
 assert.match(
   await read('app/(tabs)/_layout.tsx'),
   /\btabBarHideOnKeyboard:\s*false\b/,

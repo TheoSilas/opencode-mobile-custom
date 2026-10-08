@@ -627,8 +627,11 @@ This is one of the densest parts of the architecture and would need careful pari
   keyboard overlap while preserving the outer flex frame; explicit `height`
   adjustment can feed IME/layout changes back into each other with
   hardware-keyboard toolbars.
-- Bottom overlays follow the same `padding` rule: `OverlaySheet` makes its sheet
-  a `KeyboardAvoidingView`, while transparent `Modal` sheets (`native-select`,
+- Chat and Terminal avoidance starts at the screen origin; their headers already
+  apply the top safe-area inset, so no keyboard vertical offset is added.
+- Bottom overlays follow the same `padding` rule: `OverlaySheet` uses a stable
+  full-screen `KeyboardAvoidingView` around a shrinking sheet and scroll area,
+  while transparent `Modal` sheets (`native-select`,
   model picker) cannot use `KeyboardAvoidingView` and instead consume
   `hooks/use-keyboard-height.ts` and apply the inset as padding. Neither uses
   `behavior="height"`.

@@ -166,6 +166,13 @@ do not remove and restore the tab bar's layout space.
 configuration. These are configuration checks; they do not reproduce a
 physical keyboard or prove that issue #62 is resolved.
 
+Keyboard regressions also guard against adding the header safe-area inset to
+Chat/Terminal avoidance. `native-inputs` checks that content-sized and full-height
+overlays shrink inside a stable full-screen padding frame. On iOS, verify the
+Chat composer and terminal accessory sit directly above the soft keyboard, and
+Settings → Voice & responses → Speech locale scrolls into view on focus and
+remains reachable through keyboard dismissal, rotation, and larger text.
+
 For keyboard-layout changes, validate Android with a Bluetooth keyboard and
 the soft keyboard disabled, then forced visible: focus and type in Chat,
 switch sessions/tabs, and check that focus stays stable, the tab bar does not

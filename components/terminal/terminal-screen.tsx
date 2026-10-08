@@ -139,8 +139,7 @@ export default function TerminalScreen() {
     <>
       <KeyboardAvoidingView
         style={[styles.screen, { backgroundColor: palette.background }]}
-        behavior="padding"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}>
+        behavior="padding">
         <Appbar.Header
           style={[styles.header, { backgroundColor: palette.surface, paddingTop: insets.top, height: (slim ? 52 : 64) + insets.top }]}
           statusBarHeight={0}

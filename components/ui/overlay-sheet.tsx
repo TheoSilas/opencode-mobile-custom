@@ -29,11 +29,11 @@ export function OverlaySheet({ visible, title, onClose, children, headerAction, 
 
   return (
     <Portal>
-      <View style={styles.overlay} testID={testID}>
+      <KeyboardAvoidingView behavior="padding" style={[styles.overlay, { paddingTop: compact ? Math.max(64 + insets.top, height * 0.45) : 64 + insets.top }]} testID={testID}>
         <Pressable accessibilityLabel={t('common:actions.closeWithName', { title })} onPress={onClose} style={StyleSheet.absoluteFill}>
           <View style={styles.backdrop} />
         </Pressable>
-        <KeyboardAvoidingView behavior="padding" testID={fitContent ? `${testID}-sheet` : undefined} accessibilityLabel={title} accessibilityViewIsModal style={[styles.sheet, fitContent ? { maxHeight: height - 64 - insets.top } : { top: compact ? Math.max(64 + insets.top, height * 0.45) : 64 + insets.top }, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+        <View testID={fitContent ? `${testID}-sheet` : undefined} accessibilityLabel={title} accessibilityViewIsModal style={[styles.sheet, !fitContent && { flex: 1 }, { backgroundColor: palette.surface, borderColor: palette.border }]}>
           {compact ? <View style={styles.grabberWrap}><View style={[styles.grabber, { backgroundColor: palette.muted }]} /></View> : null}
           <View style={[styles.header, compact && styles.compactHeader, { borderBottomColor: palette.border }]}>
             {compact ? (
@@ -59,16 +59,16 @@ export function OverlaySheet({ visible, title, onClose, children, headerAction, 
           {scrollable ? <ScrollView keyboardShouldPersistTaps="handled" style={fitContent ? styles.fitContentScroll : undefined} contentContainerStyle={[styles.content, compact && styles.compactContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             {children}
           </ScrollView> : <View style={[styles.content, compact && styles.compactContent, { flex: 1, minHeight: 0, paddingBottom: Math.max(insets.bottom, 24) }]}>{children}</View>}
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Portal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFill },
+  overlay: { ...StyleSheet.absoluteFill, justifyContent: 'flex-end' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.28)' },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, overflow: 'hidden' },
+  sheet: { flexShrink: 1, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, overflow: 'hidden' },
   header: { minHeight: 56, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingHorizontal: 16, borderBottomWidth: 1 },
   grabberWrap: { height: 24, alignItems: 'center', justifyContent: 'center' },
   grabber: { width: 36, height: 4, borderRadius: 2 },

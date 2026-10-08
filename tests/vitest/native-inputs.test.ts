@@ -9,9 +9,10 @@ const flatten = (style: any): Record<string, any> => Array.isArray(style)
 const platform = { OS: 'ios' };
 const typography = { fontFamily: 'System', fontSize: 16, lineHeight: 24, letterSpacing: 0.5, fontWeight: '400' };
 const native = {
-  Platform: platform, StyleSheet: { create: (styles: unknown) => styles, flatten },
+  Platform: platform, StyleSheet: { create: (styles: unknown) => styles, flatten, absoluteFill: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } },
   Keyboard: { dismiss: vi.fn() }, Text: 'NativeText', View: 'View',
-  useWindowDimensions: () => ({ fontScale: 1 }),
+  KeyboardAvoidingView: 'KeyboardAvoidingView', Pressable: 'Pressable', ScrollView: 'ScrollView',
+  useWindowDimensions: () => ({ fontScale: 1, height: 844 }),
 };
 const paper = {
   TextInput: 'PaperTextInput', Chip: 'Chip', IconButton: 'IconButton', Surface: 'Surface', Text: 'Text',
@@ -35,6 +36,30 @@ const { styles } = await loadTs('components/chat/chat-view-styles.ts', {
 });
 const { TextInput } = await loadTs('components/ui/text-input.tsx', {
   'react/jsx-runtime': jsx, 'react-native': native, 'react-native-paper': paper,
+});
+const { OverlaySheet } = await loadTs('components/ui/overlay-sheet.tsx', {
+  'react/jsx-runtime': jsx, 'react-native': native,
+  'react-native-paper': { ...paper, Portal: 'Portal', Icon: 'Icon' },
+  'react-i18next': { useTranslation: () => ({ t: (key: string) => key }) },
+  'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 62, bottom: 34 }) },
+  '@/constants/theme': { Colors: { dark: {} } },
+  '@/hooks/use-color-scheme': { useColorScheme: () => 'dark' },
+  '@/hooks/use-dismiss-on-back': { useDismissOnBack: () => {} },
+});
+
+describe('keyboard sheet layout', () => {
+  it.each([true, false])('constrains the scroll area inside a stable avoidance frame (fitContent=%s)', (fitContent) => {
+    const root = OverlaySheet({ visible: true, title: 'Voice', testID: 'voice', fitContent, children: 'Content' });
+    const frame = root.props.children;
+    expect(frame.type).toBe('KeyboardAvoidingView');
+    expect(frame.props.behavior).toBe('padding');
+    expect(flatten(frame.props.style)).toMatchObject({ top: 0, bottom: 0, paddingTop: 126 });
+    const sheet = frame.props.children[1];
+    expect(sheet.type).toBe('View');
+    expect(flatten(sheet.props.style)).toMatchObject({ flexShrink: 1 });
+    expect(flatten(sheet.props.style).position).toBeUndefined();
+    expect(flatten(sheet.props.style).flex).toBe(fitContent ? undefined : 1);
+  });
 });
 
 describe('native input regressions', () => {

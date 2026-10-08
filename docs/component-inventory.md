@@ -254,7 +254,7 @@ type ChatHeaderProps = {
 
 - shared overlay presentation for Chats, workspace selection, progress, diff source selection, session usage, terminal selection, and Settings categories; short overlays fit their content
 - `scrollable={false}` lets embedded virtualized lists own scrolling without a nested ScrollView
-- the sheet is a `KeyboardAvoidingView` with `behavior="padding"` on all platforms so inputs inside (search, rename, pairing, directory entry) stay above the keyboard
+- a full-screen `KeyboardAvoidingView` with `behavior="padding"` contains the sheet; the sheet and its scroll area shrink within the visible space so focused inputs (including the speech locale) stay reachable above the keyboard
 
 ## `components/ui/workspace-picker.tsx`
 
