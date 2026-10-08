@@ -445,6 +445,19 @@ Behavior exposed today:
 - the choice is persisted with chat preferences and applied immediately
 - the interface language also drives `Intl` date, number, currency, and relative-time formatting
 
+### Support Section
+
+Purpose:
+
+- let users rate the app, send improvement feedback, or reach the support page
+
+Behavior exposed today:
+
+- `Rate us on Play Store` opens the Play Store listing, shown only on Android builds without the foss variant
+- `Give us feedback` opens the GitHub issue tracker
+- `Open support page` opens `https://getopencode.app/support/` in the browser
+- no provider state or persistence; the section only opens external URLs
+
 ## Conversation Mode Detailed Behavior
 
 Conversation mode is a hands-free loop around one active session.

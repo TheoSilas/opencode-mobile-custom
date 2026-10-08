@@ -6,14 +6,23 @@
       "notifications": "通知",
       "voice": "音声と応答",
       "advanced": "詳細設定",
-      "appearance": "表示"
+      "appearance": "表示",
+      "support": "サポート"
     },
     "summaries": {
       "configuredCount": "{{value}} 件設定済み",
       "replyPlaybackOn": "返信の再生オン",
       "replyPlaybackOff": "返信の再生オフ",
-      "advanced": "MCP サーバーと診断"
+      "advanced": "MCP サーバーと診断",
+      "support": "アプリを評価、フィードバック、サポート"
     }
+  },
+  "support": {
+    "title": "サポート",
+    "description": "Google Play で OpenCode Mobile を評価したり、改善のフィードバックを送ったり、サポートページでヘルプを得られます。",
+    "rate": "Play Store で評価",
+    "feedback": "フィードバックを送る",
+    "openSupport": "サポートページを開く"
   },
   "connection": {
     "currentConnection": "現在の接続",

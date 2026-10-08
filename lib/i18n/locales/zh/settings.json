@@ -6,14 +6,23 @@
       "notifications": "通知",
       "voice": "语音与回复",
       "advanced": "高级",
-      "appearance": "外观"
+      "appearance": "外观",
+      "support": "支持"
     },
     "summaries": {
       "configuredCount": "已配置 {{value}} 个",
       "replyPlaybackOn": "回复播放已开启",
       "replyPlaybackOff": "回复播放已关闭",
-      "advanced": "MCP 服务器与诊断"
+      "advanced": "MCP 服务器与诊断",
+      "support": "评价应用、发送反馈、获取帮助"
     }
+  },
+  "support": {
+    "title": "支持",
+    "description": "在 Google Play 上评价 OpenCode Mobile，发送改进反馈，或从支持页面获取帮助。",
+    "rate": "在 Play 商店评价",
+    "feedback": "提供反馈",
+    "openSupport": "打开支持页面"
   },
   "connection": {
     "currentConnection": "当前连接",

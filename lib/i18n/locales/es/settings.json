@@ -6,14 +6,23 @@
       "notifications": "Notificaciones",
       "voice": "Voz y respuestas",
       "advanced": "Avanzado",
-      "appearance": "Apariencia"
+      "appearance": "Apariencia",
+      "support": "Soporte"
     },
     "summaries": {
       "configuredCount": "{{value}} configurados",
       "replyPlaybackOn": "Reproducción de respuestas activada",
       "replyPlaybackOff": "Reproducción de respuestas desactivada",
-      "advanced": "Servidores MCP y diagnósticos"
+      "advanced": "Servidores MCP y diagnósticos",
+      "support": "Valora la app, envía comentarios, obtén ayuda"
     }
+  },
+  "support": {
+    "title": "Soporte",
+    "description": "Valora OpenCode Mobile en Google Play, envía comentarios de mejora u obtén ayuda en la página de soporte.",
+    "rate": "Valóranos en Play Store",
+    "feedback": "Danos tu opinión",
+    "openSupport": "Abrir página de soporte"
   },
   "connection": {
     "currentConnection": "Conexión actual",

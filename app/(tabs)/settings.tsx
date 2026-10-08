@@ -20,6 +20,7 @@ import {
   DiagnosticsSection,
   LanguageSection,
   NotificationsSection,
+  SupportSection,
   VoiceSection,
 } from '@/components/settings/settings-sections';
 import { useNotificationSetup } from '@/components/settings/use-notification-setup';
@@ -213,6 +214,14 @@ export default function SettingsScreen() {
         startOnboardingReview();
         router.push('/onboarding/connect');
       },
+    },
+    {
+      id: 'support',
+      icon: 'lifebuoy',
+      title: t('settings:screen.categories.support'),
+      summary: t('settings:screen.summaries.support'),
+      onPress: () => setOpenSection('support'),
+      render: () => <SupportSection palette={palette} />,
     },
   ];
 

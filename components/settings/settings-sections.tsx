@@ -5,4 +5,5 @@ export { NotificationsSection } from './sections/notifications-section';
 export { VoiceSection } from './sections/voice-section';
 export { LanguageSection } from './sections/language-section';
 export { AppearanceSection } from './sections/appearance-section';
+export { SupportSection } from './sections/support-section';
 export { SettingSwitchRow, SettingSelectField } from './sections/setting-rows';
