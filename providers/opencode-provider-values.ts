@@ -9,6 +9,7 @@ import {
   getSessionPreviewById,
   getTranscript,
 } from '@/providers/opencode-provider-selectors';
+import { collectDescendantSessionIds } from '@/providers/opencode-provider-utils';
 import type {
   CapabilitiesContextValue,
   ChatContextValue,
@@ -230,13 +231,17 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     const todoRecords = todoRecordsBySession[currentSessionId];
     return todoRecords ? deriveTodosFromMessages(todoRecords) : [];
   }, [currentSessionId, serverContract, todoRecordsBySession, todosBySession]);
+  const relatedInteractionSessionIds = useMemo(
+    () => collectDescendantSessionIds(sessions, [currentSessionId, sendingState.sessionId]),
+    [sessions, currentSessionId, sendingState.sessionId],
+  );
   const currentPendingPermissions = useMemo(
-    () => getCurrentPendingRequests(currentSessionId, sendingState.sessionId, pendingPermissionsBySession),
-    [currentSessionId, pendingPermissionsBySession, sendingState.sessionId],
+    () => getCurrentPendingRequests(currentSessionId, sendingState.sessionId, pendingPermissionsBySession, relatedInteractionSessionIds),
+    [currentSessionId, pendingPermissionsBySession, relatedInteractionSessionIds, sendingState.sessionId],
   );
   const currentPendingQuestions = useMemo(
-    () => getCurrentPendingRequests(currentSessionId, sendingState.sessionId, pendingQuestionsBySession),
-    [currentSessionId, pendingQuestionsBySession, sendingState.sessionId],
+    () => getCurrentPendingRequests(currentSessionId, sendingState.sessionId, pendingQuestionsBySession, relatedInteractionSessionIds),
+    [currentSessionId, pendingQuestionsBySession, relatedInteractionSessionIds, sendingState.sessionId],
   );
   const configuredProviders = useMemo(() => getConfiguredProviders(availableProviders), [availableProviders]);
   const usagePricingByModel = useMemo(

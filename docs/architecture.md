@@ -525,7 +525,7 @@ connected cadence. Polling refreshes sessions, current/conversation session
 content, and pending interactions as needed. The `/permission` and `/question`
 list APIs recover requests missed by SSE.
 
-`permission.asked` and `question.asked` insert requests under their `sessionID`; reply and rejection events remove them. Opening or refreshing a session reconciles both maps with the server.
+`permission.asked` and `question.asked` insert requests under their `sessionID`; reply and rejection events remove them. Opening or refreshing a session reconciles both maps with the server. Because subagents run in child sessions, a blocking request may carry a descendant `sessionID`; the active chat surfaces the full `parentID` subtree of the current/sending session so nested prompts are shown rather than dropped.
 
 This dual model is critical. The implementation does not trust SSE alone.
 

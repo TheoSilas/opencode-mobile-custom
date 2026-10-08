@@ -419,8 +419,13 @@ Derived by preferring:
 
 - current session ID
 - sending session ID
+- every descendant of those sessions (the full `parentID` subtree), so a
+  permission or question raised by a subagent or nested sub-subagent is
+  surfaced in the active chat instead of hanging its subtree
 
-Only matches for the current session or sending session are shown. Permissions from unrelated sessions are not flattened into the active chat.
+Only requests owned by the current/sending session, its descendants, or the
+server's `global` sentinel are shown. Permissions from unrelated sessions are
+not flattened into the active chat.
 
 ### Conversation Status Label
 
@@ -580,7 +585,7 @@ Current implementation assumes these invariants:
 - a current session ID may temporarily be absent during project switches and bootstrapping
 - session caches are safe to keep even when not current
 - provider/model selections may need to be corrected after capability refresh
-- pending permissions and questions are keyed by `sessionID` and only active/sending-session entries are surfaced
+- pending permissions and questions are keyed by `sessionID` and surfaced for the current/sending session and its full descendant subtree, not unrelated sessions
 - attachment capability is checked against the selected model before send
 - local attachment files larger than 10 MB are rejected before base64 encoding
 - OpenCode 2 prompt admission retains the server inbox ID, text, files and

@@ -6,8 +6,13 @@ export function getCurrentPendingRequests<T>(
   currentSessionId: string | undefined,
   sendingSessionId: string | undefined,
   pendingRequestsBySession: Record<string, T[]>,
+  relatedSessionIds: Iterable<string> = [],
 ) {
-  const candidateSessionIds = [...new Set([currentSessionId, sendingSessionId].filter(Boolean))] as string[];
+  const candidateSessionIds = [...new Set([
+    currentSessionId,
+    sendingSessionId,
+    ...relatedSessionIds,
+  ].filter(Boolean))] as string[];
   const matches = candidateSessionIds.flatMap((sessionId) => pendingRequestsBySession[sessionId] || []);
 
   // MCP elicitation forms are owned by the server's `global` sentinel rather

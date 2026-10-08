@@ -328,6 +328,8 @@ Permissions and questions are session-scoped. The app reconciles `GET /permissio
 
 The request is inserted or replaced in `pendingPermissionsBySession[sessionID]`. `permission.replied` removes the matching `requestID`.
 
+A subagent's request carries the child session's `sessionID`. The active chat surfaces requests for the current/sending session and its full descendant subtree (resolved from each session's `parentID`), so nested prompts are presented on the root chat instead of being dropped.
+
 A reply calls the generated session-scoped operation with:
 
 ```json

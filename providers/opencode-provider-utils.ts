@@ -1,7 +1,7 @@
 // Small provider-agnostic helpers that do not belong to a specific domain
 // (project labels and grouping pending interactions by session).
 
-import type { SessionStatus } from '@/lib/opencode/types';
+import type { Session, SessionStatus } from '@/lib/opencode/types';
 
 // V2 `retry` is event-only: the session-list status endpoint derives its map
 // from the running set, which cannot express a retry. A list refresh would
@@ -32,6 +32,29 @@ export function getProjectLabel(path: string) {
   const normalized = path.trim().replace(/\/$/, '');
   const segments = normalized.split('/').filter(Boolean);
   return segments.at(-1) || normalized || 'Project';
+}
+
+// Subagent (and nested sub-subagent) permission/question requests carry the
+// child session's id, but the active chat only knows the root session. Walk the
+// parentID tree so a blocker raised anywhere below the current/sending session
+// still surfaces instead of hanging the whole subtree. Roots are included.
+export function collectDescendantSessionIds(
+  sessions: Session[],
+  rootIds: (string | undefined)[],
+): Set<string> {
+  const result = new Set(rootIds.filter((id): id is string => Boolean(id)));
+  let frontier = [...result];
+  while (frontier.length > 0) {
+    const parents = new Set(frontier);
+    frontier = [];
+    for (const session of sessions) {
+      if (session.parentID && parents.has(session.parentID) && !result.has(session.id)) {
+        result.add(session.id);
+        frontier.push(session.id);
+      }
+    }
+  }
+  return result;
 }
 
 export function groupPendingRequestsBySession<T extends { id: string; sessionID: string }>(requests: T[]) {

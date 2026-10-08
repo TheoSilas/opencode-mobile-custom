@@ -42,7 +42,7 @@ assert.deepEqual(
 
 const providerUtilsSource = await readFile(new URL('../providers/opencode-provider-utils.ts', import.meta.url), 'utf8');
 const providerUtilsOutput = ts.transpileModule(providerUtilsSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
-const { mergeSessionStatuses, RETRY_STATUS_STALE_MS } = await import(`data:text/javascript,${encodeURIComponent(providerUtilsOutput)}`);
+const { mergeSessionStatuses, RETRY_STATUS_STALE_MS, collectDescendantSessionIds } = await import(`data:text/javascript,${encodeURIComponent(providerUtilsOutput)}`);
 const now = 1_000_000;
 const retry = { type: 'retry', attempt: 2, message: 'provider failed', next: now + 5_000 };
 const staleRetry = { type: 'retry', attempt: 2, message: 'provider failed', next: now - RETRY_STATUS_STALE_MS - 1 };
@@ -56,5 +56,18 @@ assert.deepEqual(mergeSessionStatuses({ s: { type: 'idle' } }, { s: retry }, now
 assert.deepEqual(mergeSessionStatuses({ a: retry, b: { type: 'idle' } }, { b: { type: 'idle' } }, now), { b: { type: 'idle' } });
 // A retry whose scheduled attempt is long past without any new signal clears.
 assert.deepEqual(mergeSessionStatuses({ s: staleRetry }, { s: { type: 'idle' } }, now), { s: { type: 'idle' } });
+
+// A subagent permission carries a child session id, so the active chat must be
+// able to walk the parentID tree from its root to every descendant blocker.
+const tree = [
+  { id: 'root' },
+  { id: 'child', parentID: 'root' },
+  { id: 'grandchild', parentID: 'child' },
+  { id: 'sibling', parentID: 'other-root' },
+  { id: 'unrelated' },
+];
+assert.deepEqual([...collectDescendantSessionIds(tree, ['root'])], ['root', 'child', 'grandchild']);
+assert.deepEqual([...collectDescendantSessionIds(tree, [undefined, 'child'])], ['child', 'grandchild']);
+assert.deepEqual([...collectDescendantSessionIds([{ id: 'a', parentID: 'b' }, { id: 'b', parentID: 'a' }], ['a'])], ['a', 'b']);
 
 console.log('provider utility tests passed');
