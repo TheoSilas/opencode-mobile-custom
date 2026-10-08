@@ -230,6 +230,9 @@ and provider setup remain in Settings.
   and bounded output delivery live in `lib/opencode/terminal-stream.ts`.
 - `providers/use-mcp-state.ts`
   MCP server status plus its lifecycle actions.
+- `providers/use-permission-rules-state.ts`
+  V2 saved "always allow" rules: list, refresh, and remove, connection-scoped
+  like the rest of the provider state.
 - `providers/use-worktree-state.ts`
   Experimental worktree list plus its lifecycle actions.
 - `providers/use-active-sessions.ts`
@@ -503,10 +506,12 @@ Recognized events update local state or schedule refreshes for:
 - session status changes
 - session idle completion
 - message updates
-- message part updates/removals
+- message part updates/removals/deltas
 - session diff updates
 - todo updates
 - permission and question requests/replies
+- capability/config, project-directory, VCS, LSP, worktree, MCP, and terminal changes
+- MCP authentication failures (`mcp.browser.open.failed`), surfaced as an in-chat approval alert
 
 ### Safety Strategy: Polling Fallback
 

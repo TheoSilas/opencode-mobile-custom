@@ -7,14 +7,16 @@
       "voice": "Sprache & Antworten",
       "advanced": "Erweitert",
       "appearance": "Darstellung",
-      "support": "Support"
+      "support": "Support",
+      "permissions": "Genehmigungen"
     },
     "summaries": {
       "configuredCount": "{{value}} konfiguriert",
       "replyPlaybackOn": "Antwortwiedergabe an",
       "replyPlaybackOff": "Antwortwiedergabe aus",
       "advanced": "Editor, Allgemeines, MCP-Server und Diagnose",
-      "support": "App bewerten, Feedback senden, Hilfe erhalten"
+      "support": "App bewerten, Feedback senden, Hilfe erhalten",
+      "permissions": "{{value}} gespeichert"
     }
   },
   "support": {
@@ -361,5 +363,14 @@
   "general": {
     "title": "Allgemein",
     "resetOnboarding": "Einrichtung neu starten"
+  },
+  "permissions": {
+    "title": "Gespeicherte Berechtigungen",
+    "description": "Regeln aus „Immer erlauben“. Beim Entfernen fragt der Server wieder nach.",
+    "empty": "Keine gespeicherten Berechtigungen.",
+    "remove": "Entfernen",
+    "removeTitle": "Gespeicherte Berechtigung entfernen",
+    "removeMessage": "{{resource}} nicht mehr automatisch erlauben?",
+    "refresh": "Aktualisieren"
   }
 }

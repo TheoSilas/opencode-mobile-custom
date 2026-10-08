@@ -2,7 +2,7 @@ import type { TerminalRuntime, TerminalStatus } from './terminal-types';
 import type { PendingPrompt } from '@/lib/opencode/prompt-inbox';
 import type { Dispatch, SetStateAction } from 'react';
 
-import type { PendingPermissionRequest, PendingQuestionRequest, ServerContract, OpencodeConnectionSettings } from '@/lib/opencode/client';
+import type { PendingPermissionRequest, PendingQuestionRequest, SavedPermissionRule, ServerContract, OpencodeConnectionSettings } from '@/lib/opencode/client';
 import type { SessionMessageRecord } from '@/lib/opencode/format';
 import type { SessionUsageStep } from '@/lib/opencode/usage';
 import type {
@@ -106,6 +106,11 @@ export type ProviderValuesInput = ActionInputs & {
   loadOlderMessages: (sessionId: string) => Promise<void>;
   pendingPermissionsBySession: Record<string, PendingPermissionRequest[]>;
   pendingQuestionsBySession: Record<string, PendingQuestionRequest[]>;
+  mcpAuthPrompt?: { mcpName: string; url: string };
+  dismissMcpAuth: () => void;
+  savedPermissions: SavedPermissionRule[];
+  refreshSavedPermissions: () => Promise<void>;
+  removeSavedPermission: (id: string) => Promise<void>;
   sendingState: { sessionId?: string; active: boolean };
   isRefreshingSessions: boolean;
   isRefreshingMessages: boolean;

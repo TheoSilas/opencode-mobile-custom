@@ -5,6 +5,7 @@ import {
   type OpencodeConnectionSettings,
   type PendingPermissionRequest,
   type PendingQuestionRequest,
+  type SavedPermissionRule,
   type ServerContract,
 } from '@/lib/opencode/client';
 import { getConnectionScope } from '@/lib/connection-scope';
@@ -58,6 +59,8 @@ export function useOpencodeProviderState() {
   const [todosBySession, setTodosBySession] = useState<Record<string, Todo[]>>({});
   const [pendingPermissionsBySession, setPendingPermissionsBySession] = useState<Record<string, PendingPermissionRequest[]>>({});
   const [pendingQuestionsBySession, setPendingQuestionsBySession] = useState<Record<string, PendingQuestionRequest[]>>({});
+  const [mcpAuthPrompt, setMcpAuthPrompt] = useState<{ mcpName: string; url: string }>();
+  const [savedPermissions, setSavedPermissions] = useState<SavedPermissionRule[]>([]);
   const [serverProjects, setServerProjects] = useState<Project[]>([]);
   const [currentProjectPath, setCurrentProjectPath] = useState<string>();
   const [serverRootPath, setServerRootPath] = useState<string>();
@@ -151,6 +154,8 @@ export function useOpencodeProviderState() {
     todosBySession, setTodosBySession,
     pendingPermissionsBySession, setPendingPermissionsBySession,
     pendingQuestionsBySession, setPendingQuestionsBySession,
+    mcpAuthPrompt, setMcpAuthPrompt,
+    savedPermissions, setSavedPermissions,
     serverProjects, setServerProjects,
     currentProjectPath, setCurrentProjectPath,
     serverRootPath, setServerRootPath,

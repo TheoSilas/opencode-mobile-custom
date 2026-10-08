@@ -15,6 +15,7 @@ export function useSessionInteractionActions({
   setPendingPermissionsBySession,
   setPendingQuestionsBySession,
   refreshMessages,
+  refreshSavedPermissions,
 }: SessionActionsInput) {
   const replyToPermission = useCallback(
     async (requestId: string, reply: 'once' | 'always' | 'reject') => {
@@ -28,8 +29,12 @@ export function useSessionInteractionActions({
         [request.sessionID]: (current[request.sessionID] || []).filter((item) => item.id !== request.id),
       }));
       await refreshMessages(request.sessionID, true);
+      // An "always" reply may persist a new server-side rule; refresh the list.
+      if (reply === 'always' && refreshSavedPermissions) {
+        void refreshSavedPermissions().catch(() => undefined);
+      }
     },
-    [client, pendingPermissionsBySession, refreshMessages, setPendingPermissionsBySession],
+    [client, pendingPermissionsBySession, refreshMessages, refreshSavedPermissions, setPendingPermissionsBySession],
   );
 
   const replyToQuestion = useCallback(

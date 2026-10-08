@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
-import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { Alert, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, View } from 'react-native';
 import { Button, Card, FAB, Snackbar, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -21,7 +21,7 @@ export function ChatView() {
   const palette = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const {
-    activeProject, activeSession, attachments, availableAgents, awaitingUserInput,
+    activeProject, activeSession, approvals, attachments, availableAgents, awaitingUserInput,
     buildSendErrorDetails, changesVisible, chatPreferences, clearConversationFeedback,
     clearPromptError, commands, completedTodoCount, connection, contextModel, contextTokens,
     conversation, copiedMessageId, currentActivityLabel, currentDiffs, currentDiffScope,
@@ -161,6 +161,24 @@ export function ChatView() {
                   setSendFeedback(undefined);
                   clearPromptError();
                 }}>{t('common:actions.dismiss')}</Button>
+              </View>
+            </Card.Content>
+          </Card>
+        ) : null}
+
+        {approvals.mcpAuth ? (
+          <Card mode="contained" style={[styles.sendErrorCard, { backgroundColor: `${palette.warning}14` }]}>
+            <Card.Content style={styles.sendErrorContent}>
+              <Text variant="titleSmall" style={{ color: palette.warning }}>{t('chat:approvals.mcpAuthTitle')}</Text>
+              <Text selectable variant="bodySmall" style={{ color: palette.text }}>{t('chat:approvals.mcpAuthNeeded', { name: approvals.mcpAuth.mcpName })}</Text>
+              <View style={styles.sendErrorActions}>
+                <Button compact icon="open-in-new" onPress={() => {
+                  const url = approvals.mcpAuth?.url;
+                  if (url) {
+                    void Linking.openURL(url).catch(() => undefined);
+                  }
+                }}>{t('chat:approvals.openAuthLink')}</Button>
+                <Button compact onPress={approvals.dismissMcpAuth}>{t('common:actions.dismiss')}</Button>
               </View>
             </Card.Content>
           </Card>

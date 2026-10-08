@@ -7,14 +7,16 @@
       "voice": "Voz e respostas",
       "advanced": "Avançado",
       "appearance": "Aparência",
-      "support": "Suporte"
+      "support": "Suporte",
+      "permissions": "Aprovações"
     },
     "summaries": {
       "configuredCount": "{{value}} configurados",
       "replyPlaybackOn": "Reprodução de respostas ativada",
       "replyPlaybackOff": "Reprodução de respostas desativada",
       "advanced": "Editor, geral, servidores MCP e diagnósticos",
-      "support": "Avalie o app, envie feedback, obtenha ajuda"
+      "support": "Avalie o app, envie feedback, obtenha ajuda",
+      "permissions": "{{value}} salvos"
     }
   },
   "support": {
@@ -361,5 +363,14 @@
   "general": {
     "title": "Geral",
     "resetOnboarding": "Reiniciar a configuração inicial"
+  },
+  "permissions": {
+    "title": "Permissões salvas",
+    "description": "Regras criadas por “Sempre permitir”. Remover uma faz o servidor perguntar novamente.",
+    "empty": "Nenhuma permissão salva.",
+    "remove": "Remover",
+    "removeTitle": "Remover permissão salva",
+    "removeMessage": "Parar de permitir automaticamente {{resource}}?",
+    "refresh": "Atualizar"
   }
 }

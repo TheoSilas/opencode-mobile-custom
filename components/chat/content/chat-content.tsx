@@ -9,7 +9,7 @@ import { Colors } from '@/constants/theme';
 import type { TranscriptEntry } from '@/lib/opencode/format';
 import type { FileDiff, Session, Todo } from '@/lib/opencode/types';
 import type { DiffScope, DiffTurn } from '@/providers/opencode-provider-types';
-import type { PendingPermissionRequest, PendingQuestionAnswer, PendingQuestionRequest } from '@/lib/opencode/client';
+import type { PendingPermission, PendingQuestion, PendingQuestionAnswer } from '@/lib/opencode/client';
 
 type Palette = typeof Colors.light;
 type DiffDetail = Extract<TranscriptEntry['details'][number], { kind: 'patch' }>;
@@ -27,8 +27,8 @@ type ChatContentProps = {
   currentActivityLabel?: string;
   currentDiffs: FileDiff[];
   currentDiffScope: DiffScope;
-  currentPendingPermissions: PendingPermissionRequest[];
-  currentPendingQuestions: PendingQuestionRequest[];
+  currentPendingPermissions: PendingPermission[];
+  currentPendingQuestions: PendingQuestion[];
   currentTodos: Todo[];
   currentSessionId?: string;
   diffCount: number;

@@ -37,6 +37,7 @@ The goal is to make it possible to rebuild the UI tree without having to redisco
 - main chat screen controller
 - bridges provider state to presentational chat subcomponents
 - owns local UI state for draft, attachments, menu visibility, speaking state, snackbars, and voice draft capture
+- renders the chat approval alert for `approvals.mcpAuth` (MCP authentication required) with Open link and Dismiss actions
 
 ### Important local state
 
@@ -277,6 +278,8 @@ type ChatHeaderProps = {
 Responsibility:
 
 - render session-scoped permission actions in the floating continuation area
+- show the requesting session's title as `Requested by {{name}}` when the
+  permission came from a subagent/nested session, so provenance is visible
 
 ### `QuestionFlow`
 
@@ -560,6 +563,15 @@ Responsibility:
 - show global event stream state and whether polling fallback is active
 - show MCP, LSP, and formatter counts
 - refresh diagnostics on demand
+
+### `PermissionsSection`
+
+Responsibility:
+
+- V2-only Settings view of server-persisted "always allow" rules
+- show each rule's resource and action, confirm-remove one, refresh on demand
+- reads and mutates provider-owned `savedPermissions` through the chat
+  `approvals` value; performs no fetch itself
 
 ### `SupportSection`
 

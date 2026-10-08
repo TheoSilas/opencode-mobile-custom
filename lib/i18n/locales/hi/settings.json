@@ -7,14 +7,16 @@
       "voice": "आवाज़ और उत्तर",
       "advanced": "उन्नत",
       "appearance": "दिखावट",
-      "support": "सहायता"
+      "support": "सहायता",
+      "permissions": "स्वीकृतियाँ"
     },
     "summaries": {
       "configuredCount": "{{value}} कॉन्फ़िगर किए गए",
       "replyPlaybackOn": "उत्तर प्लेबैक चालू",
       "replyPlaybackOff": "उत्तर प्लेबैक बंद",
       "advanced": "एडिटर, सामान्य, MCP सर्वर और निदान",
-      "support": "ऐप को रेट करें, फ़ीडबैक भेजें, सहायता पाएँ"
+      "support": "ऐप को रेट करें, फ़ीडबैक भेजें, सहायता पाएँ",
+      "permissions": "{{value}} सहेजे गए"
     }
   },
   "support": {
@@ -361,5 +363,14 @@
   "general": {
     "title": "सामान्य",
     "resetOnboarding": "प्रारंभिक सेटअप फिर से शुरू करें"
+  },
+  "permissions": {
+    "title": "सहेजी गई अनुमतियाँ",
+    "description": "“हमेशा अनुमति दें” से बनी नियम। एक हटाने पर सर्वर फिर पूछेगा।",
+    "empty": "कोई सहेजी गई अनुमति नहीं।",
+    "remove": "हटाएं",
+    "removeTitle": "सहेजी गई अनुमति हटाएं",
+    "removeMessage": "{{resource}} को स्वतः अनुमति देना बंद करें?",
+    "refresh": "रीफ़्रेश करें"
   }
 }

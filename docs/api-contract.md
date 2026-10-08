@@ -330,6 +330,16 @@ The request is inserted or replaced in `pendingPermissionsBySession[sessionID]`.
 
 A subagent's request carries the child session's `sessionID`. The active chat surfaces requests for the current/sending session and its full descendant subtree (resolved from each session's `parentID`), so nested prompts are presented on the root chat instead of being dropped.
 
+### Saved permission rules (V2)
+
+V2 persists "always allow" grants created by permission replies. The app lists
+them through `api.permission.saved.list()` (mapped to `{ id, action, resource,
+createdAt }`) and revokes one through `api.permission.saved.remove({ id })`.
+These are exposed on the client as the optional top-level `savedPermissions`
+surface (the V1-shaped SDK `permission` object does not type them) and are gated
+by the `savedPermissions` server capability. V1 has no equivalent; the Settings
+section is hidden there.
+
 A reply calls the generated session-scoped operation with:
 
 ```json
@@ -377,6 +387,10 @@ Recognized payload types:
 - `question.rejected`
 
 The subscription reconnects after failure or an unexpected end. It is considered connected only after the first matching project event arrives, so polling remains active while the SDK is still opening or retrying the stream. Backoff starts at 1 second, doubles after each failure, and is capped at 15 seconds. A successful event resets backoff to 1 second.
+
+`mcp.browser.open.failed` carries `{ mcpName, url }`; the server could not open the MCP OAuth URL on its own. The app stores this as the chat `approvals.mcpAuth` alert (Open link / Dismiss) and also refreshes MCP status, so a mid-session tool that needs authentication is not silently blocked. The alert hides once the named server reports `connected`.
+
+The V2 adapter maps refresh-relevant events onto the same V1-shaped handler: `lsp.updated`, `mcp.tools.changed` (in addition to status/resource changes), `worktree.failed`, `credential.switched` (catalog), `session.instructions.updated` / `session.metadata.updated` / `command.executed` (session), plus the V1-only `message.part.delta`, `project.directories.updated`, `file.watcher.updated`, `reference.updated`, `plugin.added`, `models-dev.refreshed`, and `integration.updated`.
 
 On V2 a mid-turn provider failure emits `session.execution.failed` (mapped to `session.idle`) followed by `session.retry.scheduled` (mapped to a `session.status` carrying `retry`, `attempt`, and `next`). V2 keeps the retry on the assistant message, so the adapter also maps `assistant.retry` to a transcript `retry` part, and the running indicator shows the retry attempt from the session status. Because the running set excludes retries, a session-list refresh must not overwrite the event-derived retry: `mergeSessionStatuses` keeps it until the server reports the session running, a terminal event clears it, or the retry's `next` is more than two minutes stale. Preserving the retry keeps the session busy, so the safety poll keeps running and recovers output even when the retry's SSE frames are missed.
 

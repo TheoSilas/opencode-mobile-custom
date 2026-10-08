@@ -20,6 +20,7 @@ import {
   DiagnosticsSection,
   GeneralSection,
   NotificationsSection,
+  PermissionsSection,
   SupportSection,
   VoiceSection,
 } from '@/components/settings/settings-sections';
@@ -34,7 +35,7 @@ import {
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getSpeechVoiceOptions, type SpeechVoiceOption } from '@/lib/voice/speech-output';
-import { useCapabilities, useConnection, useMcp, useOnboarding, usePreferences } from '@/providers/opencode-contexts';
+import { useCapabilities, useChat, useConnection, useMcp, useOnboarding, usePreferences } from '@/providers/opencode-contexts';
 
 // One entry per settings section. Adding a section means adding an entry here
 // (and its presentational component); the row list and the overlay both derive
@@ -57,6 +58,7 @@ export default function SettingsScreen() {
   const { addMcpServer, completeMcpOAuth, connectMcpServer, disconnectMcpServer, mcpStatuses, refreshMcpServers, setMcpServerEnabled, startMcpOAuth } = useMcp();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const { connect, connection, diagnostics, eventStreamStatus, refreshDiagnostics, serverCapabilities, connectSetup } = useConnection();
+  const { approvals } = useChat();
   const { startOnboardingReview } = useOnboarding();
   const router = useRouter();
   const notifications = useNotificationSetup();
@@ -187,6 +189,24 @@ export default function SettingsScreen() {
         </>
       ),
     },
+    ...(serverCapabilities.savedPermissions ? [{
+      id: 'permissions',
+      icon: 'shield-key-outline' as const,
+      title: t('settings:screen.categories.permissions'),
+      summary: t('settings:screen.summaries.permissions', { value: approvals.savedPermissions.length }),
+      onPress: () => {
+        setOpenSection('permissions');
+        void approvals.refreshSavedPermissions();
+      },
+      render: () => (
+        <PermissionsSection
+          palette={palette}
+          rules={approvals.savedPermissions}
+          onRefresh={() => void approvals.refreshSavedPermissions()}
+          onRemove={(id) => void approvals.removeSavedPermission(id)}
+        />
+      ),
+    }] : []),
     {
       id: 'support',
       icon: 'lifebuoy',

@@ -5,7 +5,7 @@ import { Card, Text } from 'react-native-paper';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { PendingPermissionRequest } from '@/lib/opencode/client';
+import type { PendingPermission } from '@/lib/opencode/client';
 import { PermissionRequestCard } from './permission-request-card';
 
 export function PendingInteractionsCard({
@@ -13,7 +13,7 @@ export function PendingInteractionsCard({
   permissions,
 }: {
   onPermissionReply: (requestId: string, reply: 'once' | 'always' | 'reject') => Promise<void>;
-  permissions: PendingPermissionRequest[];
+  permissions: PendingPermission[];
 }) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -33,6 +33,7 @@ export function PendingInteractionsCard({
           <PermissionRequestCard
             key={request.id}
             request={request}
+            sourceTitle={request.sourceTitle}
             onReply={(reply) => onPermissionReply(request.id, reply)}
           />
         ))}

@@ -7,14 +7,16 @@
       "voice": "Voix et réponses",
       "advanced": "Avancé",
       "appearance": "Apparence",
-      "support": "Assistance"
+      "support": "Assistance",
+      "permissions": "Approbations"
     },
     "summaries": {
       "configuredCount": "{{value}} configurés",
       "replyPlaybackOn": "Lecture des réponses activée",
       "replyPlaybackOff": "Lecture des réponses désactivée",
       "advanced": "Éditeur, général, serveurs MCP et diagnostics",
-      "support": "Notez l'app, envoyez vos retours, obtenez de l'aide"
+      "support": "Notez l'app, envoyez vos retours, obtenez de l'aide",
+      "permissions": "{{value}} enregistrées"
     }
   },
   "support": {
@@ -361,5 +363,14 @@
   "general": {
     "title": "Général",
     "resetOnboarding": "Relancer la configuration initiale"
+  },
+  "permissions": {
+    "title": "Autorisations enregistrées",
+    "description": "Règles créées par « Toujours autoriser ». En supprimer une force le serveur à redemander.",
+    "empty": "Aucune autorisation enregistrée.",
+    "remove": "Supprimer",
+    "removeTitle": "Supprimer l’autorisation enregistrée",
+    "removeMessage": "Ne plus autoriser automatiquement {{resource}} ?",
+    "refresh": "Actualiser"
   }
 }

@@ -7,14 +7,16 @@
       "voice": "Voz y respuestas",
       "advanced": "Avanzado",
       "appearance": "Apariencia",
-      "support": "Soporte"
+      "support": "Soporte",
+      "permissions": "Aprobaciones"
     },
     "summaries": {
       "configuredCount": "{{value}} configurados",
       "replyPlaybackOn": "Reproducción de respuestas activada",
       "replyPlaybackOff": "Reproducción de respuestas desactivada",
       "advanced": "Editor, general, servidores MCP y diagnósticos",
-      "support": "Valora la app, envía comentarios, obtén ayuda"
+      "support": "Valora la app, envía comentarios, obtén ayuda",
+      "permissions": "{{value}} guardados"
     }
   },
   "support": {
@@ -361,5 +363,14 @@
   "general": {
     "title": "General",
     "resetOnboarding": "Reiniciar la configuración inicial"
+  },
+  "permissions": {
+    "title": "Permisos guardados",
+    "description": "Reglas creadas por «Permitir siempre». Al eliminar una, el servidor volverá a preguntar.",
+    "empty": "No hay permisos guardados.",
+    "remove": "Eliminar",
+    "removeTitle": "Eliminar permiso guardado",
+    "removeMessage": "¿Dejar de permitir automáticamente {{resource}}?",
+    "refresh": "Actualizar"
   }
 }

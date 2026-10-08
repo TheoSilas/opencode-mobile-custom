@@ -26,6 +26,27 @@ export function getConfiguredProviders(availableProviders: ProviderOption[]) {
   return availableProviders.filter((provider) => provider.configured);
 }
 
+// An error with no session is global; one with a session is only relevant when
+// that session is the active/sending session or one of its descendants, so a
+// failing subagent surfaces in the parent chat instead of silently hiding.
+export function isPromptErrorVisible(
+  promptError: { sessionId?: string } | undefined,
+  relatedSessionIds: Iterable<string>,
+): boolean {
+  if (!promptError) {
+    return false;
+  }
+  if (!promptError.sessionId) {
+    return true;
+  }
+  for (const sessionId of relatedSessionIds) {
+    if (sessionId === promptError.sessionId) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function getTranscriptActivityLabelForEntries(transcript: TranscriptEntry[]) {
   for (let index = transcript.length - 1; index >= 0; index -= 1) {
     const entry = transcript[index];

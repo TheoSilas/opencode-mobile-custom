@@ -7,14 +7,16 @@
       "voice": "Voice & responses",
       "advanced": "Advanced",
       "appearance": "Appearance",
-      "support": "Support"
+      "support": "Support",
+      "permissions": "Approvals"
     },
     "summaries": {
       "configuredCount": "{{value}} configured",
       "replyPlaybackOn": "Reply playback on",
       "replyPlaybackOff": "Reply playback off",
       "advanced": "Editor, general, MCP servers and diagnostics",
-      "support": "Rate the app, send feedback, get help"
+      "support": "Rate the app, send feedback, get help",
+      "permissions": "{{value}} saved"
     }
   },
   "support": {
@@ -361,5 +363,14 @@
   "general": {
     "title": "General",
     "resetOnboarding": "Reset onboarding"
+  },
+  "permissions": {
+    "title": "Saved permissions",
+    "description": "Rules created by “Always allow”. Removing one makes the server ask again.",
+    "empty": "No saved permissions.",
+    "remove": "Remove",
+    "removeTitle": "Remove saved permission",
+    "removeMessage": "Stop automatically allowing {{resource}}?",
+    "refresh": "Refresh"
   }
 }

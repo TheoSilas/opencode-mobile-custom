@@ -427,6 +427,22 @@ Only requests owned by the current/sending session, its descendants, or the
 server's `global` sentinel are shown. Permissions from unrelated sessions are
 not flattened into the active chat.
 
+Each surfaced request carries a display-only `sourceTitle` (the requesting
+session's title) so a subagent prompt shows provenance. Prompt errors are
+scoped the same way: an error from a session in the active tree (for example a
+failed subagent) is shown in the parent chat instead of being hidden.
+
+### Server Approval Interactions
+
+Two server-originated approval surfaces are grouped under the chat `approvals`
+value:
+
+- `mcpAuth`: set by `mcp.browser.open.failed` (`mcpName`, `url`); rendered as an
+  in-chat alert until dismissed or the named MCP server connects.
+- `savedPermissions`: V2 `permission.saved` always-allow rules, listed and
+  removable from Settings. Refreshed when the section opens and after an
+  `always` permission reply. Empty on V1, which has no saved-rule surface.
+
 ### Conversation Status Label
 
 Derived from phase plus latest non-display transcript activity.
@@ -518,6 +534,7 @@ The app currently uses these logical server capabilities:
 - LSP/formatter status
 - provider OAuth authorize and callback
 - permission and question list/reply operations
+- saved permission (always-allow rule) list/remove (V2)
 - global event subscription
 
 ## Capability Discovery Model

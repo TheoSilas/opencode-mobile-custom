@@ -105,7 +105,8 @@
     "updatedPatches_other": "已更新 {{count}} 个补丁",
     "fileCount_one": "{{count}} 个文件",
     "fileCount_many": "{{count}} 个文件",
-    "fileCount_other": "{{count}} 个文件"
+    "fileCount_other": "{{count}} 个文件",
+    "requestedBy": "{{name}} 请求"
   },
   "composer": {
     "chooseAssistantMode": "选择助手模式",
@@ -277,5 +278,10 @@
   "pendingPrompts": {
     "sending": "正在发送…",
     "waiting": "等待处理…"
+  },
+  "approvals": {
+    "mcpAuthTitle": "需要 MCP 身份验证",
+    "mcpAuthNeeded": "MCP 服务器 {{name}} 需要身份验证。请打开链接完成验证后重试。",
+    "openAuthLink": "打开链接"
   }
 }

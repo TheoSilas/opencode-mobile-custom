@@ -22,9 +22,12 @@ import type {
 } from '@/lib/opencode/types';
 import type {
   OpencodeConnectionSettings,
+  PendingPermission,
+  PendingQuestion,
   PendingQuestionAnswer,
   PendingQuestionRequest,
   PendingPermissionRequest,
+  SavedPermissionRule,
 } from '@/lib/opencode/client';
 import type { Diagnostics } from '@/providers/services/diagnostics-service';
 import type { SessionMessageRecord, TranscriptEntry } from '@/lib/opencode/format';
@@ -280,8 +283,17 @@ export type ChatContextValue = {
   selectDiffMessage: (messageId: string) => void;
   refreshDiffs: (silent?: boolean) => Promise<void>;
   currentTodos: Todo[];
-  currentPendingPermissions: PendingPermissionRequest[];
-  currentPendingQuestions: PendingQuestionRequest[];
+  currentPendingPermissions: PendingPermission[];
+  currentPendingQuestions: PendingQuestion[];
+  // Server-originated approval interactions grouped so the domain surface does
+  // not grow one member per concern.
+  approvals: {
+    mcpAuth?: { mcpName: string; url: string };
+    dismissMcpAuth: () => void;
+    savedPermissions: SavedPermissionRule[];
+    refreshSavedPermissions: () => Promise<void>;
+    removeSavedPermission: (id: string) => Promise<void>;
+  };
   isRefreshingMessages: boolean;
   isRefreshingDiffs: boolean;
   isBootstrappingChat: boolean;
@@ -306,7 +318,7 @@ export type ChatContextValue = {
     sessionId?: string;
     active: boolean;
   };
-  promptError?: { message: string; occurredAt: number; sessionId?: string };
+  promptError?: { message: string; occurredAt: number; sessionId?: string; sourceTitle?: string };
   clearPromptError: () => void;
 };
 

@@ -141,6 +141,15 @@ the real `@/` modules and replace platform/protocol boundaries with `vi.mock`,
 instead of transpiling sources through the legacy `loadTs` VM helper (still used
 by `test:provider-runtime`, which drives hook source through a custom renderer).
 
+Subagent blocking and event coverage is unit-level: `pending-interactions.test.ts`
+covers `collectDescendantSessionIds`, descendant permission/question surfacing,
+and `isPromptErrorVisible`; `provider-events.test.ts` covers the `handleProviderEvent`
+MCP-auth alert, part-delta/project-directory refresh, and the new V2 event
+mappings; `v2-mappers.test.ts` covers `mapSavedPermission`. There is deliberately
+no fake-server or Playwright scenario for these surfaces yet (MCP auth failure,
+saved permission rules, subagent prompt routing), so end-to-end confirmation
+remains a follow-up; the fake-server contract is unchanged.
+
 The `test:i18n` suite guards translations: it checks that every language defines
 exactly the English key set, that interpolation variables match per key, that
 each plural base carries the plural categories required by its locale, and that

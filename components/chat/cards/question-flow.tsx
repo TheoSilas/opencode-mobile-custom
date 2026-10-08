@@ -14,12 +14,14 @@ export function QuestionFlow({
   onReply,
   onDismiss,
   request,
+  sourceTitle,
   visible,
 }: {
   onReject: () => Promise<void>;
   onReply: (answers: PendingQuestionAnswer[]) => Promise<void>;
   onDismiss: () => void;
   request: PendingQuestionRequest;
+  sourceTitle?: string;
   visible: boolean;
 }) {
   const { t } = useTranslation();
@@ -117,6 +119,7 @@ export function QuestionFlow({
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 18 }}>
         <Text variant="labelLarge" style={{ color: palette.warning }}>{t('chat:cards.waitingForAnswerBanner')}</Text>
         <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:cards.questionOfTotal', { current: currentStep + 1, total: visibleIndexes.length })}</Text>
+        {sourceTitle ? <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:cards.requestedBy', { name: sourceTitle })}</Text> : null}
         {request.title ? <Text variant="bodySmall" style={{ color: palette.muted }}>{request.title}</Text> : null}
         {request.questions.map((prompt, questionIndex) => {
           if (questionIndex !== currentIndex) {

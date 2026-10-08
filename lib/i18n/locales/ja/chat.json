@@ -105,7 +105,8 @@
     "updatedPatches_other": "{{count}} パッチを更新",
     "fileCount_one": "{{count}} ファイル",
     "fileCount_many": "{{count}} ファイル",
-    "fileCount_other": "{{count}} ファイル"
+    "fileCount_other": "{{count}} ファイル",
+    "requestedBy": "{{name}} からのリクエスト"
   },
   "composer": {
     "chooseAssistantMode": "アシスタントモードを選択",
@@ -277,5 +278,10 @@
   "pendingPrompts": {
     "sending": "送信中…",
     "waiting": "反映待ち…"
+  },
+  "approvals": {
+    "mcpAuthTitle": "MCP 認証が必要です",
+    "mcpAuthNeeded": "MCP サーバー {{name}} の認証が必要です。リンクを開いて完了し、再試行してください。",
+    "openAuthLink": "リンクを開く"
   }
 }

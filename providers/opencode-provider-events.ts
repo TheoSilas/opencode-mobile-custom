@@ -31,6 +31,7 @@ export type ProviderEventActions = {
   setTodosBySession: Dispatch<SetStateAction<Record<string, Todo[]>>>;
   setPendingPermissionsBySession: Dispatch<SetStateAction<Record<string, PendingPermissionRequest[]>>>;
   setPendingQuestionsBySession: Dispatch<SetStateAction<Record<string, PendingQuestionRequest[]>>>;
+  setMcpAuthPrompt: Dispatch<SetStateAction<{ mcpName: string; url: string } | undefined>>;
   selectedDiffMessageBySessionRef: { current: Record<string, string | undefined> };
 };
 
@@ -90,7 +91,8 @@ export function handleProviderEvent(event: GlobalEvent['payload'], actions: Prov
       return;
     }
     case 'message.part.updated':
-    case 'message.part.removed': {
+    case 'message.part.removed':
+    case 'message.part.delta': {
       actions.scheduleSessionRefresh(event.properties.sessionID, { messages: true });
       return;
     }
@@ -101,10 +103,18 @@ export function handleProviderEvent(event: GlobalEvent['payload'], actions: Prov
     case 'catalog.updated':
       void actions.refreshChatCapabilities().catch(() => undefined);
       return;
+    case 'reference.updated':
+    case 'plugin.added':
+    case 'models-dev.refreshed':
+    case 'integration.updated':
+      void actions.refreshChatCapabilities().catch(() => undefined);
+      return;
     case 'project.updated':
+    case 'project.directories.updated':
       void actions.refreshWorkspaceCatalog(true).catch(() => undefined);
       return;
     case 'file.edited':
+    case 'file.watcher.updated':
     case 'vcs.branch.updated':
       void actions.refreshServerFeatures().catch(() => undefined);
       return;
@@ -120,9 +130,15 @@ export function handleProviderEvent(event: GlobalEvent['payload'], actions: Prov
       void actions.refreshWorkspaceCatalog(true).catch(() => undefined);
       return;
     case 'mcp.tools.changed':
-    case 'mcp.browser.open.failed':
       void actions.refreshMcpServers().catch(() => undefined);
       return;
+    case 'mcp.browser.open.failed': {
+      // The server could not open the MCP OAuth URL itself. Surface it so the
+      // user can complete authentication instead of the tool silently hanging.
+      actions.setMcpAuthPrompt({ mcpName: event.properties.mcpName, url: event.properties.url });
+      void actions.refreshMcpServers().catch(() => undefined);
+      return;
+    }
     case 'lsp.updated':
       void actions.refreshDiagnostics().catch(() => undefined);
       return;

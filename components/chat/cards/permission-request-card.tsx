@@ -19,10 +19,12 @@ export function PermissionRequestCard({
   compact = false,
   onReply,
   request,
+  sourceTitle,
 }: {
   compact?: boolean;
   onReply: (reply: 'once' | 'always' | 'reject') => Promise<void>;
   request: PendingPermissionRequest;
+  sourceTitle?: string;
 }) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -41,6 +43,9 @@ export function PermissionRequestCard({
     <Card mode="contained" style={[styles.requestCard, compact && styles.requestCardCompact, { backgroundColor: palette.background }]}> 
       <Card.Content style={styles.requestCardContent}>
         <Text variant="labelLarge" style={{ color: palette.warning }}>{t('chat:cards.permissionRequest')}</Text>
+        {sourceTitle ? (
+          <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:cards.requestedBy', { name: sourceTitle })}</Text>
+        ) : null}
         <Text variant="titleMedium" style={{ color: palette.text }}>{getPermissionTitle(request)}</Text>
         {request.patterns.length > 0 ? (
           <Text variant="bodySmall" style={{ color: palette.muted }}>{request.patterns.join('\n')}</Text>

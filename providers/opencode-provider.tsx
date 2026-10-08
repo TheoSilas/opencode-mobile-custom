@@ -23,6 +23,7 @@ import {
 import { useOpencodeRealtime } from '@/providers/use-opencode-realtime';
 import { useConversationState } from '@/providers/use-conversation-state';
 import { useActiveSessions } from '@/providers/use-active-sessions';
+import { usePermissionRulesState } from '@/providers/use-permission-rules-state';
 import { useTranscriptState } from '@/providers/use-transcript-state';
 import { useMcpState } from '@/providers/use-mcp-state';
 import { useOpencodePersistence } from '@/providers/use-opencode-persistence';
@@ -76,6 +77,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     setAvailableAgents,
     setPendingPermissionsBySession,
     setPendingQuestionsBySession,
+    setSavedPermissions,
+    setMcpAuthPrompt,
     setWorkspaceFiles,
     setWorkspaceFileStatuses,
     setSelectedWorkspaceFile,
@@ -117,6 +120,10 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const stopOnboardingReview = useCallback(() => {
     setOnboardingActive(false);
   }, [setOnboardingActive]);
+
+  const dismissMcpAuth = useCallback(() => {
+    setMcpAuthPrompt(undefined);
+  }, [setMcpAuthPrompt]);
 
   const projects = useMemo(() => {
     const entries = new Map<string, import('@/providers/opencode-provider-types').OpencodeProject>();
@@ -186,6 +193,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   });
   const worktree = useWorktreeState({ ...state, client, isCurrentClient, refreshWorkspaceCatalog: refreshWorkspaceCatalogLatest });
   const mcp = useMcpState({ ...state, client, isCurrentClient, refreshChatCapabilities: refreshChatCapabilitiesLatest });
+  const permissionRules = usePermissionRulesState({ client, isCurrentClient, setSavedPermissions });
   const activeSessionsHook = useActiveSessions({
     catalogClient,
     isCurrentCatalogClient,
@@ -217,6 +225,8 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     setAvailableAgents([]);
     setPendingPermissionsBySession({});
     setPendingQuestionsBySession({});
+    setMcpAuthPrompt(undefined);
+    permissionRules.resetPermissionRules();
     setWorkspaceFiles([]);
     setWorkspaceFileStatuses([]);
     setSelectedWorkspaceFile(undefined);
@@ -224,7 +234,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     mcp.resetMcpState();
     terminal.resetTerminal();
     worktree.resetWorktrees();
-  }, [mcp.resetMcpState, terminal.resetTerminal, transcript.reset, worktree.resetWorktrees, bootstrapPromiseRef, bootstrapTokenRef, busyNotificationsRef, pendingNotificationsRef, sessionRefreshOptionsRef, sessionRefreshTimeoutsRef, setArchivedSessions, setAvailableAgents, setAvailableModels, setAvailableProviders, setCommands, setCurrentConfig, setCurrentSessionId, setPendingPermissionsBySession, setPendingQuestionsBySession, setProviderAuthMethodsById, setSelectedWorkspaceFile, setSessionStatuses, setSessions, setVcsInfo, setWorkspaceFileStatuses, setWorkspaceFiles]);
+  }, [mcp.resetMcpState, permissionRules.resetPermissionRules, terminal.resetTerminal, transcript.reset, worktree.resetWorktrees, bootstrapPromiseRef, bootstrapTokenRef, busyNotificationsRef, pendingNotificationsRef, sessionRefreshOptionsRef, sessionRefreshTimeoutsRef, setArchivedSessions, setAvailableAgents, setAvailableModels, setAvailableProviders, setCommands, setCurrentConfig, setCurrentSessionId, setMcpAuthPrompt, setPendingPermissionsBySession, setPendingQuestionsBySession, setProviderAuthMethodsById, setSelectedWorkspaceFile, setSessionStatuses, setSessions, setVcsInfo, setWorkspaceFileStatuses, setWorkspaceFiles]);
 
   const workspace = useWorkspaceActions({ ...state, client, catalogClient, isCurrentClient, isCurrentCatalogClient, clearProjectState, isHydrated, refreshMessages: inbox.refreshMessages });
 
@@ -233,6 +243,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const sessionActions = useSessionActions({
     ...state,
     ...workspace,
+    ...permissionRules,
     client,
     catalogClient,
     isCurrentClient,
@@ -307,6 +318,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       setTodosBySession: state.setTodosBySession,
       setPendingPermissionsBySession: state.setPendingPermissionsBySession,
       setPendingQuestionsBySession: state.setPendingQuestionsBySession,
+      setMcpAuthPrompt: state.setMcpAuthPrompt,
       selectedDiffMessageBySessionRef: state.selectedDiffMessageBySessionRef,
     };
   });
@@ -356,6 +368,9 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const values = useOpencodeProviderValues({
     ...state,
     ...transcript,
+    ...permissionRules,
+    mcpAuthPrompt: state.mcpAuthPrompt,
+    dismissMcpAuth,
     pendingPromptsBySession: inbox.pendingPromptsBySession,
     ...terminal,
     ...worktree,

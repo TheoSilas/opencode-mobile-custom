@@ -13,6 +13,21 @@ export type ServerContract = 'v1' | 'v2';
 
 export type PendingPermissionRequest = PermissionRequest;
 
+// Provider-derived wrapper that carries the requesting session's title so a
+// subagent/nested approval can show provenance in the active chat. The base
+// request shape is unchanged; the extra field is display-only.
+export type PendingPermission = PermissionRequest & { sourceTitle?: string };
+export type PendingQuestion = PendingQuestionRequest & { sourceTitle?: string };
+
+// A server-persisted "always allow" rule (V2 `permission.saved`). Display-only
+// projection of the raw record.
+export type SavedPermissionRule = {
+  id: string;
+  action: string;
+  resource: string;
+  createdAt?: number;
+};
+
 type PendingQuestionOption = {
   label: string;
   description?: string;
@@ -105,9 +120,17 @@ export type ProviderOAuthApi = {
   cancel: (providerId: string) => Promise<void>;
 };
 
+// Server-persisted "always allow" rules (V2 only). Present only on the V2
+// adapter; undefined on V1, which has no saved-rule list.
+export type SavedPermissionsApi = {
+  list: () => Promise<SavedPermissionRule[]>;
+  remove: (id: string) => Promise<void>;
+};
+
 export type ScopedOpencodeClient = OpencodeClient & {
   __opencode: ClientMetadata;
   accounts?: ProviderAccountsApi;
   providerOAuth?: ProviderOAuthApi;
   promptInbox?: PromptInboxApi;
+  savedPermissions?: SavedPermissionsApi;
 };

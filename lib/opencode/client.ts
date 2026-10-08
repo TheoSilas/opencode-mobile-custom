@@ -8,9 +8,12 @@ import type { OpencodeConnectionSettings, ScopedOpencodeClient, ServerContract }
 export type {
   ServerContract,
   PendingPermissionRequest,
+  PendingPermission,
   PendingQuestionPrompt,
   PendingQuestionRequest,
+  PendingQuestion,
   PendingQuestionAnswer,
+  SavedPermissionRule,
   OpencodeConnectionSettings,
   NormalizedServerUrl,
   ClientMetadata,
@@ -35,6 +38,8 @@ export {
   replyToPendingPermission,
   replyToPendingQuestion,
   rejectPendingQuestion,
+  listSavedPermissionRules,
+  removeSavedPermissionRule,
 } from './client/interactions';
 
 export function buildClient(settings: OpencodeConnectionSettings, contract: ServerContract = 'v1'): ScopedOpencodeClient {

@@ -7,15 +7,15 @@ import { PendingInteractionsCard, QuestionFlow } from '@/components/chat/chat-ca
 import { styles } from '@/components/chat/chat-view-styles';
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { Colors } from '@/constants/theme';
-import type { PendingPermissionRequest, PendingQuestionAnswer, PendingQuestionRequest } from '@/lib/opencode/client';
+import type { PendingPermission, PendingQuestion, PendingQuestionAnswer } from '@/lib/opencode/client';
 import type { Todo } from '@/lib/opencode/types';
 
 type Palette = typeof Colors.light;
 
 type PendingInteractionsProps = {
   changesVisible: boolean;
-  currentPendingPermissions: PendingPermissionRequest[];
-  currentPendingQuestions: PendingQuestionRequest[];
+  currentPendingPermissions: PendingPermission[];
+  currentPendingQuestions: PendingQuestion[];
   currentTodos: Todo[];
   diffCount: number;
   onCloseProgress: () => void;
@@ -51,6 +51,7 @@ export function PendingInteractions({
         <QuestionFlow
           key={currentQuestion.id}
           request={currentQuestion}
+          sourceTitle={currentQuestion.sourceTitle}
           visible={dismissedQuestionId !== currentQuestion.id}
           onDismiss={() => setDismissedQuestionId(currentQuestion.id)}
           onReject={() => onRejectQuestion(currentQuestion.id)}

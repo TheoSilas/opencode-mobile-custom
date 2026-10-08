@@ -1,4 +1,4 @@
-import { formToQuestion, mapPermission, toAnswer } from './mappers';
+import { formToQuestion, mapPermission, mapSavedPermission, toAnswer } from './mappers';
 import type { AdapterContext, V2Adapter, V2Api, V2Form } from './shared';
 
 async function resolvePermissionSession(api: V2Api, ctx: AdapterContext, requestID: string): Promise<string> {
@@ -31,6 +31,15 @@ export function buildInteractionsApi({ api, ctx, ok }: V2Adapter): Record<string
       reply: async (parameters: { requestID: string; reply: 'once' | 'always' | 'reject' }) => {
         const sessionID = await resolvePermissionSession(api, ctx, parameters.requestID);
         await api.permission.reply({ sessionID, requestID: parameters.requestID, decision: parameters.reply });
+        return ok(undefined);
+      },
+    },
+    // Server-persisted "always allow" rules. Exposed as its own client surface
+    // because the V1-shaped SDK `permission` object does not type it.
+    savedPermissions: {
+      list: async () => (await api.permission.saved.list()).map(mapSavedPermission),
+      remove: async (id: string) => {
+        await api.permission.saved.remove({ id });
         return ok(undefined);
       },
     },

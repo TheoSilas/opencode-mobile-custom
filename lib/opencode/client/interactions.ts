@@ -1,4 +1,4 @@
-import type { ScopedOpencodeClient, PendingQuestionAnswer, PendingQuestionRequest } from './types';
+import type { SavedPermissionRule, ScopedOpencodeClient, PendingQuestionAnswer, PendingQuestionRequest } from './types';
 
 export async function listPendingInteractions(client: ScopedOpencodeClient) {
   // Fetch each surface independently. A V2 server can reject an unscoped form or
@@ -41,4 +41,14 @@ export async function replyToPendingQuestion(client: ScopedOpencodeClient, reque
 
 export async function rejectPendingQuestion(client: ScopedOpencodeClient, requestID: string) {
   await client.question.reject({ requestID });
+}
+
+// V2 `permission.saved` list/remove. Present only on the V2 contract; callers
+// gate on the `savedPermissions` server capability.
+export async function listSavedPermissionRules(client: ScopedOpencodeClient): Promise<SavedPermissionRule[]> {
+  return (await client.savedPermissions?.list()) ?? [];
+}
+
+export async function removeSavedPermissionRule(client: ScopedOpencodeClient, id: string): Promise<void> {
+  await client.savedPermissions?.remove(id);
 }

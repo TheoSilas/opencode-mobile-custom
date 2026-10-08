@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { getCurrentPendingRequests } from '@/providers/opencode-provider-selectors';
+import { getCurrentPendingRequests, isPromptErrorVisible } from '@/providers/opencode-provider-selectors';
 import { collectDescendantSessionIds } from '@/providers/opencode-provider-utils';
 
 vi.mock('@/lib/i18n', () => ({ getFormatLocale: () => 'en' }));
@@ -74,5 +74,23 @@ describe('getCurrentPendingRequests', () => {
     expect(getCurrentPendingRequests('root', undefined, bySession, related).map((item) => item.id)).toEqual([
       'p-root', 'p-global',
     ]);
+  });
+});
+
+describe('isPromptErrorVisible', () => {
+  const related = collectDescendantSessionIds(
+    tree([{ id: 'root' }, { id: 'child', parentID: 'root' }]),
+    ['root'],
+  );
+
+  it('surfaces global errors and errors from the active tree', () => {
+    expect(isPromptErrorVisible({ sessionId: undefined }, related)).toBe(true);
+    expect(isPromptErrorVisible({ sessionId: 'root' }, related)).toBe(true);
+    expect(isPromptErrorVisible({ sessionId: 'child' }, related)).toBe(true);
+  });
+
+  it('hides errors from unrelated sessions and absent errors', () => {
+    expect(isPromptErrorVisible({ sessionId: 'unrelated' }, related)).toBe(false);
+    expect(isPromptErrorVisible(undefined, related)).toBe(false);
   });
 });

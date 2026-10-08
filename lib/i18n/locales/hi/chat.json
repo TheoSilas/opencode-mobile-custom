@@ -105,7 +105,8 @@
     "updatedPatches_other": "{{count}} पैच अपडेट किए",
     "fileCount_one": "{{count}} फ़ाइल",
     "fileCount_many": "{{count}} फ़ाइलें",
-    "fileCount_other": "{{count}} फ़ाइलें"
+    "fileCount_other": "{{count}} फ़ाइलें",
+    "requestedBy": "{{name}} द्वारा अनुरोधित"
   },
   "composer": {
     "chooseAssistantMode": "सहायक मोड चुनें",
@@ -277,5 +278,10 @@
   "pendingPrompts": {
     "sending": "भेजा जा रहा है…",
     "waiting": "इस्तेमाल किए जाने की प्रतीक्षा में…"
+  },
+  "approvals": {
+    "mcpAuthTitle": "MCP प्रमाणीकरण आवश्यक",
+    "mcpAuthNeeded": "MCP सर्वर {{name}} को प्रमाणीकरण चाहिए। पूरा करने के लिए लिंक खोलें, फिर पुनः प्रयास करें।",
+    "openAuthLink": "लिंक खोलें"
   }
 }

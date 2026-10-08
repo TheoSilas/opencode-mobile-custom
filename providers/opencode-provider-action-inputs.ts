@@ -123,6 +123,7 @@ export type SessionActionsInput = {
   refreshServerFeatures: () => Promise<unknown>;
   refreshDiagnostics: () => Promise<unknown>;
   refreshActiveSessions: () => Promise<unknown>;
+  refreshSavedPermissions?: () => Promise<void>;
   chatPreferences: ChatPreferences;
 };
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { modelToV1, projectToV1, sessionToV1 } from '@/lib/opencode/v2-mappers';
-import { messageToV1 } from '@/lib/opencode/v2/mappers';
+import { mapSavedPermission, messageToV1 } from '@/lib/opencode/v2/mappers';
 import { buildV2Client } from '@/lib/opencode/v2-client';
 
 const h = vi.hoisted(() => ({ api: undefined as unknown }));
@@ -49,6 +49,20 @@ describe('v2 response mappers', () => {
     expect(retryPart).toMatchObject({
       attempt: 3,
       error: { name: 'SessionError', data: { message: 'The provider response ended unexpectedly.' } },
+    });
+  });
+
+  it('maps a saved permission rule', () => {
+    expect(mapSavedPermission({ id: 'rule-1', action: 'edit', resource: 'src/**', time: { created: 42 } })).toEqual({
+      id: 'rule-1',
+      action: 'edit',
+      resource: 'src/**',
+      createdAt: 42,
+    });
+    expect(mapSavedPermission({ id: 'rule-2', action: 'bash', resource: 'git *' })).toEqual({
+      id: 'rule-2',
+      action: 'bash',
+      resource: 'git *',
     });
   });
 

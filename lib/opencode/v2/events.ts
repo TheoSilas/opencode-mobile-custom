@@ -107,9 +107,19 @@ export function mapV2Event(event: V2EventEnvelope, ctx: AdapterContext): V1Envel
     case 'worktree.updated':
     case 'worktree.resolved':
       return envelope('worktree.ready', {});
+    case 'worktree.failed':
+      return envelope('worktree.failed', {});
     case 'mcp.status.changed':
     case 'mcp.resources.changed':
+    case 'mcp.tools.changed':
       return envelope('mcp.tools.changed', {});
+    case 'lsp.updated':
+      return envelope('lsp.updated', {});
+    case 'command.executed':
+      return envelope('session.updated', { sessionID });
+    case 'session.instructions.updated':
+    case 'session.metadata.updated':
+      return envelope('session.updated', { sessionID });
     case 'config.updated':
     case 'provider.updated':
     case 'model.updated':
@@ -118,6 +128,7 @@ export function mapV2Event(event: V2EventEnvelope, ctx: AdapterContext): V1Envel
     case 'command.updated':
     case 'integration.updated':
     case 'credential.updated':
+    case 'credential.switched':
     case 'models-dev.refreshed':
     case 'reference.updated':
     case 'plugin.updated':

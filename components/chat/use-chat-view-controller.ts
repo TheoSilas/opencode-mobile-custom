@@ -36,6 +36,7 @@ export function useChatViewController() {
   const {
     pendingPrompts, abortSession, clearPromptError, commands, currentDiffs, currentDiffScope, currentMessages,
     currentPendingPermissions, currentPendingQuestions, currentTodos, currentTranscript, currentUsage,
+    approvals,
     diffTurns, executeCommand, isRefreshingDiffs, isRefreshingMessages,
     latestAssistantTurnUsage, promptError, refreshCurrentSession, refreshDiffs, rejectQuestion,
     replyToPermission, replyToQuestion, selectDiffMessage, selectedDiffMessageId, sendPrompt,
@@ -152,9 +153,9 @@ export function useChatViewController() {
     () => availableModels.find((model) => model.providerID === selectedSession?.model?.providerID && model.modelID === selectedSession?.model?.id),
     [availableModels, selectedSession?.model?.id, selectedSession?.model?.providerID],
   );
-  const visiblePromptError = promptError && (!promptError.sessionId || promptError.sessionId === currentSessionId)
-    ? promptError.message
-    : undefined;
+  // The provider scopes promptError to the active session tree, so a failing
+  // subagent is already surfaced here; no local session gate is needed.
+  const visiblePromptError = promptError?.message;
   const sendErrorMessage = sendFeedback || visiblePromptError;
   const buildSendErrorDetails = useCallback(() => {
     if (!sendErrorMessage) {
@@ -389,7 +390,7 @@ export function useChatViewController() {
   }
 
   return {
-    activeProject, activeSession, attachments, availableAgents, awaitingUserInput,
+    activeProject, activeSession, approvals, attachments, availableAgents, awaitingUserInput,
     buildSendErrorDetails, changesVisible, chatPreferences, clearConversationFeedback,
     clearPromptError, commands, completedTodoCount, connection, contextModel, contextTokens,
     conversation, copiedMessageId, currentActivityLabel, currentDiffs, currentDiffScope,

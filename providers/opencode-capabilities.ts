@@ -17,6 +17,7 @@ export type ServerCapabilities = {
   mcpOAuth: boolean;
   configWrite: boolean;
   worktreeReset: boolean;
+  savedPermissions: boolean;
 };
 
 export function getServerCapabilities(contract: ServerContract): ServerCapabilities {
@@ -36,6 +37,8 @@ export function getServerCapabilities(contract: ServerContract): ServerCapabilit
     mcpOAuth: full,
     configWrite: full,
     worktreeReset: full,
+    // Server-persisted "always allow" rules are a V2 surface.
+    savedPermissions: !full,
   };
 }
 

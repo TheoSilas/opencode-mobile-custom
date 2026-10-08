@@ -7,14 +7,16 @@
       "voice": "音声と応答",
       "advanced": "詳細設定",
       "appearance": "表示",
-      "support": "サポート"
+      "support": "サポート",
+      "permissions": "承認"
     },
     "summaries": {
       "configuredCount": "{{value}} 件設定済み",
       "replyPlaybackOn": "返信の再生オン",
       "replyPlaybackOff": "返信の再生オフ",
       "advanced": "エディター、一般、MCPサーバー、診断",
-      "support": "アプリを評価、フィードバック、サポート"
+      "support": "アプリを評価、フィードバック、サポート",
+      "permissions": "{{value}} 件保存済み"
     }
   },
   "support": {
@@ -361,5 +363,14 @@
   "general": {
     "title": "一般",
     "resetOnboarding": "初期設定をやり直す"
+  },
+  "permissions": {
+    "title": "保存された権限",
+    "description": "「常に許可」で作成されたルールです。削除するとサーバーが再度確認します。",
+    "empty": "保存された権限はありません。",
+    "remove": "削除",
+    "removeTitle": "保存された権限を削除",
+    "removeMessage": "{{resource}} の自動許可を停止しますか？",
+    "refresh": "更新"
   }
 }

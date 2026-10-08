@@ -205,6 +205,20 @@ export function mapPermission(permission: V2Permission, ctx: AdapterContext): Re
   };
 }
 
+export function mapSavedPermission(permission: {
+  id: string;
+  action: string;
+  resource: string;
+  time?: { created?: number };
+}): { id: string; action: string; resource: string; createdAt?: number } {
+  return {
+    id: stringField(permission.id),
+    action: stringField(permission.action),
+    resource: stringField(permission.resource),
+    ...(typeof permission.time?.created === 'number' ? { createdAt: permission.time.created } : {}),
+  };
+}
+
 export function formToQuestion(form: V2Form, ctx: AdapterContext): PendingQuestionRequest {
   ctx.formSession.set(form.id, form);
   const fields = Array.isArray(form.fields) ? form.fields : [];

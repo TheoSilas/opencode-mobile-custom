@@ -105,7 +105,8 @@
     "updatedPatches_other": "{{count}} patches atualizados",
     "fileCount_one": "{{count}} arquivo",
     "fileCount_many": "{{count}} arquivos",
-    "fileCount_other": "{{count}} arquivos"
+    "fileCount_other": "{{count}} arquivos",
+    "requestedBy": "Solicitado por {{name}}"
   },
   "composer": {
     "chooseAssistantMode": "Escolha o modo do assistente",
@@ -277,5 +278,10 @@
   "pendingPrompts": {
     "sending": "Enviando…",
     "waiting": "Aguardando ser considerado…"
+  },
+  "approvals": {
+    "mcpAuthTitle": "Autenticação MCP necessária",
+    "mcpAuthNeeded": "O servidor MCP {{name}} precisa de autenticação. Abra o link para concluir e tente novamente.",
+    "openAuthLink": "Abrir link"
   }
 }
