@@ -34,6 +34,49 @@ export function getProjectLabel(path: string) {
   return segments.at(-1) || normalized || 'Project';
 }
 
+// Equality guards so a no-op poll refresh keeps the previous state identity and
+// does not wake every consumer of the session contexts.
+export function areSessionListsEqual(previous: Session[], next: Session[]): boolean {
+  if (previous === next) {
+    return true;
+  }
+  if (previous.length !== next.length) {
+    return false;
+  }
+  for (let index = 0; index < previous.length; index += 1) {
+    const left = previous[index];
+    const right = next[index];
+    if (left.id !== right.id || left.time.updated !== right.time.updated || left.title !== right.title) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function areSessionStatusMapsEqual(
+  previous: Record<string, SessionStatus>,
+  next: Record<string, SessionStatus>,
+): boolean {
+  if (previous === next) {
+    return true;
+  }
+  const previousKeys = Object.keys(previous);
+  if (previousKeys.length !== Object.keys(next).length) {
+    return false;
+  }
+  for (const key of previousKeys) {
+    const left = previous[key];
+    const right = next[key];
+    if (!right || left.type !== right.type) {
+      return false;
+    }
+    if (left.type === 'retry' && right.type === 'retry' && (left.attempt !== right.attempt || left.next !== right.next)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Subagent (and nested sub-subagent) permission/question requests carry the
 // child session's id, but the active chat only knows the root session. Walk the
 // parentID tree so a blocker raised anywhere below the current/sending session

@@ -15,7 +15,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatRelativeTime, getSessionSubtitle } from '@/lib/opencode/format';
 import type { GlobalSession, Session } from '@/lib/opencode/types';
 import type { ActiveSessionItem, FavoriteSession } from '@/providers/opencode-provider-types';
-import { useConnection, usePreferences, useSessions, useWorkspace } from '@/providers/opencode-contexts';
+import { useConnection, useCurrentSession, usePreferences, useProjects, useSessionLibrary } from '@/providers/opencode-contexts';
 
 type LibraryRow =
   | { kind: 'heading' | 'empty'; id: string; title: string }
@@ -27,14 +27,14 @@ type LibraryRow =
 export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const palette = Colors[useColorScheme() ?? 'light'];
-  const { activeProject, addWorkspace, projects, refreshWorkspaceCatalog, selectProject } = useWorkspace();
+  const { activeProject, addWorkspace, projects, refreshWorkspaceCatalog, selectProject } = useProjects();
+  const { createSession, currentSessionId, openSession, activeSessions: activeSessionsValue } = useCurrentSession();
   const {
-    archivedSessions, archiveSession, clearFavoriteSession, createSession, currentSessionId, deleteSession,
-    favoriteSessions, isFavoriteSession, openSession, openSessionInProject, refreshArchivedSessions,
+    archivedSessions, archiveSession, clearFavoriteSession, deleteSession,
+    favoriteSessions, isFavoriteSession, openSessionInProject, refreshArchivedSessions,
     renameSession, restoreSession, sessionPreviewById, sessionStatuses, sessions, shareSession,
     toggleFavoriteSession, unshareSession,
-    activeSessions: activeSessionsValue,
-  } = useSessions();
+  } = useSessionLibrary();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const { serverCapabilities } = useConnection();
   const [workspaceVisible, setWorkspaceVisible] = useState(false);

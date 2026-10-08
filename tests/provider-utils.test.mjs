@@ -42,7 +42,7 @@ assert.deepEqual(
 
 const providerUtilsSource = await readFile(new URL('../providers/opencode-provider-utils.ts', import.meta.url), 'utf8');
 const providerUtilsOutput = ts.transpileModule(providerUtilsSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
-const { mergeSessionStatuses, RETRY_STATUS_STALE_MS, collectDescendantSessionIds } = await import(`data:text/javascript,${encodeURIComponent(providerUtilsOutput)}`);
+const { mergeSessionStatuses, RETRY_STATUS_STALE_MS, collectDescendantSessionIds, areSessionListsEqual, areSessionStatusMapsEqual } = await import(`data:text/javascript,${encodeURIComponent(providerUtilsOutput)}`);
 const now = 1_000_000;
 const retry = { type: 'retry', attempt: 2, message: 'provider failed', next: now + 5_000 };
 const staleRetry = { type: 'retry', attempt: 2, message: 'provider failed', next: now - RETRY_STATUS_STALE_MS - 1 };
@@ -69,5 +69,15 @@ const tree = [
 assert.deepEqual([...collectDescendantSessionIds(tree, ['root'])], ['root', 'child', 'grandchild']);
 assert.deepEqual([...collectDescendantSessionIds(tree, [undefined, 'child'])], ['child', 'grandchild']);
 assert.deepEqual([...collectDescendantSessionIds([{ id: 'a', parentID: 'b' }, { id: 'b', parentID: 'a' }], ['a'])], ['a', 'b']);
+
+// Equality guards keep the previous identity when a poll refresh is a no-op.
+const sessionAt = (id, updated) => ({ id, title: id, time: { created: 0, updated } });
+assert.equal(areSessionListsEqual([sessionAt('a', 1)], [sessionAt('a', 1)]), true);
+assert.equal(areSessionListsEqual([sessionAt('a', 1)], [sessionAt('a', 2)]), false);
+assert.equal(areSessionListsEqual([sessionAt('a', 1)], [sessionAt('a', 1), sessionAt('b', 1)]), false);
+assert.equal(areSessionStatusMapsEqual({ a: { type: 'idle' } }, { a: { type: 'idle' } }), true);
+assert.equal(areSessionStatusMapsEqual({ a: { type: 'idle' } }, { a: { type: 'busy' } }), false);
+assert.equal(areSessionStatusMapsEqual({ a: { type: 'idle' } }, {}), false);
+assert.equal(areSessionStatusMapsEqual({ a: retry }, { a: { type: 'retry', attempt: 3, message: 'provider failed', next: retry.next } }), false);
 
 console.log('provider utility tests passed');

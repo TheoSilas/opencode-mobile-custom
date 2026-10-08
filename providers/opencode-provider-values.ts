@@ -12,18 +12,22 @@ import {
 } from '@/providers/opencode-provider-selectors';
 import { collectDescendantSessionIds } from '@/providers/opencode-provider-utils';
 import type {
+  ApprovalsContextValue,
   CapabilitiesContextValue,
   ChatContextValue,
   ConnectionContextValue,
   ConversationContextValue,
+  CurrentSessionContextValue,
+  DiagnosticsContextValue,
   DiffScope,
   DiffTurn,
   McpContextValue,
   OnboardingContextValue,
   PreferencesContextValue,
-  SessionContextValue,
+  ProjectsContextValue,
+  SessionLibraryContextValue,
   TerminalContextValue,
-  WorkspaceContextValue,
+  WorkspaceFilesContextValue,
 } from '@/providers/opencode-provider-types';
 import type { ProviderValuesInput } from '@/providers/opencode-provider-values-input';
 
@@ -261,15 +265,9 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
       : undefined),
     [promptError, relatedInteractionSessionIds, sessionTitleById],
   );
-  const approvals = useMemo<ChatContextValue['approvals']>(
-    () => ({
-      mcpAuth: mcpAuthPrompt && mcpStatuses[mcpAuthPrompt.mcpName]?.status !== 'connected' ? mcpAuthPrompt : undefined,
-      dismissMcpAuth,
-      savedPermissions,
-      refreshSavedPermissions,
-      removeSavedPermission,
-    }),
-    [mcpAuthPrompt, mcpStatuses, dismissMcpAuth, savedPermissions, refreshSavedPermissions, removeSavedPermission],
+  const approvalsValue = useMemo<ApprovalsContextValue>(
+    () => ({ approvals: { mcpAuth: mcpAuthPrompt, dismissMcpAuth, savedPermissions, refreshSavedPermissions, removeSavedPermission } }),
+    [mcpAuthPrompt, dismissMcpAuth, savedPermissions, refreshSavedPermissions, removeSavedPermission],
   );
   const configuredProviders = useMemo(() => getConfiguredProviders(availableProviders), [availableProviders]);
   const usagePricingByModel = useMemo(
@@ -294,8 +292,13 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const connectionValue = useMemo<ConnectionContextValue>(
-    () => ({ connectionProfiles, settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus, connectSetup }),
-    [connectionProfiles, settings, updateSettings, switchConnection, connection, serverCapabilities, connect, diagnostics, refreshDiagnostics, eventStreamStatus, connectSetup],
+    () => ({ connectionProfiles, settings, updateSettings, switchConnection, connection, serverCapabilities, connect, connectSetup }),
+    [connectionProfiles, settings, updateSettings, switchConnection, connection, serverCapabilities, connect, connectSetup],
+  );
+
+  const diagnosticsValue = useMemo<DiagnosticsContextValue>(
+    () => ({ diagnostics, refreshDiagnostics, eventStreamStatus }),
+    [diagnostics, refreshDiagnostics, eventStreamStatus],
   );
 
   const capabilitiesValue = useMemo<CapabilitiesContextValue>(
@@ -308,18 +311,27 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     [chatPreferences, updateChatPreferences],
   );
 
-  const workspaceValue = useMemo<WorkspaceContextValue>(
-    () => ({ projects, activeProjectPath, activeProject, selectProject, addWorkspace, serverProjects, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshWorkspaceStatus: refreshServerFeatures, workspaceFiles, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, searchWorkspaceFiles, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree }),
-    [projects, activeProjectPath, activeProject, selectProject, addWorkspace, serverProjects, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshServerFeatures, workspaceFiles, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, searchWorkspaceFiles, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree],
+  const projectsValue = useMemo<ProjectsContextValue>(
+    () => ({ projects, activeProjectPath, activeProject, selectProject, addWorkspace, serverProjects, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshWorkspaceStatus: refreshServerFeatures }),
+    [projects, activeProjectPath, activeProject, selectProject, addWorkspace, serverProjects, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshServerFeatures],
+  );
+
+  const workspaceFilesValue = useMemo<WorkspaceFilesContextValue>(
+    () => ({ workspaceFiles, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, searchWorkspaceFiles, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree }),
+    [workspaceFiles, workspaceFileStatuses, selectedWorkspaceFile, vcsInfo, searchWorkspaceFiles, openWorkspaceFile, saveWorkspaceFile, worktrees, refreshWorktrees, createWorktree, resetWorktree, removeWorktree],
   );
 
   const activeSessionsValue = useMemo(
     () => ({ list: activeSessions, refresh: refreshActiveSessions, setVisible: setActiveSessionsVisible }),
     [activeSessions, refreshActiveSessions, setActiveSessionsVisible],
   );
-  const sessionValue = useMemo<SessionContextValue>(
-    () => ({ sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, activeSessions: activeSessionsValue, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject }),
-    [sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, currentSessionId, activeSession, sessionPreviewById, isRefreshingSessions, refreshSessions, openSession, activeSessionsValue, ensureActiveSession, openDeepLinkSession, createSession, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject],
+  const currentSessionValue = useMemo<CurrentSessionContextValue>(
+    () => ({ currentSessionId, activeSession, activeSessions: activeSessionsValue, ensureActiveSession, openDeepLinkSession, openSession, createSession }),
+    [currentSessionId, activeSession, activeSessionsValue, ensureActiveSession, openDeepLinkSession, openSession, createSession],
+  );
+  const sessionLibraryValue = useMemo<SessionLibraryContextValue>(
+    () => ({ sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, sessionPreviewById, isRefreshingSessions, refreshSessions, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject }),
+    [sessions, archivedSessions, sessionStatuses, favoriteSessions, toggleFavoriteSession, isFavoriteSession, clearFavoriteSession, sessionPreviewById, isRefreshingSessions, refreshSessions, deleteSession, archiveSession, restoreSession, refreshArchivedSessions, renameSession, forkSession, shareSession, unshareSession, revertSession, unrevertSession, openSessionInProject],
   );
 
   const hasOlderMessages = currentSessionId ? messageWindows[currentSessionId]?.hasMore === true : false;
@@ -329,8 +341,8 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     [hasOlderMessages, isLoadingOlderMessages, loadOlderMessages],
   );
   const chatValue = useMemo<ChatContextValue>(
-    () => ({ pendingPrompts, currentMessages, currentTranscript, currentUsage, latestAssistantTurnUsage, currentDiffs, currentDiffScope, setDiffScope, diffTurns, selectedDiffMessageId, selectDiffMessage, refreshDiffs, currentTodos, currentPendingPermissions, currentPendingQuestions, approvals, isRefreshingMessages, isRefreshingDiffs, isBootstrappingChat, refreshCurrentSession, refreshCurrentTodos, replyToPermission, replyToQuestion, rejectQuestion, commands, executeCommand, sendPrompt, abortSession, setAutoApprove, sendingState, promptError: visiblePromptError, clearPromptError, transcriptPaging }),
-    [pendingPrompts, currentMessages, currentTranscript, currentUsage, latestAssistantTurnUsage, currentDiffs, currentDiffScope, setDiffScope, diffTurns, selectedDiffMessageId, selectDiffMessage, refreshDiffs, currentTodos, currentPendingPermissions, currentPendingQuestions, approvals, isRefreshingMessages, isRefreshingDiffs, isBootstrappingChat, refreshCurrentSession, refreshCurrentTodos, replyToPermission, replyToQuestion, rejectQuestion, commands, executeCommand, sendPrompt, abortSession, setAutoApprove, sendingState, visiblePromptError, clearPromptError, transcriptPaging],
+    () => ({ pendingPrompts, currentMessages, currentTranscript, currentUsage, latestAssistantTurnUsage, currentDiffs, currentDiffScope, setDiffScope, diffTurns, selectedDiffMessageId, selectDiffMessage, refreshDiffs, currentTodos, currentPendingPermissions, currentPendingQuestions, isRefreshingMessages, isRefreshingDiffs, isBootstrappingChat, refreshCurrentSession, refreshCurrentTodos, replyToPermission, replyToQuestion, rejectQuestion, commands, executeCommand, sendPrompt, abortSession, setAutoApprove, sendingState, promptError: visiblePromptError, clearPromptError, transcriptPaging }),
+    [pendingPrompts, currentMessages, currentTranscript, currentUsage, latestAssistantTurnUsage, currentDiffs, currentDiffScope, setDiffScope, diffTurns, selectedDiffMessageId, selectDiffMessage, refreshDiffs, currentTodos, currentPendingPermissions, currentPendingQuestions, isRefreshingMessages, isRefreshingDiffs, isBootstrappingChat, refreshCurrentSession, refreshCurrentTodos, replyToPermission, replyToQuestion, rejectQuestion, commands, executeCommand, sendPrompt, abortSession, setAutoApprove, sendingState, visiblePromptError, clearPromptError, transcriptPaging],
   );
 
   const conversationValue = useMemo<ConversationContextValue>(
@@ -351,11 +363,15 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   return {
     onboardingValue,
     connectionValue,
+    diagnosticsValue,
     capabilitiesValue,
     preferencesValue,
-    workspaceValue,
-    sessionValue,
+    projectsValue,
+    workspaceFilesValue,
+    currentSessionValue,
+    sessionLibraryValue,
     chatValue,
+    approvalsValue,
     conversationValue,
     terminalValue,
     mcpValue,

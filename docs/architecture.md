@@ -7,7 +7,7 @@ The app uses a simple structural pattern:
 - Expo Router provides navigation and screen composition.
 - `OpencodeProvider` owns nearly all domain state and orchestration.
 - Screens are thin and read/write provider state through narrow domain hooks
-  (`useChat()`, `useWorkspace()`, `useConnection()`, ...).
+  (`useChat()`, `useProjects()`, `useConnection()`, ...).
 - Service modules under `providers/services/` isolate a small amount of API aggregation logic.
 - `lib/` contains protocol helpers, formatting, notifications, and voice utilities.
 - `components/` contains UI composition only, with very little business logic except local presentation state.
@@ -83,8 +83,9 @@ This file is the application's effective domain layer. It owns:
 If this app were reimplemented, this provider would be the main source of truth for required behavior.
 
 Its public contract is split into domain contexts (`providers/opencode-contexts.ts`
-+ the `*ContextValue` types): onboarding, connection, capabilities, preferences,
-workspace, sessions, chat, conversation, terminal, and MCP. The provider still
++ the `*ContextValue` types): onboarding, connection, diagnostics, capabilities,
+preferences, projects, workspace files, current session, session library, chat,
+approvals, conversation, terminal, and MCP. The provider still
 owns all the state and actions; each domain value is memoized and rendered as its
 own context, so a consumer only re-renders when the domain it reads changes and
 each screen declares its real dependencies instead of pulling from one
@@ -154,7 +155,7 @@ and provider setup remain in Settings.
 - `providers/opencode-provider-types.ts`
   Shared public types, the domain context values, and their union.
 - `providers/opencode-contexts.ts`
-  The ten domain contexts and their `use*` hooks.
+  The domain contexts and their `use*` hooks.
 - `providers/opencode-preferences.ts`
   Chat preference shape, defaults, and the derived system prompt.
 - `providers/opencode-capabilities.ts`

@@ -12,31 +12,31 @@ import { speakText, stopSpeaking } from '@/lib/voice/speech-output';
 import { useSpeechInput } from '@/lib/voice/use-speech-input';
 import { useChatViewActions } from './use-chat-view-actions';
 import {
+  useApprovals,
   useCapabilities,
   useChat,
   useConnection,
   useConversation,
+  useCurrentSession,
   usePreferences,
-  useSessions,
-  useWorkspace,
+  useProjects,
+  useSessionLibrary,
 } from '@/providers/opencode-contexts';
 
 export function useChatViewController() {
   const { t } = useTranslation();
-  const { activeProject } = useWorkspace();
-  const {
-    activeSession, createSession, currentSessionId, ensureActiveSession, forkSession, openSession,
-    revertSession, sessionStatuses, sessions, unrevertSession,
-  } = useSessions();
+  const { activeProject } = useProjects();
+  const { activeSession, createSession, currentSessionId, ensureActiveSession, openSession } = useCurrentSession();
+  const { forkSession, revertSession, sessionStatuses, sessions, unrevertSession } = useSessionLibrary();
   const { availableAgents, availableModels, configuredProviders } = useCapabilities();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const slim = chatPreferences.slimInterface === true;
   const { connection, settings, serverCapabilities } = useConnection();
+  const { approvals } = useApprovals();
   const { conversation, clearConversationFeedback, toggleConversationMode } = useConversation();
   const {
     pendingPrompts, abortSession, clearPromptError, commands, currentDiffs, currentDiffScope, currentMessages,
     currentPendingPermissions, currentPendingQuestions, currentTodos, currentTranscript, currentUsage,
-    approvals,
     diffTurns, executeCommand, isRefreshingDiffs, isRefreshingMessages,
     latestAssistantTurnUsage, promptError, refreshCurrentSession, refreshDiffs, rejectQuestion,
     replyToPermission, replyToQuestion, selectDiffMessage, selectedDiffMessageId, sendPrompt,

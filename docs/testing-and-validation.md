@@ -150,6 +150,11 @@ no fake-server or Playwright scenario for these surfaces yet (MCP auth failure,
 saved permission rules, subagent prompt routing), so end-to-end confirmation
 remains a follow-up; the fake-server contract is unchanged.
 
+`test:provider-utils` also pins the session/status equality guards
+(`areSessionListsEqual`, `areSessionStatusMapsEqual`) that let a no-op poll keep
+the previous state identity, so the split session/project contexts do not churn
+on every refresh.
+
 The `test:i18n` suite guards translations: it checks that every language defines
 exactly the English key set, that interpolation variables match per key, that
 each plural base carries the plural categories required by its locale, and that

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { listPendingInteractions } from '@/lib/opencode/client';
-import { groupPendingRequestsBySession, mergeSessionStatuses } from '@/providers/opencode-provider-utils';
+import { areSessionListsEqual, areSessionStatusMapsEqual, groupPendingRequestsBySession, mergeSessionStatuses } from '@/providers/opencode-provider-utils';
 import type { DiffScope } from '@/providers/opencode-provider-types';
 import type { SessionRefreshOptions } from '@/providers/opencode-provider-events';
 import { persistSessionCache } from '@/providers/session-cache';
@@ -54,8 +54,11 @@ export function useWorkspaceRefreshActions({
         if (!isCurrentClient(client)) {
           return result.sessions;
         }
-        setSessions(result.sessions);
-        setSessionStatuses((current) => mergeSessionStatuses(current, result.statuses));
+        setSessions((current) => (areSessionListsEqual(current, result.sessions) ? current : result.sessions));
+        setSessionStatuses((current) => {
+          const next = mergeSessionStatuses(current, result.statuses);
+          return areSessionStatusMapsEqual(current, next) ? current : next;
+        });
         void persistSessionCache(connectionScope, activeProjectPath, result.sessions, result.statuses);
         return result.sessions;
       } finally {

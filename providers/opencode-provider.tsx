@@ -1,20 +1,24 @@
 import type { GlobalEvent } from '@opencode-ai/sdk/v2/client';
-import { useCallback, useLayoutEffect, useMemo, useRef, type PropsWithChildren } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type PropsWithChildren } from 'react';
 
 import { buildClient, defaultConnectionSettings, getRequestHeaders } from '@/lib/opencode/client';
 import { defaultChatPreferences } from '@/providers/opencode-preferences';
 import { getProjectLabel } from '@/providers/opencode-provider-utils';
 import {
+  ApprovalsContext,
   CapabilitiesContext,
   ChatContext,
   ConnectionContext,
   ConversationContext,
+  CurrentSessionContext,
+  DiagnosticsContext,
   McpContext,
   OnboardingContext,
   PreferencesContext,
-  SessionContext,
+  ProjectsContext,
+  SessionLibraryContext,
   TerminalContext,
-  WorkspaceContext,
+  WorkspaceFilesContext,
 } from '@/providers/opencode-contexts';
 import {
   CURRENT_ONBOARDING_VERSION,
@@ -194,6 +198,15 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const worktree = useWorktreeState({ ...state, client, isCurrentClient, refreshWorkspaceCatalog: refreshWorkspaceCatalogLatest });
   const mcp = useMcpState({ ...state, client, isCurrentClient, refreshChatCapabilities: refreshChatCapabilitiesLatest });
   const permissionRules = usePermissionRulesState({ client, isCurrentClient, setSavedPermissions });
+
+  // Clear the MCP auth alert once the named server reports connected. Doing this
+  // here keeps `mcpStatuses` out of the approvals value's dependencies, so
+  // approval consumers do not re-render on MCP status changes.
+  useEffect(() => {
+    if (state.mcpAuthPrompt && mcp.mcpStatuses[state.mcpAuthPrompt.mcpName]?.status === 'connected') {
+      setMcpAuthPrompt(undefined);
+    }
+  }, [mcp.mcpStatuses, setMcpAuthPrompt, state.mcpAuthPrompt]);
   const activeSessionsHook = useActiveSessions({
     catalogClient,
     isCurrentCatalogClient,
@@ -399,21 +412,29 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   return (
     <OnboardingContext.Provider value={values.onboardingValue}>
       <ConnectionContext.Provider value={values.connectionValue}>
-        <CapabilitiesContext.Provider value={values.capabilitiesValue}>
-          <PreferencesContext.Provider value={values.preferencesValue}>
-            <WorkspaceContext.Provider value={values.workspaceValue}>
-              <SessionContext.Provider value={values.sessionValue}>
-                <ChatContext.Provider value={values.chatValue}>
-                  <ConversationContext.Provider value={values.conversationValue}>
-                    <TerminalContext.Provider value={values.terminalValue}>
-                      <McpContext.Provider value={values.mcpValue}>{children}</McpContext.Provider>
-                    </TerminalContext.Provider>
-                  </ConversationContext.Provider>
-                </ChatContext.Provider>
-              </SessionContext.Provider>
-            </WorkspaceContext.Provider>
-          </PreferencesContext.Provider>
-        </CapabilitiesContext.Provider>
+        <DiagnosticsContext.Provider value={values.diagnosticsValue}>
+          <CapabilitiesContext.Provider value={values.capabilitiesValue}>
+            <PreferencesContext.Provider value={values.preferencesValue}>
+              <ProjectsContext.Provider value={values.projectsValue}>
+                <WorkspaceFilesContext.Provider value={values.workspaceFilesValue}>
+                  <CurrentSessionContext.Provider value={values.currentSessionValue}>
+                    <SessionLibraryContext.Provider value={values.sessionLibraryValue}>
+                      <ChatContext.Provider value={values.chatValue}>
+                        <ApprovalsContext.Provider value={values.approvalsValue}>
+                          <ConversationContext.Provider value={values.conversationValue}>
+                            <TerminalContext.Provider value={values.terminalValue}>
+                              <McpContext.Provider value={values.mcpValue}>{children}</McpContext.Provider>
+                            </TerminalContext.Provider>
+                          </ConversationContext.Provider>
+                        </ApprovalsContext.Provider>
+                      </ChatContext.Provider>
+                    </SessionLibraryContext.Provider>
+                  </CurrentSessionContext.Provider>
+                </WorkspaceFilesContext.Provider>
+              </ProjectsContext.Provider>
+            </PreferencesContext.Provider>
+          </CapabilitiesContext.Provider>
+        </DiagnosticsContext.Provider>
       </ConnectionContext.Provider>
     </OnboardingContext.Provider>
   );

@@ -35,7 +35,7 @@ import {
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getSpeechVoiceOptions, type SpeechVoiceOption } from '@/lib/voice/speech-output';
-import { useCapabilities, useChat, useConnection, useMcp, useOnboarding, usePreferences } from '@/providers/opencode-contexts';
+import { useApprovals, useCapabilities, useConnection, useDiagnostics, useMcp, useOnboarding, usePreferences } from '@/providers/opencode-contexts';
 
 // One entry per settings section. Adding a section means adding an entry here
 // (and its presentational component); the row list and the overlay both derive
@@ -57,8 +57,9 @@ export default function SettingsScreen() {
   const { availableModels, availableProviders, configuredProviders, currentConfig, providerAccounts, providerAuthMethodsById, removeProvider } = useCapabilities();
   const { addMcpServer, completeMcpOAuth, connectMcpServer, disconnectMcpServer, mcpStatuses, refreshMcpServers, setMcpServerEnabled, startMcpOAuth } = useMcp();
   const { chatPreferences, updateChatPreferences } = usePreferences();
-  const { connect, connection, diagnostics, eventStreamStatus, refreshDiagnostics, serverCapabilities, connectSetup } = useConnection();
-  const { approvals } = useChat();
+  const { connect, connection, serverCapabilities, connectSetup } = useConnection();
+  const { diagnostics, eventStreamStatus, refreshDiagnostics } = useDiagnostics();
+  const { approvals } = useApprovals();
   const { startOnboardingReview } = useOnboarding();
   const router = useRouter();
   const notifications = useNotificationSetup();

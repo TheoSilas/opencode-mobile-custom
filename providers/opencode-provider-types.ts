@@ -149,7 +149,7 @@ export type WorkspaceCatalog = {
 };
 
 // Domain-scoped context values. Consumers subscribe to the narrowest value they
-// need (`useWorkspace()`, `useChat()`, ...) instead of one 130-member surface,
+// need (`useProjects()`, `useChat()`, ...) instead of one 130-member surface,
 // so unrelated state changes do not re-render every screen.
 export type OnboardingContextValue = {
   isHydrated: boolean;
@@ -172,6 +172,9 @@ export type ConnectionContextValue = {
   connection: ConnectionState;
   serverCapabilities: ServerCapabilities;
   connect: () => Promise<ConnectionState>;
+};
+
+export type DiagnosticsContextValue = {
   diagnostics?: Diagnostics;
   refreshDiagnostics: () => Promise<void>;
   eventStreamStatus: 'idle' | 'connecting' | 'connected' | 'error';
@@ -206,7 +209,7 @@ export type PreferencesContextValue = {
   updateChatPreferences: (patch: Partial<ChatPreferences>) => void;
 };
 
-export type WorkspaceContextValue = {
+export type ProjectsContextValue = {
   projects: OpencodeProject[];
   activeProjectPath?: string;
   activeProject?: OpencodeProject;
@@ -218,6 +221,9 @@ export type WorkspaceContextValue = {
   isRefreshingWorkspaceCatalog: boolean;
   refreshWorkspaceCatalog: (silent?: boolean) => Promise<void>;
   refreshWorkspaceStatus: () => Promise<void>;
+};
+
+export type WorkspaceFilesContextValue = {
   workspaceFiles: string[];
   workspaceFileStatuses: File[];
   selectedWorkspaceFile?: { path: string; content: FileContent };
@@ -232,20 +238,9 @@ export type WorkspaceContextValue = {
   removeWorktree: (directory: string) => Promise<void>;
 };
 
-export type SessionContextValue = {
-  sessions: Session[];
-  archivedSessions: GlobalSession[];
-  sessionStatuses: Record<string, SessionStatus>;
-  favoriteSessions: FavoriteSession[];
-  toggleFavoriteSession: (sessionId: string, projectPath: string, title?: string) => void;
-  isFavoriteSession: (sessionId: string) => boolean;
-  clearFavoriteSession: (sessionId: string) => void;
+export type CurrentSessionContextValue = {
   currentSessionId?: string;
   activeSession?: Session;
-  sessionPreviewById: Record<string, string>;
-  isRefreshingSessions: boolean;
-  refreshSessions: (silent?: boolean) => Promise<void>;
-  openSession: (sessionId: string) => Promise<void>;
   // Grouped so the connection-wide snapshot, its refresh, and the
   // library-visibility signal for polling share one context member.
   activeSessions: {
@@ -255,7 +250,21 @@ export type SessionContextValue = {
   };
   ensureActiveSession: () => Promise<string | undefined>;
   openDeepLinkSession: (target: SessionDeepLinkTarget, signal?: AbortSignal) => Promise<{ ok: boolean; error?: string }>;
+  openSession: (sessionId: string) => Promise<void>;
   createSession: (title?: string) => Promise<Session>;
+};
+
+export type SessionLibraryContextValue = {
+  sessions: Session[];
+  archivedSessions: GlobalSession[];
+  sessionStatuses: Record<string, SessionStatus>;
+  favoriteSessions: FavoriteSession[];
+  toggleFavoriteSession: (sessionId: string, projectPath: string, title?: string) => void;
+  isFavoriteSession: (sessionId: string) => boolean;
+  clearFavoriteSession: (sessionId: string) => void;
+  sessionPreviewById: Record<string, string>;
+  isRefreshingSessions: boolean;
+  refreshSessions: (silent?: boolean) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   archiveSession: (sessionId: string) => Promise<void>;
   restoreSession: (sessionId: string, options?: { projectPath?: string; open?: boolean }) => Promise<void>;
@@ -285,15 +294,6 @@ export type ChatContextValue = {
   currentTodos: Todo[];
   currentPendingPermissions: PendingPermission[];
   currentPendingQuestions: PendingQuestion[];
-  // Server-originated approval interactions grouped so the domain surface does
-  // not grow one member per concern.
-  approvals: {
-    mcpAuth?: { mcpName: string; url: string };
-    dismissMcpAuth: () => void;
-    savedPermissions: SavedPermissionRule[];
-    refreshSavedPermissions: () => Promise<void>;
-    removeSavedPermission: (id: string) => Promise<void>;
-  };
   isRefreshingMessages: boolean;
   isRefreshingDiffs: boolean;
   isBootstrappingChat: boolean;
@@ -320,6 +320,19 @@ export type ChatContextValue = {
   };
   promptError?: { message: string; occurredAt: number; sessionId?: string; sourceTitle?: string };
   clearPromptError: () => void;
+};
+
+// Server-originated approval interactions grouped so the domain surface does
+// not grow one member per concern. Kept out of ChatContext so approval
+// consumers do not re-render on every transcript update.
+export type ApprovalsContextValue = {
+  approvals: {
+    mcpAuth?: { mcpName: string; url: string };
+    dismissMcpAuth: () => void;
+    savedPermissions: SavedPermissionRule[];
+    refreshSavedPermissions: () => Promise<void>;
+    removeSavedPermission: (id: string) => Promise<void>;
+  };
 };
 
 export type ConversationContextValue = {
@@ -356,11 +369,15 @@ export type McpContextValue = {
 // ratchet. No runtime context exposes this shape.
 export type OpencodeContextValue = OnboardingContextValue &
   ConnectionContextValue &
+  DiagnosticsContextValue &
   CapabilitiesContextValue &
   PreferencesContextValue &
-  WorkspaceContextValue &
-  SessionContextValue &
+  ProjectsContextValue &
+  WorkspaceFilesContextValue &
+  CurrentSessionContextValue &
+  SessionLibraryContextValue &
   ChatContextValue &
+  ApprovalsContextValue &
   ConversationContextValue &
   TerminalContextValue &
   McpContextValue;

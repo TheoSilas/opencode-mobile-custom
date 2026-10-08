@@ -9,7 +9,7 @@ import { ProjectOptions } from '@/components/onboarding/project-options';
 import { TextInput } from '@/components/ui/text-input';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useWorkspace } from '@/providers/opencode-contexts';
+import { useProjects } from '@/providers/opencode-contexts';
 
 export default function OnboardingWorkspaceScreen() {
   const { t } = useTranslation();
@@ -22,7 +22,7 @@ export default function OnboardingWorkspaceScreen() {
     addWorkspace,
     isRefreshingWorkspaceCatalog,
     refreshWorkspaceCatalog,
-  } = useWorkspace();
+  } = useProjects();
 
   const [adding, setAdding] = useState(false);
   const [directory, setDirectory] = useState('');

@@ -1,16 +1,20 @@
 import { createContext, useContext, type Context } from 'react';
 
 import type {
+  ApprovalsContextValue,
   CapabilitiesContextValue,
   ChatContextValue,
   ConnectionContextValue,
   ConversationContextValue,
+  CurrentSessionContextValue,
+  DiagnosticsContextValue,
   McpContextValue,
   OnboardingContextValue,
   PreferencesContextValue,
-  SessionContextValue,
+  ProjectsContextValue,
+  SessionLibraryContextValue,
   TerminalContextValue,
-  WorkspaceContextValue,
+  WorkspaceFilesContextValue,
 } from '@/providers/opencode-provider-types';
 
 // Domain-scoped contexts for the single OpencodeProvider. Splitting the old
@@ -19,11 +23,15 @@ import type {
 
 export const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 export const ConnectionContext = createContext<ConnectionContextValue | null>(null);
+export const DiagnosticsContext = createContext<DiagnosticsContextValue | null>(null);
 export const CapabilitiesContext = createContext<CapabilitiesContextValue | null>(null);
 export const PreferencesContext = createContext<PreferencesContextValue | null>(null);
-export const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
-export const SessionContext = createContext<SessionContextValue | null>(null);
+export const ProjectsContext = createContext<ProjectsContextValue | null>(null);
+export const WorkspaceFilesContext = createContext<WorkspaceFilesContextValue | null>(null);
+export const CurrentSessionContext = createContext<CurrentSessionContextValue | null>(null);
+export const SessionLibraryContext = createContext<SessionLibraryContextValue | null>(null);
 export const ChatContext = createContext<ChatContextValue | null>(null);
+export const ApprovalsContext = createContext<ApprovalsContextValue | null>(null);
 export const ConversationContext = createContext<ConversationContextValue | null>(null);
 export const TerminalContext = createContext<TerminalContextValue | null>(null);
 export const McpContext = createContext<McpContextValue | null>(null);
@@ -38,11 +46,15 @@ function useDomainValue<T>(context: Context<T | null>, name: string): T {
 
 export const useOnboarding = () => useDomainValue(OnboardingContext, 'useOnboarding');
 export const useConnection = () => useDomainValue(ConnectionContext, 'useConnection');
+export const useDiagnostics = () => useDomainValue(DiagnosticsContext, 'useDiagnostics');
 export const useCapabilities = () => useDomainValue(CapabilitiesContext, 'useCapabilities');
 export const usePreferences = () => useDomainValue(PreferencesContext, 'usePreferences');
-export const useWorkspace = () => useDomainValue(WorkspaceContext, 'useWorkspace');
-export const useSessions = () => useDomainValue(SessionContext, 'useSessions');
+export const useProjects = () => useDomainValue(ProjectsContext, 'useProjects');
+export const useWorkspaceFiles = () => useDomainValue(WorkspaceFilesContext, 'useWorkspaceFiles');
+export const useCurrentSession = () => useDomainValue(CurrentSessionContext, 'useCurrentSession');
+export const useSessionLibrary = () => useDomainValue(SessionLibraryContext, 'useSessionLibrary');
 export const useChat = () => useDomainValue(ChatContext, 'useChat');
+export const useApprovals = () => useDomainValue(ApprovalsContext, 'useApprovals');
 export const useConversation = () => useDomainValue(ConversationContext, 'useConversation');
 export const useTerminal = () => useDomainValue(TerminalContext, 'useTerminal');
 export const useMcp = () => useDomainValue(McpContext, 'useMcp');

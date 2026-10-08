@@ -9,13 +9,13 @@ import { OnboardingStep } from '@/components/onboarding/onboarding-step';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getNormalizedServerUrl } from '@/lib/opencode/client';
-import { useConnection, useOnboarding, useWorkspace } from '@/providers/opencode-contexts';
+import { useConnection, useOnboarding, useProjects } from '@/providers/opencode-contexts';
 
 export default function OnboardingReadyScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const palette = Colors[useColorScheme() ?? 'light'];
-  const { activeProject } = useWorkspace();
+  const { activeProject } = useProjects();
   const { settings } = useConnection();
   const { onboardingActive, completeOnboarding, stopOnboardingReview } = useOnboarding();
   const [isFinishing, setIsFinishing] = useState(false);

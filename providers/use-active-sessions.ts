@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ScopedOpencodeClient } from '@/lib/opencode/client';
 import type { Session, SessionStatus } from '@/lib/opencode/types';
 import { getActiveSessions } from '@/providers/active-sessions';
+import { areSessionListsEqual, areSessionStatusMapsEqual } from '@/providers/opencode-provider-utils';
 import { listActiveSessions as svcListActiveSessions } from '@/providers/services/session-service';
 
 // The snapshot also refreshes on connect and whenever the Chat Library opens,
@@ -51,10 +52,15 @@ export function useActiveSessions({
       if (!isCurrentCatalogClient(catalogClient)) {
         return;
       }
-      setSnapshot({
-        scope: connectionScope,
-        sessions: result.sessions as Session[],
-        statuses: result.statuses as Record<string, SessionStatus>,
+      setSnapshot((previous) => {
+        const sessions = result.sessions as Session[];
+        const statuses = result.statuses as Record<string, SessionStatus>;
+        if (previous.scope === connectionScope
+          && areSessionListsEqual(previous.sessions, sessions)
+          && areSessionStatusMapsEqual(previous.statuses, statuses)) {
+          return previous;
+        }
+        return { scope: connectionScope, sessions, statuses };
       });
     } catch {
       // Keep the previous snapshot on a transient failure.

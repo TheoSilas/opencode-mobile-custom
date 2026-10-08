@@ -27,7 +27,7 @@ import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { SwipeRow } from '@/components/ui/swipe-row';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Pty } from '@/lib/opencode/types';
-import { useConnection, usePreferences, useTerminal, useWorkspace } from '@/providers/opencode-contexts';
+import { useConnection, usePreferences, useProjects, useTerminal } from '@/providers/opencode-contexts';
 
 export default function TerminalScreen() {
   const { t } = useTranslation();
@@ -36,7 +36,7 @@ export default function TerminalScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
   const visible = useIsFocused();
-  const { activeProject } = useWorkspace();
+  const { activeProject } = useProjects();
   const { connect, connection } = useConnection();
   const { chatPreferences } = usePreferences();
   const slim = chatPreferences.slimInterface === true;
