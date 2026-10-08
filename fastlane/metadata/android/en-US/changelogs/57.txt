@@ -1,0 +1,3 @@
+- New saved permissions section in Settings to view and manage permission rules.
+- Terminal now supports touch gestures for easier navigation.
+- Improved handling of subagent sessions in chat.
