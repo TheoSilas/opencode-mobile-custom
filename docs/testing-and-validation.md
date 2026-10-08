@@ -76,13 +76,13 @@ From `TESTING.md`, those gates include:
 - `npm run test:fake-server:self`
 - Playwright E2E flow tests against the fake OpenCode server
 
-The `foss-release` job also runs `npm run test:foss`, which requires
-`git submodule update --init --recursive` in a fresh clone. Its checkout
-initializes the submodule automatically. Shared validation and iOS do not
-need it. `test:foss` patches temporary copies
-of the installed Expo Android sources, checks the proprietary dependencies are
-removed and the pinned stub classes are used, and checks repeated preparation
-leaves identical inputs. It does not mutate the working dependency tree.
+The `foss-release` job also runs `npm run test:foss`. It patches temporary
+copies of the installed Expo Android sources using a local stub-source fixture,
+checks proprietary dependency removal and missing-source errors, and checks
+that repeated preparation leaves identical inputs. It does not mutate the
+working dependency tree or download sources. The FOSS release build downloads
+its pinned Firebase stub revision when no `FIREBASE_STUB_SRC_DIR` is supplied;
+other builds do not need that source checkout.
 
 The connection-scope, connection-profile, notification, favorites, and session
 cache suites pin down the multi-server storage rule: deterministic password-free

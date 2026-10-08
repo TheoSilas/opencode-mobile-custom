@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
@@ -72,14 +73,23 @@ function restorePackageJson() {
 }
 
 if (isFossVariant) {
+  process.on('exit', restorePackageJson);
+  process.on('SIGINT', () => process.exit(130));
+  process.on('SIGTERM', () => process.exit(143));
+
+  if (!buildEnv.FIREBASE_STUB_SRC_DIR?.trim()) {
+    const stubRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-firebase-stubs-'));
+    process.on('exit', () => fs.rmSync(stubRoot, { recursive: true, force: true }));
+    run('git', ['clone', '--no-checkout', 'https://gitlab.com/freed-by-fdroid/firebase-stubs.git', stubRoot]);
+    run('git', ['checkout', '--detach', 'ce90a956aacda17a85c60577ee443aeb83d876ef'], { cwd: stubRoot });
+    buildEnv.FIREBASE_STUB_SRC_DIR = path.join(stubRoot, 'firebase-messaging', 'src');
+  }
+
   // Shared with the fdroiddata recipe (scripts/foss-prepare.mjs) so upstream and
   // F-Droid apply byte-identical dependency patches. It edits package.json, so
   // back it up and restore it once the build finishes.
   packageJsonBackup = fs.readFileSync(packageJsonPath);
-  run('node', [path.join(repoRoot, 'scripts', 'foss-prepare.mjs')], { cwd: repoRoot });
-  process.on('exit', restorePackageJson);
-  process.on('SIGINT', () => { restorePackageJson(); process.exit(130); });
-  process.on('SIGTERM', () => { restorePackageJson(); process.exit(143); });
+  run('node', [path.join(repoRoot, 'scripts', 'foss-prepare.mjs')], { cwd: repoRoot, env: buildEnv });
 }
 
 // Expo SDK 54+ deprecated --non-interactive; CI=1 forces the same non-interactive mode.
@@ -202,9 +212,8 @@ if (detectedStoreType === 'pkcs12') {
   effectiveKeyPassword = keystorePassword;
 }
 
-// The FOSS build mirrors the fdroiddata recipe exactly (APK only, arm64-v8a)
-// so F-Droid can reproduce and verify the upstream APK. The Play build also
-// produces the AAB and honors ANDROID_RELEASE_ABIS.
+// The FOSS build produces an ARM64 APK for the F-Droid package. The Play build
+// also produces the AAB and honors ANDROID_RELEASE_ABIS.
 const gradleTasks = isFossVariant ? ['assembleRelease'] : ['bundleRelease', 'assembleRelease'];
 
 run('./gradlew', [

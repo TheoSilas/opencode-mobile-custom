@@ -51,12 +51,10 @@ function patchExpoNotifications(repoRoot) {
   );
   if (fs.existsSync(marker)) return;
 
-  const localSrcDir = process.env.FIREBASE_STUB_SRC_DIR;
-  const stubSrcDir = localSrcDir
-    ? path.resolve(localSrcDir)
-    : path.join(repoRoot, 'vendor/firebase-stubs/firebase-messaging/src');
-  if (!fs.existsSync(path.join(stubSrcDir, 'main/java/com/google/firebase/messaging/FirebaseMessaging.java'))) {
-    throw new Error('Firebase stub sources are missing. Run git submodule update --init --recursive.');
+  const localSrcDir = process.env.FIREBASE_STUB_SRC_DIR?.trim();
+  const stubSrcDir = localSrcDir ? path.resolve(localSrcDir) : undefined;
+  if (!stubSrcDir || !fs.existsSync(path.join(stubSrcDir, 'main/java/com/google/firebase/messaging/FirebaseMessaging.java'))) {
+    throw new Error('Firebase stub sources are missing. Set FIREBASE_STUB_SRC_DIR or run npm run build:foss:android.');
   }
   run('cp', ['-a', `${stubSrcDir}/.`, `${path.join(androidDir, 'src')}/`]);
 }

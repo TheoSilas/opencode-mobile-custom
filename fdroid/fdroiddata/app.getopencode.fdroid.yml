@@ -17,30 +17,29 @@ RepoType: git
 Repo: https://github.com/alvarolorentedev/opencode-mobile
 
 Builds:
-  - versionName: 1.0.52
-    versionCode: 52
-    commit: a107a34987bc50d54dc771f87eeb7ea6fc686ce5
-    submodules: true
+  - versionName: 1.0.55
+    versionCode: 55
+    commit: 7ad8a78d6c188f1f2e2550a38111f15283658580
     sudo:
       - apt-get update
-      - apt-get install -y npm curl
+      - apt-get install -y npm
     init:
       - npm ci
       - rm -rf node_modules/expo-dev-client node_modules/expo-dev-launcher node_modules/expo-dev-menu
         node_modules/expo-dev-menu-interface
     output: android/app/build/outputs/apk/release/*.apk
+    srclibs:
+      - firebase-stub@ce90a956aacda17a85c60577ee443aeb83d876ef
     prebuild:
-      - node scripts/foss-prepare.mjs
+      - env FIREBASE_STUB_SRC_DIR=$$firebase-stub$$/firebase-messaging/src node scripts/foss-prepare.mjs
       - npm pkg set 'expo.autolinking.android.buildFromSource[0]=.*'
-      - find node_modules -type f \( -name "*.gradle" -o -name "*.gradle.kts" -o -name
-        "*.kt" \) -exec sed -i -e 's/JavaVersion.VERSION_17/JavaVersion.VERSION_21/g'
-        -e 's/jvmToolchain(17)/jvmToolchain(21)/g' -e 's/JvmTarget.fromTarget("17")/JvmTarget.fromTarget("21")/g'
-        {} +
+      - sed -i -e '/jvmToolchain\|JavaVersion\|JvmTarget.fromTarget/s/17/21/g' node_modules/@react-native/gradle-plugin/*/build.gradle.kts
+        node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/JdkConfiguratorUtils.kt
+        node_modules/react-native-reanimated/android/build.gradle.kts node_modules/react-native-worklets/android/build.gradle.kts
       - env CI=1 EXPO_APP_VARIANT=foss EXPO_PUBLIC_FOSS=1 npx expo prebuild -p android
         --clean
+      - sed -i -e '/signingConfig /d' android/app/build.gradle
     scanignore:
-      - node_modules/*/local-maven-repo
-      - node_modules/@*/*/local-maven-repo
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
       - node_modules/@react-native-async-storage/async-storage/android/build.gradle
       - node_modules/@react-native-masked-view/masked-view/android/build.gradle
@@ -50,44 +49,21 @@ Builds:
       - node_modules
     build:
       - cd android/app
-      - sed -i -e '/signingConfig /d' build.gradle
-      - gradle assembleRelease -PreactNativeArchitectures=arm64-v8a
+      - env CI=1 EXPO_APP_VARIANT=foss EXPO_PUBLIC_FOSS=1 gradle assembleRelease -PreactNativeArchitectures=arm64-v8a
     ndk: 27.1.12297006
 
 MaintainerNotes: |-
-  Builds the de-Googled FOSS flavor only (package app.getopencode.fdroid). The
-  Play/iOS flavor (app.getopencode) is not built here. There is no committed
-  android/ directory, so the recipe must not use subdir; prebuild generates it
-  and the build runs gradle manually. scripts/foss-prepare.mjs excludes Play
-  Billing (expo-iap) and ML Kit barcode scanning (expo-camera) from autolinking,
-  swaps firebase-messaging in expo-notifications for the pinned
-  vendor/firebase-stubs git submodule,
-  and removes expo-application's install-referrer dependency. The dev-client
-  modules are removed because they are development-only and reference Gradle
-  projects that are not autolinked for release. Expo modules are forced to
-  build from source via expo.autolinking.android.buildFromSource, and the
-  unused Expo local-maven-repo prebuilts are deleted with node_modules after
-  the scan; they are not used by the source build. The JVM
-  toolchain is raised to 21 because the F-Droid buildserver ships only
-  OpenJDK 21. The scanner also deletes an entire Gradle build file when it
-  encounters an unrecognized Maven URL; these four React Native modules use
-  local React Native Maven paths, so their exact build.gradle files are
-  scanignored to preserve autolinking variants.
-  Reproducible builds are not enabled: upstream v1.0.52 uses JDK 17 and Expo
-  prebuilts, while this recipe uses JDK 21 and builds Expo modules from source.
-  Byte-identical APKs have not been verified. Without Binaries or upstream
-  signatures, F-Droid signs with its own key; GitHub APKs cannot update those
-  installations. Resolve reproducibility before the first F-Droid publication
-  if sharing the upstream signature is required. This build includes only
-  arm64-v8a, so additional ABI splits would not reduce the native ABI payload.
-  Voice input uses the device's system
-  speech recognizer, which some reviewers may consider a non-free network
-  service; if so, add NonFreeNet under AntiFeatures rather than dropping voice.
-  If expo-notifications' stub API changes, update the upstream firebase-stubs
-  submodule pin and the source commit in this recipe together.
+  Expo generates android/ during prebuild, so subdir cannot be used: F-Droid
+  checks it exists before init. Gradle runs from android/app after generation.
+  The FOSS preparation script excludes Play Billing and ML Kit, replaces
+  Firebase Messaging with the template's pinned firebase-stub source library,
+  and removes install-referrer.
+  Reproducible builds are not enabled: upstream uses JDK 17 and Expo prebuilts,
+  while F-Droid uses JDK 21 and builds Expo modules from source. Byte-identical
+  APKs have not been verified.
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
 UpdateCheckData: app.config.ts|versionCode:\s*(\d+)|.|version:\s*'([\d.]+)'
-CurrentVersion: 1.0.52
-CurrentVersionCode: 52
+CurrentVersion: 1.0.55
+CurrentVersionCode: 55

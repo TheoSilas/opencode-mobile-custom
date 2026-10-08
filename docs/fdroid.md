@@ -28,19 +28,23 @@ files, voice) is unchanged. Only the optional paid Cloud Link path is absent.
 ## Building locally
 
 ```bash
-git submodule update --init --recursive
 npm run build:foss:android
 ```
 
-This runs `scripts/build-android-release.mjs` with `OPENCODE_BUILD_FLAVOR=foss`,
-which applies `scripts/foss-prepare.mjs` and then builds with the FOSS variant:
+This runs `scripts/build-android-release.mjs` with `OPENCODE_BUILD_FLAVOR=foss`.
+The FOSS build downloads Firebase stub source revision
+`ce90a956aacda17a85c60577ee443aeb83d876ef` into a temporary checkout, supplies it
+through `FIREBASE_STUB_SRC_DIR`, and removes the checkout when it exits. An
+existing source directory can be supplied through that environment variable.
+It then applies `scripts/foss-prepare.mjs` and builds with the FOSS variant:
 
 1. `scripts/foss-prepare.mjs` (shared with the fdroiddata recipe, so both builds
    get byte-identical dependency patches):
    - injects `expo.autolinking.exclude: ["expo-iap", "expo-camera"]` into
      `package.json` for the duration of the build (the build script restores it)
-   - swaps `expo-notifications`' `firebase-messaging` dependency for the pinned
-     `vendor/firebase-stubs` git submodule (Apache-2.0 source classes)
+   - swaps `expo-notifications`' `firebase-messaging` dependency for free stub
+     sources supplied through `FIREBASE_STUB_SRC_DIR`; F-Droid supplies its
+     pinned `firebase-stub` srclib at the same revision
    - removes `expo-application`'s proprietary `com.android.installreferrer`
      dependency and stubs its `getInstallReferrerAsync`
 2. `expo prebuild` and Gradle run with `EXPO_APP_VARIANT=foss`,
@@ -52,9 +56,8 @@ the APK contains no Play Billing, ML Kit, install-referrer, or
 `play-services-code-scanner` libraries, and attaches
 `opencode-mobile-fdroid.apk` to `v*` GitHub releases.
 The free stub classes keep the `com.google.firebase` package name; that namespace
-alone does not indicate that proprietary Firebase code is present. The FOSS CI
-checkout initializes the submodule, and the preparation script fails with an
-initialization instruction if its source classes are missing.
+alone does not indicate that proprietary Firebase code is present. The
+preparation script fails if the supplied stub source classes are missing.
 
 The FOSS package id is `app.getopencode.fdroid`, so it can be installed
 alongside a Play Store build.
@@ -68,11 +71,13 @@ There is no self-hosted F-Droid repo. The FOSS build is distributed two ways:
   `fdroid/fdroiddata/app.getopencode.fdroid.yml` (see `fdroid/README.md`). Because
   the project does not commit `android/`, the recipe cannot use `subdir`
   (fdroidserver checks it exists before `prebuild`). Instead it runs `npm ci`,
-  `scripts/foss-prepare.mjs`, `npx expo prebuild -p android --clean`, then a
-  manual `build:` that strips the release `signingConfig` and runs
+  `scripts/foss-prepare.mjs`, `npx expo prebuild -p android --clean`, strips the
+  release `signingConfig`, then uses a manual `build:` to run
   `gradle assembleRelease`, with `output:` pointing at the unsigned APK.
-  `submodules: true` lets F-Droid initialize and scan the pinned stub sources.
-  Reproducible builds are **not enabled**: upstream v1.0.52 uses JDK 17 and Expo
+  The recipe follows F-Droid's React Native template and uses its pinned
+  `firebase-stub` srclib; upstream FOSS builds download the same revision only
+  when building the FOSS variant. Reproducible builds are **not enabled**:
+  upstream uses JDK 17 and Expo
   prebuilts, whereas the F-Droid recipe uses JDK 21 and builds Expo modules from
   source. No byte-identical APK comparison has passed. The recipe therefore has
   no `Binaries` or `AllowedAPKSigningKeys` field. F-Droid will sign with its own
@@ -93,8 +98,9 @@ When changing dependencies or native config:
 
 - `npm run test:ci:static` and `npm run typecheck` must stay green
 - `npm run test:architecture` guards the layering; FOSS stubs live in `lib/foss/`
-- update the `vendor/firebase-stubs` submodule pin and the recipe's upstream
-  source commit together if `expo-notifications` needs a newer stub API
+- update the Firebase stub revision in `scripts/build-android-release.mjs`
+  and the recipe's `firebase-stub` srclib together if `expo-notifications`
+  needs a newer stub API
 
 ## Store metadata
 

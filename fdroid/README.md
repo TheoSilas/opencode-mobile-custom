@@ -9,8 +9,9 @@ See [`docs/fdroid.md`](../docs/fdroid.md) for how the FOSS variant is produced.
 
 ## Submitting to fdroiddata
 
-1. Ensure the upstream source commit contains the FOSS support, pinned
-   `vendor/firebase-stubs` submodule, and complete `en-US` Fastlane metadata.
+1. Ensure the upstream source commit contains the FOSS support and complete
+   `en-US` Fastlane metadata. Keep the Firebase stub revision in the FOSS build
+   script and the template's `firebase-stub` srclib in sync.
    Releases use `v*` tags; the `foss-release` CI job attaches the FOSS APK.
 2. Fork and clone [fdroiddata](https://gitlab.com/fdroid/fdroiddata).
 3. Copy `fdroiddata/app.getopencode.fdroid.yml` into the fork at
@@ -26,7 +27,7 @@ See [`docs/fdroid.md`](../docs/fdroid.md) for how the FOSS variant is produced.
    extract upstream signatures:
    ```bash
    curl -L -o opencode-mobile-fdroid.apk \
-      https://github.com/alvarolorentedev/opencode-mobile/releases/download/v1.0.52/opencode-mobile-fdroid.apk
+      https://github.com/alvarolorentedev/opencode-mobile/releases/download/v1.0.55/opencode-mobile-fdroid.apk
    fdroid signatures opencode-mobile-fdroid.apk
    ```
    Place the extracted files under
