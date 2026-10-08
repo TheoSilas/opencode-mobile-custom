@@ -283,9 +283,14 @@ MCP management uses `mcp.status()`, `mcp.add()`, `mcp.connect()`, `mcp.disconnec
 
 ## PTY Terminal Contract
 
-The client uses `pty.shells()`, `pty.list()`, `pty.create()`, `pty.remove()`, and `pty.connectToken()`. Opening a PTY requests a short-lived ticket, converts the normalized server URL to `ws:` or `wss:`, preserves any configured path prefix, and connects to `/pty/{ptyID}/connect` with `directory` and `ticket` query parameters.
+The client uses `pty.shells()`, `pty.list()`, `pty.create()`, `pty.update()` (size), `pty.remove()`, and `pty.connectToken()`. Opening a PTY requests a short-lived ticket, converts the normalized server URL to `ws:` or `wss:`, preserves any configured path prefix, and connects to `/pty/{ptyID}/connect` with `directory` and `ticket` query parameters.
 
-The ticket authenticates the upstream WebSocket. Native sockets also send configured Basic-auth headers, which the Cloud Link proxy requires on upgrades; credentials never enter the URL. Incoming text/blob data is appended after common ANSI CSI stripping and truncated to the latest 100,000 characters. This is intentionally a line console, not full VT emulation.
+The ticket authenticates the upstream WebSocket. Native sockets also send configured Basic-auth headers, which the Cloud Link proxy requires on upgrades; credentials never enter the URL. Incoming text/blob/ArrayBuffer data is decoded in order and written to xterm without stripping VT controls. NUL-prefixed binary JSON carries a numeric replay cursor; apply it after preceding output has been acknowledged, then increment for live output by its UTF-16 character count. Reconnect requests a fresh ticket and passes that cursor only while retaining the matching renderer. Size changes call `pty.update({ ptyID, size: { cols, rows } })`. There is no new wire protocol or client input replay.
+
+Omitting the cursor requests the full retained replay; `-1` tails from the current
+end. These units and replay semantics follow the upstream
+[PTY service](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/pty.ts)
+and [wire protocol](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/pty/protocol.ts).
 
 ### V2 PTY mapping
 

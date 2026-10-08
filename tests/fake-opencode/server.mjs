@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import http from 'node:http';
-import { Buffer } from 'node:buffer';
 import { URL } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { createTerminalFixture } from './terminal.mjs';
 
 import {
   commandsPayload,
@@ -30,6 +30,7 @@ if (!supportedScenarios.has(scenarioName)) {
 
 const stateStore = createStateStore(scenarioName);
 let state = stateStore.getState();
+const terminalFixture = createTerminalFixture((id) => { const pty = state.ptys.find((item) => item.id === id); if (pty) pty.status = 'exited'; });
 let suppressEvents = false;
 const applicablePatch = 'diff --git a/src/demo.ts b/src/demo.ts\n--- a/src/demo.ts\n+++ b/src/demo.ts\n@@ -1 +1 @@\n-export const demo = "OpenCode 1.18.3";\n+export const demo = "OpenCode SDK 1.18.3";\n';
 const editorPatch = '--- a/src/demo.ts\n+++ b/src/demo.ts\n@@ -1,1 +1,1 @@\n-export const demo = "OpenCode 1.18.3";\n+export const demo = "OpenCode SDK 1.18.3";\n';
@@ -188,7 +189,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === '/__control/terminal') {
+      if (req.method === 'POST') terminalFixture.control(await readJson(req));
+      sendJson(res, 200, { data: terminalFixture.snapshot() });
+      return;
+    }
+
     if (req.method === 'POST' && pathname === '/__control/reset') {
+      terminalFixture.reset();
       const body = await readJson(req);
       const nextScenario = body?.scenario || scenarioName;
       if (!supportedScenarios.has(nextScenario)) {
@@ -851,11 +859,14 @@ const server = http.createServer(async (req, res) => {
           badRequest(res, 'PTY title must not be empty');
           return;
         }
+        if (body.size) terminalFixture.get(ptyId).size = body.size;
         if (body.title !== undefined) state.ptys[index].title = body.title.trim();
         sendJson(res, 200, state.ptys[index]);
         return;
       }
       if (req.method === 'DELETE') {
+        if (terminalFixture.get(ptyId).failTerminate) { terminalFixture.get(ptyId).failTerminate = false; sendJson(res, 500, { error: 'Termination failed' }); return; }
+        terminalFixture.remove(ptyId);
         state.ptys.splice(index, 1);
         sendJson(res, 200, true);
         return;
@@ -1000,17 +1011,7 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 
-ptyWebSockets.on('connection', (socket) => {
-  setTimeout(() => {
-    if (socket.readyState !== 1) return;
-    socket.send(Buffer.concat([Buffer.from([0]), Buffer.from(JSON.stringify({ cursor: 1 }))]));
-    socket.send('$ ');
-  }, 25);
-  socket.on('message', (value) => {
-    const command = value.toString().trim();
-    socket.send(command ? `ran: ${command}\n$ ` : '$ ');
-  });
-});
+ptyWebSockets.on('connection', (socket, request) => terminalFixture.connect(socket, request));
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`Fake OpenCode server listening on http://127.0.0.1:${port} (${state.scenario})`);

@@ -150,7 +150,7 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     terminals,
     terminalShells,
     activeTerminalId,
-    terminalOutput,
+    terminalRuntime,
     terminalConnection,
     refreshTerminals,
     createTerminal,
@@ -306,8 +306,8 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const terminalValue = useMemo<TerminalContextValue>(
-    () => ({ terminals, terminalShells, activeTerminalId, terminalOutput, terminalConnection, refreshTerminals, createTerminal, openTerminal, sendTerminalInput, closeTerminal }),
-    [terminals, terminalShells, activeTerminalId, terminalOutput, terminalConnection, refreshTerminals, createTerminal, openTerminal, sendTerminalInput, closeTerminal],
+    () => ({ terminals, terminalShells, activeTerminalId, terminalRuntime, terminalConnection, refreshTerminals, createTerminal, openTerminal, sendTerminalInput, closeTerminal }),
+    [terminals, terminalShells, activeTerminalId, terminalRuntime, terminalConnection, refreshTerminals, createTerminal, openTerminal, sendTerminalInput, closeTerminal],
   );
 
   const mcpValue = useMemo<McpContextValue>(

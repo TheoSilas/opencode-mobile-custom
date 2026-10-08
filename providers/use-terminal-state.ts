@@ -1,33 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import type { ScopedOpencodeClient, ServerContract } from '@/lib/opencode/client';
 import type { Pty, PtyShellsResponse } from '@/lib/opencode/types';
-import {
-  createTerminal as svcCreateTerminal,
-  createTerminalConnectToken,
-  getTerminalWebSocketUrl,
-  listShells,
-  listTerminals,
-  removeTerminal as svcRemoveTerminal,
-  openTerminalWebSocket,
-} from '@/providers/services/terminal-service';
+import { createTerminal as svcCreateTerminal, listShells, listTerminals, removeTerminal } from '@/providers/services/terminal-service';
+import { createTerminalConnection } from './terminal-connection';
+import type { TerminalInstance, TerminalRenderer, TerminalRuntime } from './terminal-types';
 
-// Terminal is self-contained: one project-scoped PTY list, the active socket,
-// and the replayed output buffer. Keeping it in its own hook keeps the provider
-// focused on session/chat orchestration.
-const ANSI_CSI_PATTERN = new RegExp('\\u001b\\[[0-?]*[ -/]*[@-~]', 'gi');
-const MAX_TERMINAL_OUTPUT_CHARS = 100_000;
-
-type TerminalConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
-
-export function useTerminalState({
-  client,
-  isCurrentClient,
-  serverUrl,
-  directory,
-  serverContract,
-  authorization,
-}: {
+export function useTerminalState({ client, isCurrentClient, serverUrl, directory, serverContract, authorization }: {
   client: ScopedOpencodeClient;
   isCurrentClient: (candidate: object) => boolean;
   serverUrl: string;
@@ -38,145 +18,95 @@ export function useTerminalState({
   const [terminals, setTerminals] = useState<Pty[]>([]);
   const [terminalShells, setTerminalShells] = useState<PtyShellsResponse>([]);
   const [activeTerminalId, setActiveTerminalId] = useState<string>();
-  const [terminalOutput, setTerminalOutput] = useState('');
-  const [terminalConnection, setTerminalConnection] = useState<TerminalConnectionState>('idle');
+  const [instances, setInstances] = useState<TerminalInstance[]>([]);
+  const [scope, setScope] = useState(0);
+  const scopeRef = useRef(0);
+  const refreshRequest = useRef(0);
+  const connections = useRef(new Map<string, ReturnType<typeof createTerminalConnection>>());
+  const foreground = useRef(AppState.currentState !== 'background' && AppState.currentState !== 'inactive');
+  const publish = useCallback(() => setInstances([...connections.current.values()].map((entry) => entry.state)), []);
 
-  const terminalSocketRef = useRef<WebSocket | undefined>(undefined);
-  const terminalCursorByIdRef = useRef<Record<string, string>>({});
-  const terminalOpenGenerationRef = useRef(0);
-
-  useEffect(() => () => {
-    terminalSocketRef.current?.close();
+  useEffect(() => {
+    const owned = connections.current;
+    return () => { for (const connection of owned.values()) connection.dispose(); owned.clear(); };
   }, []);
 
-  // Clears terminal state and tears down the socket. Called when the project or
-  // connection scope changes.
   const resetTerminal = useCallback(() => {
-    setTerminals([]);
-    setTerminalShells([]);
-    setActiveTerminalId(undefined);
-    setTerminalOutput('');
-    setTerminalConnection('idle');
-    terminalSocketRef.current?.close();
-    terminalSocketRef.current = undefined;
-    terminalCursorByIdRef.current = {};
-    terminalOpenGenerationRef.current += 1;
+    for (const connection of connections.current.values()) connection.dispose();
+    connections.current.clear();
+    setTerminals([]); setTerminalShells([]); setActiveTerminalId(undefined); setInstances([]);
+    refreshRequest.current++;
+    scopeRef.current++;
+    setScope(scopeRef.current);
   }, []);
 
   const refreshTerminals = useCallback(async () => {
+    const request = ++refreshRequest.current;
+    const opened = new Set(connections.current.keys());
     const [nextTerminals, nextShells] = await Promise.all([listTerminals(client), listShells(client)]);
-    if (!isCurrentClient(client)) return;
-    setTerminals(nextTerminals);
-    setTerminalShells(nextShells);
+    if (!isCurrentClient(client) || request !== refreshRequest.current) return;
+    setTerminals(nextTerminals); setTerminalShells(nextShells);
+    for (const [id, connection] of connections.current) {
+      const pty = nextTerminals.find((item) => item.id === id);
+      if (opened.has(id) && (!pty || pty.status === 'exited') && connection.state.status !== 'exited') connection.exit();
+    }
   }, [client, isCurrentClient]);
 
-  const openTerminal = useCallback(async (ptyId: string) => {
-    const generation = ++terminalOpenGenerationRef.current;
-    const previousSocket = terminalSocketRef.current;
-    terminalSocketRef.current = undefined;
-    previousSocket?.close();
-    const switchingTerminal = activeTerminalId !== ptyId;
-    setActiveTerminalId(ptyId);
-    if (switchingTerminal) setTerminalOutput('');
-    setTerminalConnection('connecting');
-    const token = await createTerminalConnectToken(client, ptyId);
-    if (!isCurrentClient(client) || generation !== terminalOpenGenerationRef.current) {
-      throw new Error('Terminal connection was superseded.');
-    }
-    const socket = openTerminalWebSocket(getTerminalWebSocketUrl(
-      { serverUrl, directory },
-      ptyId,
-      { ticket: token.ticket, cursor: terminalCursorByIdRef.current[ptyId] },
-      serverContract,
-    ), authorization);
-    terminalSocketRef.current = socket;
-    let opened = false;
-    const connected = new Promise<void>((resolve, reject) => {
-      socket.onopen = () => {
-        if (generation !== terminalOpenGenerationRef.current) {
-          socket.close();
-          reject(new Error('Terminal connection was superseded.'));
-          return;
-        }
-        opened = true;
-        setTerminalConnection('connected');
-        resolve();
-      };
-      socket.onerror = () => {
-        if (generation !== terminalOpenGenerationRef.current) return;
-        setTerminalConnection('error');
-        if (!opened) reject(new Error('Could not connect to the terminal.'));
-      };
-      socket.onclose = () => {
-        if (generation !== terminalOpenGenerationRef.current) return;
-        if (terminalSocketRef.current === socket && opened) setTerminalConnection('idle');
-        if (!opened) reject(new Error('The terminal connection closed before it was ready.'));
-      };
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      foreground.current = state === 'active';
+      for (const connection of connections.current.values()) connection.foreground(foreground.current);
+      if (foreground.current && connections.current.size) void refreshTerminals().catch(() => undefined);
     });
-    socket.onmessage = ({ data }) => {
-      // ponytail: strip common CSI styling; use a terminal emulator if full VT control becomes required.
-      if (generation !== terminalOpenGenerationRef.current) return;
-      const append = (value: string) => setTerminalOutput((current) => `${current}${value.replace(ANSI_CSI_PATTERN, '')}`.slice(-MAX_TERMINAL_OUTPUT_CHARS));
-      if (typeof data === 'string') append(data);
-      else {
-        const read = async () => {
-          const buffer = data instanceof Blob ? await data.arrayBuffer() : data as ArrayBuffer;
-          if (generation !== terminalOpenGenerationRef.current) return;
-          const bytes = new Uint8Array(buffer);
-          const text = new TextDecoder().decode(bytes[0] === 0 ? bytes.subarray(1) : bytes);
-          if (bytes[0] !== 0) {
-            append(text);
-            return;
-          }
-          try {
-            const cursor = JSON.parse(text).cursor;
-            if (cursor !== undefined) terminalCursorByIdRef.current[ptyId] = String(cursor);
-          } catch {
-            // Ignore malformed control frames instead of rendering protocol data.
-          }
-        };
-        void read();
-      }
-    };
-    await connected;
-  }, [activeTerminalId, authorization, client, directory, isCurrentClient, serverContract, serverUrl]);
+    return () => subscription.remove();
+  }, [refreshTerminals]);
+
+  const openTerminal = useCallback(async (ptyId: string) => {
+    if (!isCurrentClient(client)) return;
+    const existing = connections.current.get(ptyId);
+    if (!existing) {
+      const connection = createTerminalConnection({
+        id: ptyId, client, current: () => isCurrentClient(client), serverUrl, directory, serverContract, authorization, publish,
+      });
+      connections.current.set(ptyId, connection);
+      connection.foreground(foreground.current);
+      publish();
+    } else if (existing.state.status === 'error' || existing.state.status === 'idle') existing.reconnect();
+    setActiveTerminalId(ptyId);
+  }, [authorization, client, directory, isCurrentClient, publish, serverContract, serverUrl]);
 
   const createTerminal = useCallback(async (command?: string, title?: string) => {
     const terminal = await svcCreateTerminal(client, { command: command?.trim() || undefined, title: title?.trim() || undefined });
+    if (!isCurrentClient(client)) return terminal;
     await refreshTerminals();
-    await openTerminal(terminal.id);
+    if (isCurrentClient(client)) await openTerminal(terminal.id);
     return terminal;
-  }, [client, openTerminal, refreshTerminals]);
+  }, [client, isCurrentClient, openTerminal, refreshTerminals]);
 
-  const sendTerminalInput = useCallback((input: string) => {
-    if (terminalSocketRef.current?.readyState !== WebSocket.OPEN) throw new Error('Terminal is not connected.');
-    terminalSocketRef.current.send(input);
+  const sendTerminalInput = useCallback((ptyId: string, input: string, generation: number, expectedScope: number) => {
+    if (expectedScope !== scopeRef.current) throw new Error('Terminal scope changed.');
+    const connection = connections.current.get(ptyId);
+    if (!connection) throw new Error('Terminal is not open.');
+    connection.send(input, generation);
   }, []);
 
   const closeTerminal = useCallback(async (ptyId: string) => {
-    if (activeTerminalId === ptyId) {
-      terminalOpenGenerationRef.current += 1;
-      terminalSocketRef.current?.close();
-      terminalSocketRef.current = undefined;
-      setActiveTerminalId(undefined);
-      setTerminalOutput('');
-    }
-    delete terminalCursorByIdRef.current[ptyId];
-    await svcRemoveTerminal(client, ptyId);
+    await removeTerminal(client, ptyId);
+    if (!isCurrentClient(client)) return;
+    connections.current.get(ptyId)?.dispose(); connections.current.delete(ptyId);
+    setActiveTerminalId((current) => current === ptyId ? connections.current.keys().next().value : current);
+    publish();
     await refreshTerminals();
-  }, [activeTerminalId, client, refreshTerminals]);
+  }, [client, isCurrentClient, publish, refreshTerminals]);
 
-  return {
-    terminals,
-    terminalShells,
-    activeTerminalId,
-    terminalOutput,
-    terminalConnection,
-    refreshTerminals,
-    openTerminal,
-    createTerminal,
-    sendTerminalInput,
-    closeTerminal,
-    resetTerminal,
-  };
+  const registerRenderer = useCallback((ptyId: string, renderer: TerminalRenderer) => {
+    return connections.current.get(ptyId)?.register(renderer) ?? (() => {});
+  }, []);
+  const resize = useCallback((ptyId: string, cols: number, rows: number) => {
+    connections.current.get(ptyId)?.resize(cols, rows);
+  }, []);
+  const terminalRuntime = useMemo<TerminalRuntime>(() => ({ scope, instances, registerRenderer, resize }), [scope, instances, registerRenderer, resize]);
+  const terminalConnection = instances.find((entry) => entry.id === activeTerminalId)?.status ?? 'idle';
+
+  return { terminals, terminalShells, activeTerminalId, terminalRuntime, terminalConnection, refreshTerminals, openTerminal, createTerminal, sendTerminalInput, closeTerminal, resetTerminal };
 }

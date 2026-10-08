@@ -1,3 +1,4 @@
+import type { TerminalRuntime, TerminalStatus } from './terminal-types';
 import type { PendingPrompt } from '@/lib/opencode/prompt-inbox';
 import type { Dispatch, SetStateAction } from 'react';
 
@@ -115,12 +116,12 @@ export type ProviderValuesInput = ActionInputs & {
   terminals: Pty[];
   terminalShells: PtyShellsResponse;
   activeTerminalId?: string;
-  terminalOutput: string;
-  terminalConnection: 'idle' | 'connecting' | 'connected' | 'error';
+  terminalRuntime: TerminalRuntime;
+  terminalConnection: TerminalStatus;
   refreshTerminals: () => Promise<void>;
   createTerminal: (command?: string, title?: string) => Promise<Pty>;
   openTerminal: (ptyId: string) => Promise<void>;
-  sendTerminalInput: (input: string) => void;
+  sendTerminalInput: (ptyId: string, input: string, generation: number, scope: number) => void;
   closeTerminal: (ptyId: string) => Promise<void>;
   mcpStatuses: Record<string, McpStatus>;
   refreshMcpServers: () => Promise<void>;

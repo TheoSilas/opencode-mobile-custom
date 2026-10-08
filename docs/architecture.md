@@ -139,7 +139,7 @@ and provider setup remain in Settings.
 - `app/(tabs)/settings.tsx`
   Settings screen controller for connection, providers, MCP servers, notifications, and voice.
 - `app/(tabs)/terminal.tsx`
-  Fourth-tab line console for creating, opening, using, and terminating project PTYs.
+  Thin Terminal-tab route for creating, opening, using, and terminating interactive project PTYs.
 - `app/session/[id].tsx`
   Session deep-link resolver. Parses `sessionId` + `project`, delegates to `openDeepLinkSession()`, then replaces onto the Chat tab.
 - `app/onboarding/*.tsx`
@@ -224,8 +224,10 @@ and provider setup remain in Settings.
 - `providers/use-conversation-screen-dim.ts`
   Dims screen during conversation mode.
 - `providers/use-terminal-state.ts`
-  Project-scoped PTY list, connect-token flow, WebSocket replay, and output
-  buffer, composed by the provider so the PTY domain stays self-contained.
+  Project-scoped PTY list and retained per-PTY transports, connect tickets,
+  reconnect, renderer registration, cursor acknowledgements, and resize.
+  `terminal-connection.ts` owns each connection lifecycle; protocol decoding
+  and bounded output delivery live in `lib/opencode/terminal-stream.ts`.
 - `providers/use-mcp-state.ts`
   MCP server status plus its lifecycle actions.
 - `providers/use-worktree-state.ts`
@@ -589,9 +591,9 @@ Responsibilities:
 - list available shells and project PTYs
 - create, open/reconnect, and terminate PTYs
 - request a short-lived connect ticket and stream PTY data over a project-scoped WebSocket
-- provide a line-oriented input/output console rather than a full terminal emulator
+- provide xterm terminal emulation with immediate input and a system-keyboard accessory
 
-The provider strips common ANSI CSI sequences and retains only the latest 100,000 output characters. It does not emulate cursor movement or other VT terminal behavior.
+The provider delivers raw VT output in ordered acknowledged batches to xterm. It owns reconnect cursors, resize, and per-PTY transport lifetime; xterm owns the display and 10,000-line scrollback.
 
 ## Conversation Mode Architecture
 
@@ -674,3 +676,22 @@ Those are implementation-defining patterns, not incidental details.
 ## Session library recovery (#64)
 
 Session idle events only refresh domain state; archiving remains an explicit user action. Archive restoration and optional reopening are provider-owned and preserve the target workspace and connection scope.
+
+## Interactive Terminal
+
+The Terminal route delegates presentation to `components/terminal/`. One Expo
+DOM surface bundles xterm and its fit addon locally, containing a retained xterm
+instance for each opened PTY. The surface stays mounted across tab and PTY
+switches. Emulator buffers and keyboard modifiers are presentation state;
+transport, credentials, scope, reconnect, and server mutations remain provider-owned.
+
+The system keyboard enters xterm directly. Its DOM accessory supplies Esc, Tab,
+sticky Ctrl/Alt/Shift, arrows, and an expandable function/navigation/paste row.
+The existing padding keyboard avoidance and persistent bottom-tab layout remain.
+There is no separate line composer or local shell-history implementation.
+
+The native DOM bridge has void imperative methods, so each output batch carries
+an acknowledgement ID. The DOM replies only after xterm parses the batch.
+Provider resume cursors advance after that acknowledgement; growing output is
+never a React prop. Connection generations and scope IDs reject stale input.
+No credentials or socket URLs cross into the DOM surface.

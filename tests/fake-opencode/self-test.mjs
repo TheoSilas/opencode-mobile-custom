@@ -45,13 +45,13 @@ function assert(condition, message) {
 function checkPtySocket(ptyId, ticket) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(`ws://127.0.0.1:${port}${prefix}/pty/${ptyId}/connect?ticket=${ticket}`);
-    let output = '';
+    let output = '', submitted = false;
     const timeout = setTimeout(() => reject(new Error('PTY WebSocket timed out')), 2000);
     socket.on('message', (chunk) => {
       output += chunk.toString();
       if (!output.includes('$ ')) return;
       if (!output.includes('ran: echo sdk')) {
-        socket.send('echo sdk\n');
+        if (!submitted) { submitted = true; socket.send('echo '); socket.send('sdk\r'); }
         return;
       }
       clearTimeout(timeout);

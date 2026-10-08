@@ -10,15 +10,14 @@
     "selectTerminal": "Selecionar terminal",
     "create": "Criar terminal",
     "refresh": "Atualizar terminais",
-    "connectedWaiting": "Conectado. Aguardando saída...",
     "openOrCreate": "Abra ou crie um terminal para começar.",
-    "commandPlaceholder": "Digite um comando",
-    "send": "Enviar comando",
     "terminateTitle": "Encerrar o terminal?",
     "terminateMessage": "Encerrar {{title}}?",
     "terminateAction": "Encerrar",
-    "lineHint": "Os comandos são enviados uma linha por vez.",
-    "new": "Novo terminal"
+    "new": "Novo terminal",
+    "interactiveHint": "Escreva diretamente no terminal. Use a barra para as teclas do terminal.",
+    "pasteTitle": "Colar no terminal?",
+    "pasteMessage": "Este texto contém várias linhas ou caracteres de controlo e pode executar comandos. Continuar?"
   },
   "sessions": {
     "title": "Terminais",
@@ -34,5 +33,23 @@
     "send": "Não foi possível enviar a entrada do terminal.",
     "connect": "Não foi possível conectar.",
     "refresh": "Não foi possível atualizar os terminais."
+  },
+  "accessory": {
+    "paste": "Colar",
+    "copy": "Copiar",
+    "latest": "Saída mais recente",
+    "input": "Entrada do terminal",
+    "more": "Mais teclas do terminal",
+    "armed": "ativado",
+    "locked": "bloqueado",
+    "off": "desativado"
+  },
+  "status": {
+    "connecting": "A ligar",
+    "connected": "Ligado",
+    "reconnecting": "A religar",
+    "exited": "Terminado",
+    "error": "Erro",
+    "idle": "Inativo"
   }
 }

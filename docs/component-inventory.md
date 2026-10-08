@@ -438,8 +438,9 @@ This is important to parity because the chat layout is intentionally dense and h
 
 - fourth tab and thin controller over provider-owned PTY state
 - render a content-sized PTY selector overlay; each terminal opens on tap and reveals Close on swipe
-- create default-shell PTYs, select/reconnect existing PTYs, and send newline-terminated input
-- auto-scroll provider-capped output; it is not a VT terminal emulator
+- create default-shell PTYs and select/reconnect existing PTYs
+- delegate rendering and keyboard controls to `components/terminal/`
+- stream immediate terminal input through provider actions; the server owns line editing/history
 
 ## Settings Components
 
@@ -877,3 +878,27 @@ The shared OverlaySheet compact option is opt-in for changes only; other overlay
 ## Session library recovery (#64)
 
 Archived Chat Library cards are accessible buttons that restore and open through the provider. The swipe Restore action remains available and passes the row directory. Library actions are serialized with an immediate operation guard; duplicate taps are ignored and the latest distinct opening is queued; results from dismissed overlays cannot replace current feedback or close a reopened overlay.
+
+## Terminal presentation
+
+`terminal-screen.tsx` composes the existing picker, header, creation and termination
+actions, reconnect errors, and padding keyboard layout. `terminal-view.tsx`
+registers renderers with the provider and adapts Expo DOM acknowledgements,
+clipboard operations, and multiline/control-character paste confirmation.
+
+`terminal-dom.tsx` retains xterm instances inside one DOM surface, receives
+imperative output batches, reports fit dimensions, and sends ordered input.
+`terminal-accessory.tsx` renders Esc/Tab/Ctrl/Alt/Shift/arrows/Fn plus F1–F12,
+Home/End/PageUp/PageDown/Insert/Delete/Paste. A modifier tap arms it once, a
+double tap locks it, and another tap clears it. Terminal/tab changes clear modifiers.
+Shift modifies accessory/navigation keys and capitalizes ASCII letters; the
+system keyboard supplies shifted punctuation and composed text.
+`terminal-keys.ts` encodes accessory combinations and terminal cursor modes.
+`terminal-input.ts` forwards system `insertText` events omitted by xterm in
+screen-reader mode, without duplicating physical-key or composition input.
+
+Touch long press selects a word, drag extends selection, and Copy uses the
+platform clipboard. Touch scrolling stays local rather than generating shell
+mouse events. The Latest output control appears away from the scrollback bottom.
+Buttons have at least 44-point targets, accessible names and state, and xterm
+screen-reader mode is enabled. Native screen-reader/input validation remains required.

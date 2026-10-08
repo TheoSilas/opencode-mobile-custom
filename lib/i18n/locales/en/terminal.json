@@ -10,15 +10,14 @@
     "selectTerminal": "Select terminal",
     "create": "Create terminal",
     "refresh": "Refresh terminals",
-    "connectedWaiting": "Connected. Waiting for output...",
     "openOrCreate": "Open or create a terminal to begin.",
-    "commandPlaceholder": "Enter a command",
-    "send": "Send command",
     "terminateTitle": "Terminate terminal?",
     "terminateMessage": "Terminate {{title}}?",
     "terminateAction": "Terminate",
-    "lineHint": "Commands are sent one line at a time.",
-    "new": "New terminal"
+    "new": "New terminal",
+    "interactiveHint": "Type directly in the terminal. Use the accessory for terminal keys.",
+    "pasteTitle": "Paste into terminal?",
+    "pasteMessage": "This paste contains multiple lines or control characters and may execute commands. Continue?"
   },
   "sessions": {
     "title": "Terminals",
@@ -34,5 +33,23 @@
     "send": "Could not send terminal input.",
     "connect": "Could not connect.",
     "refresh": "Could not refresh terminals."
+  },
+  "accessory": {
+    "paste": "Paste",
+    "copy": "Copy",
+    "latest": "Latest output",
+    "input": "Terminal input",
+    "more": "More terminal keys",
+    "armed": "armed",
+    "locked": "locked",
+    "off": "off"
+  },
+  "status": {
+    "connecting": "Connecting",
+    "connected": "Connected",
+    "reconnecting": "Reconnecting",
+    "exited": "Exited",
+    "error": "Error",
+    "idle": "Idle"
   }
 }

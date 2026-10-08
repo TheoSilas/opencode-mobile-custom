@@ -48,7 +48,7 @@ The tabs mostly render and manipulate provider state:
 - `Chat`: active session UI
 - `Workspace`: project and session selection
 - `Settings`: connection, provider, MCP, notification, and voice configuration
-- `Terminal`: project PTY line console
+- `Terminal`: interactive project PTYs with xterm and terminal-key accessory
 
 ## Recommended Reading Order
 

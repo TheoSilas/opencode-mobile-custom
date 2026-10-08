@@ -23,6 +23,10 @@ export async function removeTerminal(client: OpencodeClient, ptyId: string) {
   await client.pty.remove({ ptyID: ptyId });
 }
 
+export async function resizeTerminal(client: OpencodeClient, ptyId: string, size: { cols: number; rows: number }) {
+  return requireData((await client.pty.update({ ptyID: ptyId, size })).data, 'terminal resize request');
+}
+
 export async function createTerminalConnectToken(client: OpencodeClient, ptyId: string) {
   return requireData((await client.pty.connectToken(
     { ptyID: ptyId },

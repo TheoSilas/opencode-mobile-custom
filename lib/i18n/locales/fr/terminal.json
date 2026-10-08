@@ -10,15 +10,14 @@
     "selectTerminal": "Sélectionner un terminal",
     "create": "Créer un terminal",
     "refresh": "Actualiser les terminaux",
-    "connectedWaiting": "Connecté. En attente de sortie...",
     "openOrCreate": "Ouvre ou crée un terminal pour commencer.",
-    "commandPlaceholder": "Saisir une commande",
-    "send": "Envoyer la commande",
     "terminateTitle": "Arrêter le terminal ?",
     "terminateMessage": "Arrêter {{title}} ?",
     "terminateAction": "Arrêter",
-    "lineHint": "Les commandes sont envoyées une ligne à la fois.",
-    "new": "Nouveau terminal"
+    "new": "Nouveau terminal",
+    "interactiveHint": "Saisissez directement dans le terminal. Utilisez la barre pour les touches du terminal.",
+    "pasteTitle": "Coller dans le terminal ?",
+    "pasteMessage": "Ce texte contient plusieurs lignes ou des caractères de contrôle et peut exécuter des commandes. Continuer ?"
   },
   "sessions": {
     "title": "Terminaux",
@@ -34,5 +33,23 @@
     "send": "Impossible d'envoyer l'entrée du terminal.",
     "connect": "Impossible de se connecter.",
     "refresh": "Impossible d'actualiser les terminaux."
+  },
+  "accessory": {
+    "paste": "Coller",
+    "copy": "Copier",
+    "latest": "Dernière sortie",
+    "input": "Saisie du terminal",
+    "more": "Plus de touches du terminal",
+    "armed": "activé",
+    "locked": "verrouillé",
+    "off": "désactivé"
+  },
+  "status": {
+    "connecting": "Connexion",
+    "connected": "Connecté",
+    "reconnecting": "Reconnexion",
+    "exited": "Terminé",
+    "error": "Erreur",
+    "idle": "Inactif"
   }
 }

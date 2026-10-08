@@ -10,15 +10,14 @@
     "selectTerminal": "ターミナルを選択",
     "create": "ターミナルを作成",
     "refresh": "ターミナルを更新",
-    "connectedWaiting": "接続しました。出力を待っています...",
     "openOrCreate": "ターミナルを開くか作成して開始してください。",
-    "commandPlaceholder": "コマンドを入力",
-    "send": "コマンドを送信",
     "terminateTitle": "ターミナルを終了しますか？",
     "terminateMessage": "{{title}}を終了しますか？",
     "terminateAction": "終了",
-    "lineHint": "コマンドは1行ずつ送信されます。",
-    "new": "新しいターミナル"
+    "new": "新しいターミナル",
+    "interactiveHint": "ターミナルに直接入力します。特殊キーはツールバーから使用できます。",
+    "pasteTitle": "ターミナルに貼り付けますか？",
+    "pasteMessage": "複数行または制御文字が含まれており、コマンドが実行される可能性があります。続行しますか？"
   },
   "sessions": {
     "title": "ターミナル",
@@ -34,5 +33,23 @@
     "send": "ターミナル入力を送信できませんでした。",
     "connect": "接続できませんでした。",
     "refresh": "ターミナルを更新できませんでした。"
+  },
+  "accessory": {
+    "paste": "貼り付け",
+    "copy": "コピー",
+    "latest": "最新の出力",
+    "input": "ターミナル入力",
+    "more": "その他のターミナルキー",
+    "armed": "有効",
+    "locked": "固定",
+    "off": "オフ"
+  },
+  "status": {
+    "connecting": "接続中",
+    "connected": "接続済み",
+    "reconnecting": "再接続中",
+    "exited": "終了",
+    "error": "エラー",
+    "idle": "待機中"
   }
 }

@@ -168,10 +168,35 @@ Primary fields:
 - `terminals`
 - `terminalShells`
 - `activeTerminalId`
-- `terminalOutput`
+- `terminalRuntime` (scope, opened instances, renderer registration, resize)
 - `terminalConnection`
 
-The provider owns the active WebSocket. Opening a PTY clears prior output, obtains a connect ticket, and transitions through `connecting`, `connected`, `error`, or `idle`. Incoming common ANSI CSI sequences are stripped and output is capped to the latest 100,000 characters. Terminal history and selection are not persisted.
+The provider retains one WebSocket per opened PTY in the current connection/project
+scope. Each instance reports `connecting`, `connected`, `reconnecting`, `idle`,
+`exited`, or `error`, plus its connection generation and optional error. Switching
+PTYs changes selection without clearing their xterm displays or closing streams.
+
+Renderer registration starts ticket acquisition. Raw ANSI/VT output is decoded
+in arrival order, including asynchronous Blob reads and fragmented UTF-8.
+NUL-prefixed cursor metadata is validated and never displayed. Output batches
+are acknowledged after xterm parses them; subsequent cursor increments count
+UTF-16 characters, matching the server. A replacement renderer resets its cursor
+and requests fresh replay. xterm retains 10,000 scrollback lines; the pending
+output queue has a 2 MiB limit and fails visibly instead of dropping data.
+
+Unexpected disconnects retry after 1/2/4/8/15 seconds with fresh tickets.
+Backgrounding suspends retries and closes transports; foregrounding reconnects.
+Authentication/removal failures and clean PTY exit stop automatic retry. Input
+requires a connected transport and matching scope/generation, and is never
+replayed after reconnect. Visible dimensions update the PTY immediately on first
+measurement and then with a deduplicated 100 ms debounce.
+
+Exit retains the final display with input disabled. Explicit termination removes
+local state only after the server accepts deletion; failure preserves it.
+Connection/project reset disposes all transports and renderers. State is retained
+only during the app process, with no terminal output or history written to disk.
+The server replay buffer is finite: renderer loss cannot guarantee recovery of
+output older than that buffer.
 
 ## Conversation State
 
@@ -584,7 +609,7 @@ Some user-visible behavior depends on transient refs not persisted anywhere:
 - copied-message snackbar state
 - currently spoken message ID
 - Workspace file edit draft and expected original content
-- PTY list, active PTY, connection, and capped output scrollback
+- PTY list, active PTY, per-PTY connection state, and renderer registration
 
 A rewrite that only mirrors persisted values would still miss important runtime behavior.
 

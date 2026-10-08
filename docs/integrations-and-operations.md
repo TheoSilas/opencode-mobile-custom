@@ -259,8 +259,8 @@ Attachments are limited to 10 MB each, not in aggregate. Local files are read
 and base64-encoded while a prompt is being prepared, and web picker data URLs
 remain in composer state until send. Profile long transcripts, long streamed
 replies, and several near-limit attachments on a low-memory Android device.
-The app already caps terminal output at 100,000 characters and clears refresh
-timers and the active terminal socket on project changes or provider teardown;
+The terminal bounds pending output to 2 MiB and xterm scrollback to 10,000 lines
+per opened PTY, disposing its sockets and timers on project changes or provider teardown;
 the inspected paths show no clear listener/timer leak to fix without profiling
 evidence.
 

@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { Buffer } from 'node:buffer';
 import { WebSocketServer } from 'ws';
+import { createTerminalFixture } from './terminal.mjs';
 
 import { createSessionHelpers } from './session-helpers.mjs';
 import { createStateStore, getNow, resolveProject } from './state.mjs';
@@ -10,6 +11,7 @@ const scenarioName = process.env.FAKE_OPENCODE_SCENARIO || 'happy-path';
 
 const stateStore = createStateStore(scenarioName);
 let state = stateStore.getState();
+const terminalFixture = createTerminalFixture((id) => { const pty = state.ptys.find((item) => item.id === id); if (pty) pty.status = 'exited'; });
 let suppressEvents = false;
 const v2Clients = new Set();
 // VCS diff fixtures. `working` mirrors uncommitted changes; `branch` is a
@@ -329,7 +331,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === '/__control/terminal') {
+      if (req.method === 'POST') terminalFixture.control(await readJson(req));
+      sendJson(res, 200, { data: terminalFixture.snapshot() });
+      return;
+    }
+
     if (req.method === 'POST' && pathname === '/__control/reset') {
+      terminalFixture.reset();
       const body = await readJson(req);
       for (const client of v2Clients) client.end();
       v2Clients.clear();
@@ -837,11 +846,14 @@ const server = http.createServer(async (req, res) => {
       }
       if (req.method === 'PUT') {
         const body = await readJson(req) || {};
+        if (body.size) terminalFixture.get(ptyId).size = body.size;
         if (body.title !== undefined) state.ptys[index].title = body.title;
         sendJson(res, 200, { location: location(), data: state.ptys[index] });
         return;
       }
       if (req.method === 'DELETE') {
+        if (terminalFixture.get(ptyId).failTerminate) { terminalFixture.get(ptyId).failTerminate = false; sendJson(res, 500, { error: 'Termination failed' }); return; }
+        terminalFixture.remove(ptyId);
         state.ptys.splice(index, 1);
         res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
         res.end();
@@ -908,17 +920,7 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 
-ptyWebSockets.on('connection', (socket) => {
-  setTimeout(() => {
-    if (socket.readyState !== 1) return;
-    socket.send(Buffer.concat([Buffer.from([0]), Buffer.from(JSON.stringify({ cursor: 1 }))]));
-    socket.send('$ ');
-  }, 25);
-  socket.on('message', (value) => {
-    const command = value.toString().trim();
-    socket.send(command ? `ran: ${command}\n$ ` : '$ ');
-  });
-});
+ptyWebSockets.on('connection', (socket, request) => terminalFixture.connect(socket, request));
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`Fake OpenCode V2 server listening on http://127.0.0.1:${port} (${scenarioName})`);

@@ -421,3 +421,48 @@ cachedMessages.extra = []; cachedDiffs.extra = []; cachedTodos.extra = [];
 prune();
 assert.deepEqual(Object.keys(cachedMessages), ['target'], 'pruning resumes after selection and removes inactive histories');
 assert.deepEqual(Object.keys(cachedDiffs), ['target']); assert.deepEqual(Object.keys(cachedTodos), ['target']);
+
+// Real terminal orchestration: stale lists/input and failed removal cannot destroy an opened PTY.
+{
+  const runtime = hookRuntime(), client = {}, records = new Map(), listGate = deferred();
+  let listed = [{ id: 'first', status: 'running' }], pendingList = false, rejectRemoval = false;
+  const { useTerminalState } = await loadTs('providers/use-terminal-state.ts', {
+    react: runtime.react,
+    'react-native': { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
+    '@/providers/services/terminal-service': {
+      listTerminals: () => pendingList ? listGate.promise : Promise.resolve(listed), listShells: async () => [],
+      createTerminal: async () => ({ id: 'new' }), removeTerminal: async () => { if (rejectRemoval) throw new Error('Rejected'); },
+    },
+    './terminal-connection': { createTerminalConnection: ({ id, publish }) => {
+      const record = { state: { id, generation: 0, status: 'connected' }, disposed: false, sent: [],
+        foreground() {}, reconnect() {}, register: () => () => {}, resize() {},
+        send(input) { record.sent.push(input); },
+        exit() { record.state.status = 'exited'; publish(); }, dispose() { record.disposed = true; },
+      };
+      records.set(id, record); return record;
+    } },
+  });
+  runtime.mount(useTerminalState, { client, isCurrentClient: () => true, serverUrl: 'http://example.test', directory: '/repo', serverContract: 'v1' });
+  await runtime.value.openTerminal('first'); runtime.flush();
+  pendingList = true;
+  const refresh = runtime.value.refreshTerminals();
+  await runtime.value.openTerminal('second'); runtime.flush();
+  listGate.resolve(listed); await refresh; runtime.flush(); pendingList = false;
+  assert.equal(records.get('second').state.status, 'connected', 'a list started before opening cannot exit the new PTY');
+  const oldScope = runtime.value.terminalRuntime.scope;
+  runtime.value.resetTerminal(); runtime.flush();
+  assert.equal(records.get('first').disposed, true); assert.equal(records.get('second').disposed, true);
+  await runtime.value.openTerminal('first'); runtime.flush();
+  assert.throws(() => runtime.value.sendTerminalInput('first', 'stale', 0, oldScope), /scope changed/);
+  assert.equal(records.get('first').sent.length, 0, 'a reused PTY ID cannot receive input queued in an old scope');
+  rejectRemoval = true;
+  await assert.rejects(runtime.value.closeTerminal('first'), /Rejected/); runtime.flush();
+  assert.equal(runtime.value.activeTerminalId, 'first'); assert.equal(records.get('first').disposed, false);
+  await runtime.value.openTerminal('second'); runtime.flush();
+  await runtime.value.openTerminal('first'); runtime.flush();
+  rejectRemoval = false; listed = [{ id: 'second', status: 'running' }];
+  await runtime.value.closeTerminal('first'); runtime.flush();
+  assert.equal(runtime.value.activeTerminalId, 'second'); assert.equal(records.get('first').disposed, true);
+  runtime.unmount(); assert.equal(records.get('second').disposed, true);
+  console.log('terminal scope, refresh race, failed removal, retained selection, and disposal checks passed');
+}

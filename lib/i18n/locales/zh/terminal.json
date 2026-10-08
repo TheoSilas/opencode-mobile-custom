@@ -10,15 +10,14 @@
     "selectTerminal": "选择终端",
     "create": "创建终端",
     "refresh": "刷新终端",
-    "connectedWaiting": "已连接。正在等待输出…",
     "openOrCreate": "打开或创建终端以开始。",
-    "commandPlaceholder": "输入命令",
-    "send": "发送命令",
     "terminateTitle": "终止终端？",
     "terminateMessage": "终止 {{title}}？",
     "terminateAction": "终止",
-    "lineHint": "命令每次发送一行。",
-    "new": "新建终端"
+    "new": "新建终端",
+    "interactiveHint": "直接在终端中输入。使用工具栏上的终端按键。",
+    "pasteTitle": "粘贴到终端？",
+    "pasteMessage": "此文本包含多行或控制字符，可能执行命令。是否继续？"
   },
   "sessions": {
     "title": "终端",
@@ -34,5 +33,23 @@
     "send": "无法发送终端输入。",
     "connect": "无法连接。",
     "refresh": "无法刷新终端。"
+  },
+  "accessory": {
+    "paste": "粘贴",
+    "copy": "复制",
+    "latest": "最新输出",
+    "input": "终端输入",
+    "more": "更多终端按键",
+    "armed": "已启用",
+    "locked": "已锁定",
+    "off": "关闭"
+  },
+  "status": {
+    "connecting": "连接中",
+    "connected": "已连接",
+    "reconnecting": "重新连接中",
+    "exited": "已退出",
+    "error": "错误",
+    "idle": "空闲"
   }
 }

@@ -10,15 +10,14 @@
     "selectTerminal": "Terminal auswählen",
     "create": "Terminal erstellen",
     "refresh": "Terminals aktualisieren",
-    "connectedWaiting": "Verbunden. Warte auf Ausgabe...",
     "openOrCreate": "Öffne oder erstelle ein Terminal, um zu beginnen.",
-    "commandPlaceholder": "Befehl eingeben",
-    "send": "Befehl senden",
     "terminateTitle": "Terminal beenden?",
     "terminateMessage": "{{title}} beenden?",
     "terminateAction": "Beenden",
-    "lineHint": "Befehle werden zeilenweise gesendet.",
-    "new": "Neues Terminal"
+    "new": "Neues Terminal",
+    "interactiveHint": "Tippe direkt im Terminal. Verwende die Leiste für Terminaltasten.",
+    "pasteTitle": "Im Terminal einfügen?",
+    "pasteMessage": "Dieser Text enthält mehrere Zeilen oder Steuerzeichen und kann Befehle ausführen. Fortfahren?"
   },
   "sessions": {
     "title": "Terminals",
@@ -34,5 +33,23 @@
     "send": "Die Terminal-Eingabe konnte nicht gesendet werden.",
     "connect": "Verbindung konnte nicht hergestellt werden.",
     "refresh": "Terminals konnten nicht aktualisiert werden."
+  },
+  "accessory": {
+    "paste": "Einfügen",
+    "copy": "Kopieren",
+    "latest": "Neueste Ausgabe",
+    "input": "Terminaleingabe",
+    "more": "Weitere Terminaltasten",
+    "armed": "aktiviert",
+    "locked": "gesperrt",
+    "off": "aus"
+  },
+  "status": {
+    "connecting": "Verbindung wird hergestellt",
+    "connected": "Verbunden",
+    "reconnecting": "Verbindung wird wiederhergestellt",
+    "exited": "Beendet",
+    "error": "Fehler",
+    "idle": "Inaktiv"
   }
 }

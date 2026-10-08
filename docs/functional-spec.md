@@ -202,9 +202,9 @@ The Workspace tab can list, create, reset, and remove worktrees. Creation accept
 
 ### 11. Use The Terminal Tab
 
-The fourth tab uses a content-sized terminal selector overlay. The plus action creates a PTY with the server default shell (which falls back to bash on the fake server); tapping a row opens it, and swiping left reveals its Close action. Rows show a short terminal ID to distinguish terminals with the same title and command. Users send newline-terminated input to the selected terminal.
+The fourth tab uses a content-sized terminal selector overlay. The plus action creates a PTY with the server default shell (which falls back to bash on the fake server); tapping a row opens it, and swiping left reveals its Close action. Rows show a short terminal ID to distinguish terminals with the same title and command. Users type directly into xterm; each committed input is sent immediately. The remote shell handles history, completion, editing, and Enter.
 
-The provider requests a short-lived PTY connect ticket and opens a project-scoped `ws:`/`wss:` connection. The UI is a line console, not a terminal emulator: it strips common ANSI CSI sequences, does not implement VT cursor behavior, and keeps the latest 100,000 output characters.
+The provider requests a short-lived PTY connect ticket and opens a project-scoped `ws:`/`wss:` connection. The UI uses xterm for ANSI/VT cursor behavior, alternate-screen programs, and 10,000-line scrollback. A system-keyboard accessory provides Esc, Tab, sticky modifiers, arrows, and an expandable function/navigation/paste row. Opened displays survive tab and terminal switches; reconnect uses acknowledged cursors and fresh tickets.
 
 ## Chat Screen Detailed Behavior
 
@@ -550,7 +550,7 @@ Any reimplementation should preserve these functional outcomes:
 - workspace file search/view/status plus conflict-checked full-file VCS patch save
 - experimental worktree management and archived-session listing
 - MCP lifecycle/configuration/OAuth management
-- ticket-authenticated PTY line console with bounded, CSI-stripped output
+- ticket-authenticated interactive PTYs with xterm, bounded scrollback, resize, and acknowledged reconnect
 - server diagnostics
 - provider discovery and auth configuration from server metadata
 - enabled-model filtering separate from model selection

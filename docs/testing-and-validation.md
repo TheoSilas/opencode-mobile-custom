@@ -373,7 +373,8 @@ the Vitest `record-preservation` suite is now part of the static CI gate.
 
 - create a PTY from the fourth tab
 - connect with a server-issued ticket over WebSocket
-- send one line and verify streamed output
+- send individual keystrokes before Enter; verify shell echo and completed commands
+- exercise history, Ctrl+C, F12, alternate-screen return, resize, tab continuity, and cursor-based reconnect for both contracts
 
 ### Favorites And Saved Connection Flows
 
@@ -534,16 +535,16 @@ After that baseline, the next most valuable parity suite would add:
 
 ## Migration Coverage Status
 
-The fake server self-test covers the expanded REST contract plus a real ticket-authenticated PTY WebSocket exchange. Playwright covers patch save, archive/restore, worktree creation, MCP addition, and terminal input/output. It does not prove full terminal emulation, native WebSocket behavior, MCP OAuth UI completion, attachment capability, provider OAuth callback, or native reconnect behavior.
+The fake server self-test covers the expanded REST contract plus a real ticket-authenticated PTY WebSocket exchange. Playwright covers patch save, archive/restore, worktree creation, MCP addition, and interactive xterm behavior including history, modifiers, Unicode, alternate screens, bracketed paste and cursor resume. It does not prove real full-screen program compatibility, native WebSocket behavior, MCP OAuth UI completion, attachment capability, provider OAuth callback, or native reconnect behavior.
 
 Android native validation happens on every CI run in the tagged/`main`/manual `android-release` job in `.github/workflows/build.yml`; there is no separate push-time Android development build gate.
 
 ## Assessment Validation Limits
 
 These checks establish behavior and bounded request counts, not native frame
-rate, launch latency, battery use, or memory. Terminal socket output retains
-its existing per-chunk React updates and 100,000-character cap; introduce batching
-only after sustained-output profiling demonstrates a bottleneck. Physical-device
+rate, launch latency, battery use, or memory. Terminal output uses ordered imperative batches with renderer acknowledgements,
+a 2 MiB pending queue, and 10,000-line xterm scrollback. Sustained-output device
+profiling is still required to establish frame rate and memory use. Physical-device
 voice, background notification, and virtualized-list scrolling/accessibility checks
 remain necessary. Changes under `tests/e2e/` or `tests/fake-opencode/` require
 explicit human validation as specified by `AGENTS.md`, even after all automated
@@ -595,3 +596,37 @@ Session-read regressions cover mixed archived/active records and pagination thro
 ## Cross-workspace favorite CI regression
 
 The favorite flow waits for server-side prompt completion and the selected workspace rather than a fixed delay. It targets the favorite row directly, since the same session may also appear in the Active group. Provider runtime coverage reproduces cache pruning while bootstrap reads have arrived but capability discovery is still pending. Pruning waits for bootstrap completion and protects the pending deep-link target, then resumes with the selected, running, and conversation sessions. Validate with Node 22 and `CI=true EXPO_PUBLIC_E2E_MODE=1`, including repeated focused favorite flows and the full three CI gates. E2E changes still require explicit human validation under AGENTS.md.
+
+## xterm terminal validation
+
+Provider runtime tests cover stale terminal lists, scope changes with reused PTY
+IDs, failed termination retaining the display, selection after closing, and disposal.
+The Vitest terminal suite checks modifier/function-key encoding, system input
+without keyboard/composition duplication, paste confirmation,
+fragmented UTF-8, delayed Blob ordering, cursor barriers, pending-buffer overflow,
+acknowledged UTF-16 resume positions, renderer loss, fresh tickets, authentication
+failure, background suspension, resize debounce, and disposal during ticket acquisition.
+The shared fake PTY supports incremental echo, history, Ctrl+C, alternate-screen
+output, recorded input/resize/cursors, and deterministic disconnect/output/exit/
+termination-failure controls. Both web protocol flows exercise these behaviors.
+
+Run static CI, fake-server self-tests, full web E2E, FOSS preparation checks, native
+DOM exports, Android development/release/FOSS builds, and an iOS simulator build.
+Any unavailable native build prerequisites must be reported, not treated as passing.
+
+Human validation is required for changes in `tests/e2e/` and `tests/fake-opencode/`
+under AGENTS.md. Device acceptance must cover iOS, Gboard, Samsung Keyboard,
+Bluetooth modifiers/function keys, composition and Unicode, multiline/bracketed
+paste, selection/copy/scrollback, keyboard visibility, rotation, larger text,
+VoiceOver/TalkBack, tab continuity, background reconnect, and real vim/less/top/tmux
+sessions against both server contracts. Emulator output is not persisted across app kill.
+
+Implementation validation (2026-10-08): static CI (76 Vitest tests plus the script
+suites), fake-server self-tests, all 96 web flows, FOSS checks, offline iOS/Android
+DOM exports, and an iOS simulator native build passed. The iOS simulator rendered
+xterm, exchanged incremental keyboard input/output, and reported measured PTY
+dimensions through the native bridge. Android development build stopped because
+the Android SDK is absent; release/FOSS APK builds remain unverified for the same
+reason. Physical keyboard/IME/accessibility and sustained-output profiling remain
+manual acceptance work. The unsigned simulator build also emits existing
+notifications/SecureStore keychain entitlement warnings.
