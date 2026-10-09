@@ -686,8 +686,8 @@ paths, folder-first sorting, directory-only inventory and binary decoding. Provi
 runtime tests cover competing directory/search requests and switching servers
 with identical paths. Web flows cover initial folder lists, breadcrumbs, search
 across subfolders, preview/back, binary rejection, capability-gated editing,
-worktree selection/reload/removal, Terminal/Chat continuity, discard confirmation
-and recoverable save conflicts.
+the visible Files/Worktrees tabs, worktree management and selection/reload/removal,
+Terminal/Chat continuity, discard confirmation and recoverable save conflicts.
 
 Run `test:ci:static`, `test:fake-server:self`, `test:e2e:web` and the Android
 development build. Check physical-device Back/keyboard behavior, safe areas, larger

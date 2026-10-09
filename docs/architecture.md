@@ -136,7 +136,7 @@ and provider setup remain in Settings.
 - `app/(tabs)/index.tsx`
   Chat landing logic. Ensures a session exists and renders `ChatView` once available.
 - `app/(tabs)/workspace.tsx`
-  Scoped folder browsing and search, shared workspace/worktree picker, and conflict-checked text file editing.
+  Files and Worktrees tabs, scoped folder browsing and search, the shared workspace/worktree picker, and conflict-checked text file editing.
 - `app/(tabs)/settings.tsx`
   Settings screen controller for connection, providers, MCP servers, notifications, and voice.
 - `app/(tabs)/terminal.tsx`
@@ -734,12 +734,13 @@ and save require a selected directory. The OpenCode 2 filesystem adapter passes
 Text editing retains the existing conflict-checked patch path and is unavailable
 on OpenCode 2. Unsaved edits require discard confirmation.
 
-The shared Workspace/Chat picker contains worktree inventory for the owning
-project, resolved from the scoped project API rather than path prefixes. Directory
-selection uses the existing provider workspace action and applies across Chat,
-Workspace and Terminal. Creation stays in the picker; reset/remove live in row
-menus, preserve confirmations and reject the active directory and primary checkout.
-OpenCode 2 hides reset/startup commands and maps directory-only inventory to names.
+The Workspace screen exposes Files and Worktrees tabs. The Worktrees tab and
+shared Workspace/Chat picker reuse the same worktree manager. Worktree inventory
+is scoped to the owning project, resolved from the project API rather than path
+prefixes. Selecting a directory uses the existing provider workspace action and
+applies across Chat, Workspace and Terminal. Reset/remove preserve confirmations
+and reject the active directory and primary checkout. OpenCode 2 hides
+reset/startup commands and maps directory-only inventory to names.
 The browser groups state and actions under one context member, keeping the public
 context below the 135-member ceiling. Screens and components call provider actions;
 services and protocol modules own requests and response normalization.

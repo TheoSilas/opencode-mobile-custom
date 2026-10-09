@@ -925,10 +925,12 @@ screen-reader mode is enabled. Native screen-reader/input validation remains req
   local edit draft, save feedback and discard confirmation. It calls the existing
   provider save action; unsupported editing is capability-gated.
 - `components/workspace/worktree-picker.tsx` renders the owning project's worktree
-  rows, selection indicators, creation form and row management menus inside the
-  shared `WorkspacePicker`. Forms, menu visibility and confirmations are local;
-  inventory and lifecycle actions remain provider-owned.
+  rows, selection indicators, creation form and row management menus in both the
+  Workspace screen's Worktrees tab and the shared `WorkspacePicker`. Forms, menu
+  visibility and confirmations are local; inventory and lifecycle actions remain
+  provider-owned.
 
-These surfaces reuse the existing palette, theme, slim preference, inputs and
-picker overlay. Workspace retains its tab label and route. Chat uses the same
-picker and provider selection action; Terminal follows that directory.
+The Workspace screen keeps the Files browser and Worktrees manager as separate
+tabs. Both surfaces reuse the existing palette, theme, slim preference and
+inputs. Chat uses the shared picker and provider selection action; Terminal
+follows the selected directory.
