@@ -1,0 +1,12 @@
+编程助手 / TheoSilas OpenCode Mobile fork
+https://github.com/TheoSilas/opencode-mobile-custom
+
+Based on OpenCode Mobile by alvarolorentedev and its contributors:
+https://github.com/alvarolorentedev/opencode-mobile
+
+The original project is distributed under the Apache License, Version 2.0.
+The original LICENSE and source attribution are retained.
+
+Fork modifications: custom build-time display name and Android package,
+APK-only release build option, manual ARM64 APK workflow, and upstream-only
+release/cleanup job guards. This fork is maintained independently.

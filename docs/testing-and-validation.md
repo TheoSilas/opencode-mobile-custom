@@ -1,5 +1,12 @@
 # Testing And Validation
 
+<!-- Modified for the TheoSilas fork: document the manual APK build workflow. -->
+## TheoSilas fork APK build
+
+The fork's manual standalone ARM64 APK workflow, signing secrets, artifact
+verification and native acceptance limits are documented in [fork-apk.md](fork-apk.md).
+The upstream release and artifact-cleanup jobs are repository-guarded on this fork.
+
 ## Feed attachments and OpenCode 2 inbox
 
 `tests/vitest/feed.test.ts` covers picker data normalization, preview decoding

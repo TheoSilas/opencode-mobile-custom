@@ -1,0 +1,119 @@
+name: Build 编程助手 ARM64 APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    if: github.repository == 'TheoSilas/opencode-mobile-custom'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CI: 'true'
+      EXPO_NO_DOTENV: '1'
+      EXPO_APP_VARIANT: production
+      EXPO_APP_NAME: 编程助手
+      EXPO_ANDROID_PACKAGE: app.theosilas.opencode
+      EXPO_PUBLIC_E2E_MODE: '0'
+      EXPO_PUBLIC_FOSS: '0'
+      ANDROID_RELEASE_ABIS: arm64-v8a
+      ANDROID_RELEASE_APK_ONLY: '1'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check signing secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub Secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Static validation
+        run: npm run test:ci:static
+
+      - name: Validate fake server
+        run: npm run test:fake-server:self
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate web flows
+        run: npm run test:e2e:web
+        env:
+          EXPO_PUBLIC_E2E_MODE: '1'
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Build signed standalone release APK
+        run: npm run build:android
+        env:
+          NODE_ENV: production
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Verify APK signature, identity, bundle and ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" > "$RUNNER_TEMP/apk-badging.txt"
+          grep -q "package: name='app.theosilas.opencode'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -q "application-label:'编程助手'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -q "native-code: 'arm64-v8a'$" "$RUNNER_TEMP/apk-badging.txt"
+          unzip -l "$APK" > "$RUNNER_TEMP/apk-contents.txt"
+          grep -q 'assets/index.android.bundle' "$RUNNER_TEMP/apk-contents.txt"
+          mkdir -p output/fork-apk
+          cp "$APK" output/fork-apk/programming-assistant-arm64.apk
+          cp LICENSE NOTICE output/fork-apk/
+          (cd output/fork-apk && sha256sum programming-assistant-arm64.apk > SHA256SUMS)
+
+      - name: Upload APK and attribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: programming-assistant-arm64-${{ github.run_number }}
+          path: output/fork-apk/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: rm -f android/release.keystore

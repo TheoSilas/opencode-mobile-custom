@@ -1,3 +1,4 @@
+// Modified for the TheoSilas fork: allow a custom app display name.
 import { withAndroidManifest, withAppBuildGradle, withGradleProperties, withMainActivity } from '@expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 import type { ExpoConfig } from 'expo/config';
@@ -115,7 +116,7 @@ const withAndroidAppConfig = (config: ExpoConfig) => {
 };
 
 const config: ExpoConfig = {
-  name: isDevelopmentVariant ? 'OpenCode Mobile Dev' : 'OpenCode Mobile',
+  name: env('EXPO_APP_NAME') ?? (isDevelopmentVariant ? 'OpenCode Mobile Dev' : 'OpenCode Mobile'),
   slug: 'opencode-mobile',
   version: '1.0.58',
   orientation: 'portrait',
