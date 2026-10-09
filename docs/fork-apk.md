@@ -1,0 +1,47 @@
+# 编程助手：手动 ARM64 APK 构建
+
+本 Fork 基于 [alvarolorentedev/OpenCode Mobile](https://github.com/alvarolorentedev/opencode-mobile)，保留 Apache-2.0 `LICENSE`、原项目 README 和署名；新增 `NOTICE` 说明来源与修改。
+
+## 构建配置
+
+`.github/workflows/fork-apk.yml` 仅支持 `workflow_dispatch`，在 GitHub 的 Ubuntu runner 上复用 `npm run build:android`：
+
+- 名称：`编程助手`（`EXPO_APP_NAME`）。
+- 独立包名：`app.theosilas.opencode`（`EXPO_ANDROID_PACKAGE`）。
+- 架构：仅 `arm64-v8a`。
+- production release，`assembleRelease` 内置 JS/Hermes 与 Expo DOM 资源，不需要 Metro；应用功能仍需要连接 OpenCode 服务。
+- `ANDROID_RELEASE_APK_ONLY=1` 跳过 AAB，仅生成 APK。
+- 使用固定的外部签名密钥；未配置 Secrets 时直接失败，不生成临时签名密钥。
+- 先运行静态、fake-server 与 web E2E 检查，再构建；构建后验证签名、包名、名称、ABI 与内置 JS bundle。
+- 产物 `programming-assistant-arm64-<run number>` 包含 APK、SHA256SUMS、LICENSE 与 NOTICE，保留 14 天。
+- 不上传 Play Store，也不创建 GitHub Release。
+
+原 `build.yml` 的 Android/Play/FOSS 发布任务与 `cleanup.yml` 的清理任务限定为原作者仓库运行；Fork 的 push/PR 仍可运行原验证任务。清理任务不会提前删除本 Fork 的 APK 产物。
+
+## GitHub Secrets
+
+在 Fork → Settings → Secrets and variables → Actions → Repository secrets 设置：
+
+| Secret | 内容 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | 固定 JKS/PKCS12 密钥库文件的完整 Base64 编码 |
+| `ANDROID_KEYSTORE_PASSWORD` | 密钥库密码 |
+| `ANDROID_KEY_ALIAS` | 密钥库内私钥的 alias |
+| `ANDROID_KEY_PASSWORD` | 私钥密码；PKCS12 请与密钥库密码保持一致，现有脚本使用库密码签名 |
+
+不需要 Expo/EAS token 或 Google Play 服务账号。包名与名称已在工作流中固定，无需 Repository variables。
+
+如果尚无签名密钥，在可信桌面电脑上使用 JDK 的 `keytool` 创建一次并离线备份，例如：
+
+```bash
+keytool -genkeypair -v -storetype JKS -keystore programming-assistant.jks -alias programming-assistant -keyalg RSA -keysize 4096 -validity 10000
+base64 -w 0 programming-assistant.jks > programming-assistant.jks.base64
+```
+
+命令交互输入密码；macOS 可用 `base64 -i programming-assistant.jks | tr -d '\n'` 编码。将编码内容设为 Secret，密钥库、编码文件和密码都不要放入仓库。后续更新必须复用同一密钥，并在实际发布更新时递增 `android.versionCode`、同步版本与对应 changelog。本次配置保留版本 `1.0.58` / `58`。
+
+## 后续手动操作
+
+本地审阅完成后，由维护者自行提交并推送工作流到 Fork 默认分支。设置上述 Secrets，然后在 Actions 中选择 **Build 编程助手 ARM64 APK** → **Run workflow**，选择要构建的分支。成功后下载 Artifacts，解压安装 `programming-assistant-arm64.apk`。
+
+本地配置阶段不安装 Android/JDK 工具链、不执行原生构建或云端 dispatch。首次云端构建与真机启动（关闭 Metro 后检查启动、终端、通知与语音）仍需验证。

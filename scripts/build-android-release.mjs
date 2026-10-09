@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Modified for the TheoSilas fork: support APK-only release builds.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -212,9 +213,10 @@ if (detectedStoreType === 'pkcs12') {
   effectiveKeyPassword = keystorePassword;
 }
 
-// The FOSS build produces an ARM64 APK for the F-Droid package. The Play build
-// also produces the AAB and honors ANDROID_RELEASE_ABIS.
-const gradleTasks = isFossVariant ? ['assembleRelease'] : ['bundleRelease', 'assembleRelease'];
+// FOSS and explicit APK-only builds skip the AAB. Other production builds
+// produce both artifacts; all builds honor ANDROID_RELEASE_ABIS.
+const apkOnly = getOptionalEnv('ANDROID_RELEASE_APK_ONLY') === '1';
+const gradleTasks = isFossVariant || apkOnly ? ['assembleRelease'] : ['bundleRelease', 'assembleRelease'];
 
 run('./gradlew', [
   ...gradleTasks,
