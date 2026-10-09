@@ -7,6 +7,12 @@ The fork's manual standalone ARM64 APK workflow, signing secrets, artifact
 verification and native acceptance limits are documented in [fork-apk.md](fork-apk.md).
 The upstream release and artifact-cleanup jobs are repository-guarded on this fork.
 
+For Android/Termux contributors, [mobile-development.md](mobile-development.md)
+defines the platform split: run the complete static gate and fake-server self-tests
+on the phone, then push for mandatory cloud browser E2E. Unavailable browser E2E
+is pending, never passed. The manual fork workflow has separate `validate` and
+`apk` jobs; `apk` requires successful validation of the same run's commit.
+
 ## Feed attachments and OpenCode 2 inbox
 
 `tests/vitest/feed.test.ts` covers picker data normalization, preview decoding

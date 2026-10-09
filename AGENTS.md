@@ -216,7 +216,27 @@ Run when relevant:
 
 ### Before Push
 
-CI runs the `validate` job. It must be green, so run the same checks locally and do not push until they pass:
+Android/Termux phone development follows `docs/mobile-development.md`:
+
+- Before editing, inspect local changes, fetch `origin`, and compare HEAD with
+  `origin/main`. Preserve uncommitted work and create a backup ref before merging.
+  Use fast-forward or merge; never hard-reset, clean away user files, or force-push.
+  This fork's `main` tracks `origin/main`, not `upstream/main`.
+- Run `test:ci:static` and `test:fake-server:self` on the phone before pushing.
+  Fix failures in supported checks; do not weaken tests or ignore exit codes.
+- Playwright desktop-browser E2E cannot run natively on Android/Termux. It is
+  mandatory in cloud CI and must be reported as pending until CI passes. This
+  platform exception allows a push to obtain CI results, not a test bypass.
+- Check the exact pushed commit's `validate` result (main push or PR to main).
+  No APK build or release until all gates pass. The manual fork APK workflow
+  re-runs all three gates and enforces `apk.needs: validate` on the same commit.
+  Do not add skip switches, `continue-on-error`, or unconditional build gates.
+- For GitHub authentication, guide browser/device authorization with
+  `gh auth login --hostname github.com --git-protocol https --web` and
+  `gh auth setup-git`; never ask for tokens or passwords in chat.
+
+CI runs the `validate` job. On a supported desktop, run the same checks locally
+and do not push until they pass; on Android/Termux use the split above:
 
 ```bash
 npm run test:ci:static
@@ -256,6 +276,6 @@ A change is done when:
 - tests are added or updated for changed behavior
 - any `tests/e2e/` or `tests/fake-opencode/` changes have explicit human validation
 - documentation in `docs/` is updated when behavior, architecture, or contracts changed
-- the pre-push CI-equivalent checks pass (`test:ci:static`, `test:fake-server:self`, `test:e2e:web`)
+- the CI-equivalent checks pass (`test:ci:static`, `test:fake-server:self`, `test:e2e:web`); Android/Termux runs the first two locally and requires cloud E2E, with pending CI explicitly reported until it passes
 - validation matches the risk of the change
 - the final summary states what changed, what was verified, and any remaining risk

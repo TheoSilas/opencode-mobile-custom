@@ -175,6 +175,15 @@ OpenCode and its trademarks belong to their respective owners.
 
 ## Development
 
+### 本 Fork：手机开发与云端打包
+
+手机先保留本地工作并同步 `origin/main`，运行完整静态检查与 fake-server 自检，
+再推送到 GitHub。Android/Termux 的浏览器 E2E 交给云端 CI；全部检查通过后，
+手动 APK 工作流才允许构建。
+
+详见 [手机开发与协作流程](docs/mobile-development.md) 和
+[ARM64 APK 构建说明](docs/fork-apk.md)。
+
 OpenCode Mobile is built with:
 
 - React Native

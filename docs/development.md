@@ -2,6 +2,11 @@
 
 OpenCode Mobile is built with Expo and React Native.
 
+For this fork's phone-based editing, safe origin sync, local checks, cloud E2E,
+GitHub authorization and gated APK builds, follow
+[手机开发与协作流程](mobile-development.md). On this fork, pushes validate;
+APK builds use the manual [fork workflow](fork-apk.md).
+
 ### Requirements
 
 - Node.js 20+

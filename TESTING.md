@@ -86,6 +86,12 @@ The current CI suite validates:
 
 ## Local Commands
 
+For Android/Termux, run `test:ci:static` and `test:fake-server:self` locally;
+desktop-browser E2E is mandatory in cloud CI before APK building. See
+[the phone workflow](docs/mobile-development.md). The fork's manual APK workflow
+enforces `apk.needs: validate` and re-runs all three gates on the same commit.
+Pushes to this fork's `main` validate only; upstream release jobs are repository-guarded.
+
 ```bash
 npm run test:ci:static
 npm run test:fake-server:self

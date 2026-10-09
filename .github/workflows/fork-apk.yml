@@ -11,8 +11,52 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    if: github.repository == 'TheoSilas/opencode-mobile-custom'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_DOTENV: '1'
+      EXPO_PUBLIC_E2E_MODE: '1'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Static validation
+        run: npm run test:ci:static
+
+      - name: Validate fake server
+        run: npm run test:fake-server:self
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate web flows
+        run: npm run test:e2e:web
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fork-apk-playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 3
+
   apk:
     if: github.repository == 'TheoSilas/opencode-mobile-custom'
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -54,20 +98,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --include=dev
-
-      - name: Static validation
-        run: npm run test:ci:static
-
-      - name: Validate fake server
-        run: npm run test:fake-server:self
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Validate web flows
-        run: npm run test:e2e:web
-        env:
-          EXPO_PUBLIC_E2E_MODE: '1'
 
       - name: Setup Java
         uses: actions/setup-java@v5

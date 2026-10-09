@@ -12,7 +12,7 @@
 - production release，`assembleRelease` 内置 JS/Hermes 与 Expo DOM 资源，不需要 Metro；应用功能仍需要连接 OpenCode 服务。
 - `ANDROID_RELEASE_APK_ONLY=1` 跳过 AAB，仅生成 APK。
 - 使用固定的外部签名密钥；未配置 Secrets 时直接失败，不生成临时签名密钥。
-- 先运行静态、fake-server 与 web E2E 检查，再构建；构建后验证签名、包名、名称、ABI 与内置 JS bundle。
+- 独立 `validate` 任务先运行静态、fake-server 与完整 web E2E 检查；`apk` 任务通过 `needs: validate` 强制等待同一提交的全部检查成功，再构建并验证签名、包名、名称、ABI 与内置 JS bundle。E2E 失败时上传报告供排查。
 - 产物 `programming-assistant-arm64-<run number>` 包含 APK、SHA256SUMS、LICENSE 与 NOTICE，保留 14 天。
 - 不上传 Play Store，也不创建 GitHub Release。
 
@@ -38,10 +38,10 @@ keytool -genkeypair -v -storetype JKS -keystore programming-assistant.jks -alias
 base64 -w 0 programming-assistant.jks > programming-assistant.jks.base64
 ```
 
-命令交互输入密码；macOS 可用 `base64 -i programming-assistant.jks | tr -d '\n'` 编码。将编码内容设为 Secret，密钥库、编码文件和密码都不要放入仓库。后续更新必须复用同一密钥，并在实际发布更新时递增 `android.versionCode`、同步版本与对应 changelog。本次配置保留版本 `1.0.58` / `58`。
+命令交互输入密码；macOS 可用 `base64 -i programming-assistant.jks | tr -d '\n'` 编码。将编码内容设为 Secret，密钥库、编码文件和密码都不要放入仓库。后续更新必须复用同一密钥，并在实际发布更新时递增 `android.versionCode`、同步版本与对应 changelog。实际版本以 `app.config.ts` 为准。
 
 ## 后续手动操作
 
-本地审阅完成后，由维护者自行提交并推送工作流到 Fork 默认分支。设置上述 Secrets，然后在 Actions 中选择 **Build 编程助手 ARM64 APK** → **Run workflow**，选择要构建的分支。成功后下载 Artifacts，解压安装 `programming-assistant-arm64.apk`。
+先按照 [手机开发与协作流程](mobile-development.md) 完成本地检查、提交推送和对应提交的云端验证。设置上述 Secrets，然后在 Actions 中选择 **Build 编程助手 ARM64 APK** → **Run workflow**，选择已通过检查的分支；工作流仍会重新验证本次提交。成功后下载 Artifacts，解压安装 `programming-assistant-arm64.apk`。
 
-本地配置阶段不安装 Android/JDK 工具链、不执行原生构建或云端 dispatch。首次云端构建与真机启动（关闭 Metro 后检查启动、终端、通知与语音）仍需验证。
+Android/Termux 的浏览器 E2E 与原生打包由云端执行，不把平台不可运行的检查记为通过。首次云端构建与真机启动（关闭 Metro 后检查启动、终端、通知与语音）仍需验证。
