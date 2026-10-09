@@ -699,13 +699,19 @@ and save require a selected directory. The OpenCode 2 filesystem adapter passes
 Text editing retains the existing conflict-checked patch path and is unavailable
 on OpenCode 2. Unsaved edits require discard confirmation.
 
-The shared Workspace/Chat picker contains worktree inventory for the owning
-project, resolved from the scoped project API rather than path prefixes. Adding a
-validated directory selects the requested path, including a worktree, rather than
-its owning project root. Selection uses the existing provider workspace action and applies across Chat,
-Workspace and Terminal. Creation stays in the picker; reset/remove live in row
-menus, preserve confirmations and reject the active directory and primary checkout.
-OpenCode 2 hides reset/startup commands and maps directory-only inventory to names.
+The Workspace screen's Worktrees tab and shared Workspace/Chat picker expose the
+same worktree inventory for the owning project, resolved from the scoped project
+API rather than path prefixes. Adding a validated directory selects the requested
+path, including a worktree, rather than its owning project root. Selection uses
+the existing provider workspace action and applies across Chat, Workspace and
+Terminal. Reset/remove preserve confirmations and reject the active directory
+and primary checkout. OpenCode 2 hides reset/startup commands and maps
+directory-only inventory to names.
+
+The Worktrees tab is shown independently of Git status, app preferences and
+build variant. Its manager loads only while connected with an active workspace;
+the connected server's worktree API determines whether inventory and management
+are available and reports unsupported or failed requests in the UI.
 The browser groups state and actions under one context member, keeping the public
 context below the 135-member ceiling. Screens and components call provider actions;
 services and protocol modules own requests and response normalization.

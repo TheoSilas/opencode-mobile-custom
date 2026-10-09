@@ -1,0 +1,1 @@
+Restores the Workspace Files and Worktrees tabs while keeping file browsing available.

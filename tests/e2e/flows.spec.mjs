@@ -1964,8 +1964,15 @@ for (const contract of ['v1', 'v2']) {
       await connectToServer(page, `http://127.0.0.1:${port}`);
       await page.setViewportSize({ width: 390, height: 844 });
       await goToTab(page, 'Workspace');
+      const filesTab = page.getByRole('tab', { name: 'Files' });
+      const worktreesTab = page.getByRole('tab', { name: 'Worktrees' });
+      await expect(filesTab).toBeVisible();
+      await expect(filesTab).toHaveAttribute('aria-selected', 'true');
+      await expect(worktreesTab).toBeVisible();
+      await worktreesTab.click();
+      await expect(page.getByTestId('workspace-worktree-add')).toBeVisible();
+      await filesTab.click();
       await expect(page.getByTestId('workspace-entry-src')).toBeVisible();
-      await expect(page.getByRole('tab', { name: 'Worktrees' })).toHaveCount(0);
       await page.screenshot({ path: `/tmp/opencode-workspace-${contract}.png` });
       await page.getByTestId('workspace-entry-src').click();
       await expect(page.getByTestId('workspace-entry-src/demo.ts')).toBeVisible();

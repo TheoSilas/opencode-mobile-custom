@@ -188,6 +188,7 @@ Additional session actions are available in Chat:
 The Workspace tab provides source inspection and text editing:
 
 - Files and Worktrees use the same top-tab style as Chat
+- the Worktrees entry is independent of Git status, app preferences, and build variant; its contents require a connected server and active workspace
 - search file paths by query
 - open returned files in a focused full-screen viewer/editor
 - show the number of changed files from file status
@@ -198,7 +199,7 @@ Before save, the provider re-reads the file and rejects the operation if the ser
 
 ### 10. Manage Worktrees
 
-The Workspace tab can list, create, reset, and remove worktrees. Creation accepts an optional name and start command; reset and remove require destructive confirmation. These SDK operations use OpenCode's experimental worktree endpoints, so server availability and response stability are not guaranteed like the non-experimental contract.
+The Worktrees tab can list, create, reset, and remove server-managed isolated working directories (Git worktrees), allowing separate tasks to use different directories and branches without changing the primary checkout. Selecting one makes it the active workspace across Chat, Workspace, and Terminal. Creation accepts an optional name and start command; reset and remove require destructive confirmation. These SDK operations use OpenCode's experimental worktree endpoints, so server availability and response stability are not guaranteed like the non-experimental contract.
 
 ### 11. Use The Terminal Tab
 
