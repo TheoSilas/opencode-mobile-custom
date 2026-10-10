@@ -72,6 +72,6 @@ internal class ComposerImageLibraryContract(
     intent.clipData?.let { clip ->
       for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri)
     }
-    return uris
+    return uris.distinct()
   }
 }

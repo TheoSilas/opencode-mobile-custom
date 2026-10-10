@@ -158,13 +158,8 @@ export function usePromptLifecycle({
             }
 
             try {
-              const FileSystem = await import('expo-file-system/legacy');
-              const info = await FileSystem.getInfoAsync(att.uri);
-              if (info.exists && typeof info.size === 'number' && info.size > 10 * 1024 * 1024) {
-                throw new Error('File exceeds the 10 MB attachment limit.');
-              }
-              const base64 = await FileSystem.readAsStringAsync(att.uri, { encoding: 'base64' });
-              const dataUrl = `data:${mime};base64,${base64}`;
+              const { readLocalAttachmentDataUrl } = await import('@/lib/attachment-preview');
+              const dataUrl = await readLocalAttachmentDataUrl(att.uri, mime);
               preparedFileParts.push({ type: 'file', mime, filename, url: dataUrl });
             } catch (error) {
               const reason = error instanceof Error ? error.message : 'unknown error';

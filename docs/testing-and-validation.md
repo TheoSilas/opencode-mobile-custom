@@ -33,6 +33,18 @@ layout, safe areas and screen-reader actions on iOS and Android.
 
 ## Current Strategy
 
+The local-attachment read suite covers MIUI content-provider and cached file
+URIs, rejected grants, and metadata/actual-byte size limits. Sending now uses
+the modern File API, whose Android content-provider implementation opens the
+URI with ContentResolver; the legacy string reader cannot read ordinary
+gallery content URIs. Android gallery and IME inserts additionally capture bytes
+in a bounded native cache copy before releasing temporary grants. Native layout
+clears EditText's theme minimum/padding and converts physical height pixels to
+logical units. These source-level fixes still require native compilation and
+device checks for MIUI gallery, keyboard image insertion and slim-mode wrapping,
+selection, deletion, growing/shrinking and large text. Shizuku requests currently
+time out, so the reported slim-mode visual problem has not been reproduced.
+
 Provider-account regression tests cover OpenCode 2.0.12's missing credential
 list route, scoped integration-connection fallback, active-first ordering,
 server-confirmed activation, and rejected/malformed reads. Read-only inspection

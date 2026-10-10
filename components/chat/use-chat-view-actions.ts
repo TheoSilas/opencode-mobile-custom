@@ -102,7 +102,11 @@ export function useChatViewActions({
   }
 
   /** Adds an image committed by the Android soft keyboard into the attachment draft. */
-  function handleImageInsert(uri: string, mimeType: string) {
+  function handleImageInsert(uri: string, mimeType: string, error?: string) {
+    if (error) {
+      setSendFeedback(error);
+      return;
+    }
     applyImages([{ uri, mimeType: mimeType || 'image/*' }]);
   }
 

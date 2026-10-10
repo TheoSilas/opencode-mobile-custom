@@ -5,6 +5,20 @@ import type { PromptAttachment } from '@/lib/opencode/prompt-inbox';
 
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
+/** The modern File API reads Android content-provider URIs as well as file URIs. */
+export async function readLocalAttachmentDataUrl(uri: string, mime: string) {
+  const { File } = await import('expo-file-system');
+  const file = new File(uri);
+  if (file.size > MAX_ATTACHMENT_BYTES) throw new Error('File exceeds the 10 MB attachment limit.');
+  const base64 = await file.base64();
+  // Some content providers omit size metadata. Also check the actual bytes.
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  if (base64.length * 3 / 4 - padding > MAX_ATTACHMENT_BYTES) {
+    throw new Error('File exceeds the 10 MB attachment limit.');
+  }
+  return `data:${mime};base64,${base64}`;
+}
+
 export function pickedAttachment(asset: { uri: string; base64?: string; mimeType?: string; name: string }): PromptAttachment {
   const mime = asset.mimeType || 'application/octet-stream';
   const uri = asset.base64 ? asset.base64.startsWith('data:') ? asset.base64 : `data:${mime};base64,${asset.base64}` : asset.uri;

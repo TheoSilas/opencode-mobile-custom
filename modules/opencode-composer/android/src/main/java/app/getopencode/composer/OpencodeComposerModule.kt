@@ -18,13 +18,13 @@ class PickedImage : Record {
 }
 
 @OptimizedRecord
-data class ImageInsertEvent(@Field val uri: String, @Field val mimeType: String) : Record
+data class ImageInsertEvent(@Field val uri: String, @Field val mimeType: String, @Field val error: String = "") : Record
 
 @OptimizedRecord
 data class TextChangeEvent(@Field val text: String) : Record
 
 @OptimizedRecord
-data class ContentSizeEvent(@Field val width: Int, @Field val height: Int) : Record
+data class ContentSizeEvent(@Field val width: Float, @Field val height: Float) : Record
 
 class OpencodeComposerModule : Module() {
   private lateinit var imageLibraryLauncher: AppContextActivityResultLauncher<ImageLibraryInput, List<PickedImage>>
@@ -34,7 +34,21 @@ class OpencodeComposerModule : Module() {
 
     AsyncFunction("pickImages") Coroutine { multiple: Boolean ->
       withContext(Dispatchers.IO) {
-        imageLibraryLauncher.launch(ImageLibraryInput(multiple))
+        val images = imageLibraryLauncher.launch(ImageLibraryInput(multiple))
+        val context = appContext.reactContext ?: error("The image picker context is unavailable.")
+        val cached = mutableListOf<PickedImage>()
+        try {
+          images.forEach { image ->
+            val (uri, size) = ComposerImageCache.copy(context, android.net.Uri.parse(image.uri))
+            image.uri = uri.toString()
+            image.size = size
+            cached.add(image)
+          }
+          cached
+        } catch (error: Throwable) {
+          cached.forEach { java.io.File(android.net.Uri.parse(it.uri).path!!).delete() }
+          throw error
+        }
       }
     }
 

@@ -14,6 +14,11 @@ committed directly from the soft keyboard's image panel (GIF/sticker): the
 `OpencodeComposer` native view declares image MIME types and forwards committed
 images into the same attachment draft and preview/send flow as photo and
 document picks, distinct from the explicit `+ → Photo library` entry.
+The Android module copies picked/IME images to its cache while the URI grant is
+valid, enforces the 10 MB byte limit during copying, and releases IME permissions
+after the copy. Copy failures surface through attachment feedback. Native input
+height events use density-independent units, and the input clears Android's
+default minimum size/background/padding so the 36 px slim field can fit.
 The model sheet displays the server's active account for its selected provider,
 re-reads it on opening, supports server-confirmed account activation and renaming, and explains that
 activation affects later server requests across chats/clients. When the server

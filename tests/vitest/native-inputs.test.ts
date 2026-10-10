@@ -149,6 +149,24 @@ describe('native input regressions', () => {
     }
   });
 
+  it('reclamps Android input height across slim toggles and forwards image-copy failures', () => {
+    platform.OS = 'android';
+    const onImageInsert = vi.fn();
+    runtime.update({ slim: true, onImageInsert });
+    input().props.onContentSizeChange({ nativeEvent: { height: 120 } });
+    runtime.flush();
+    expect(flatten(input().props.style).height).toBe(90);
+    expect(input().props.fontSize).toBe(15);
+    runtime.update({ slim: false });
+    input().props.onContentSizeChange({ nativeEvent: { height: 120 } });
+    runtime.flush();
+    expect(flatten(input().props.style).height).toBe(110);
+    runtime.update({ slim: true, draft: '' });
+    expect(flatten(input().props.style).height).toBe(36);
+    input().props.onImageInsert({ nativeEvent: { uri: '', mimeType: 'image/gif', error: 'Permission denied' } });
+    expect(onImageInsert).toHaveBeenCalledWith('', 'image/gif', 'Permission denied');
+  });
+
   it('clears only the implicit single-line iOS alignment and preserves credentials', () => {
     const value = 'a long server password with spaces '.repeat(5);
     const onChangeText = vi.fn();

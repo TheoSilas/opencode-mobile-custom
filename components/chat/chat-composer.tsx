@@ -36,7 +36,7 @@ type ChatComposerProps = {
   isUpdatingAutoApprove: boolean;
   autoApproveAvailable?: boolean;
   onAttach: (source: 'photos' | 'files') => void;
-  onImageInsert: (uri: string, mimeType: string) => void;
+  onImageInsert: (uri: string, mimeType: string, error?: string) => void;
   onDraftChange: (value: string) => void;
   onRemoveAttachment: (index: number) => void;
   onSend: () => void;
@@ -194,7 +194,7 @@ export function ChatComposer({
             testID="chat-prompt-input"
             value={draft}
             onChangeText={(event) => onDraftChange(event.nativeEvent.text)}
-            onImageInsert={(event) => onImageInsert(event.nativeEvent.uri, event.nativeEvent.mimeType)}
+            onImageInsert={(event) => onImageInsert(event.nativeEvent.uri, event.nativeEvent.mimeType, event.nativeEvent.error)}
             onContentSizeChange={(event) => updateInputHeight(event.nativeEvent.height)}
             editable={!isSpeechInputListening}
             multiline

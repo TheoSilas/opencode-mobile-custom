@@ -32,6 +32,21 @@ describe('chat attachment choices', () => {
     expect(feedback).toBe('chat:view.fileTooLarge');
   });
 
+  it('reports failed keyboard image copies without adding a broken URI or dropping attachments', () => {
+    let attachments = [{ uri: 'file:///cache/existing.png', mime: 'image/png', filename: 'existing.png' }];
+    let feedback: string | undefined;
+    const actions = useChatViewActions({
+      t: (key: string) => key, chatPreferences: {} as never, conversationActive: false,
+      abortSession: vi.fn(), createSession: vi.fn(), openSession: vi.fn(), toggleConversationMode: vi.fn(),
+      setAttachments: (value) => { attachments = (typeof value === 'function' ? value(attachments) : value) as typeof attachments; },
+      setSendFeedback: (value) => { feedback = typeof value === 'function' ? value(feedback) : value; },
+      setChangesVisible: vi.fn(), setIsCreatingSession: vi.fn(), setIsStoppingSession: vi.fn(), setSpeakingMessageId: vi.fn(), setVoiceFeedback: vi.fn(),
+    });
+    actions.handleImageInsert('', 'image/gif', 'Permission denied');
+    expect(attachments).toEqual([{ uri: 'file:///cache/existing.png', mime: 'image/png', filename: 'existing.png' }]);
+    expect(feedback).toBe('Permission denied');
+  });
+
   it('rejects unsupported gallery formats and keeps the draft intact', async () => {
     let attachments: { uri: string; mime?: string; filename?: string }[] = [];
     let feedback: string | undefined;

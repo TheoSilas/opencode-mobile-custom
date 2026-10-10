@@ -15,7 +15,7 @@ export type ComposerImageInputProps = ViewProps & {
   editable?: boolean;
   fontSize?: number;
   textColor?: string;
-  onImageInsert?: (event: { nativeEvent: { uri: string; mimeType: string } }) => void;
+  onImageInsert?: (event: { nativeEvent: { uri: string; mimeType: string; error?: string } }) => void;
   onChangeText?: (event: { nativeEvent: { text: string } }) => void;
   onContentSizeChange?: (event: { nativeEvent: { width: number; height: number } }) => void;
 };

@@ -1,17 +1,25 @@
 package app.getopencode.composer
 
 import android.content.Context
-import android.graphics.Rect
+import android.graphics.Color
 import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
+import android.text.StaticLayout
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.view.Gravity
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
 import expo.modules.kotlin.viewevent.EventDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * A multiline text input that also accepts images from the Android soft keyboard.
@@ -32,6 +40,9 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
   var supportsImageInsertion: Boolean = false
 
   private var isSettingTextFromJS = false
+  private val imageScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+  private var lastContentWidth = -1f
+  private var lastContentHeight = -1f
 
   private val watcher = object : TextWatcher {
     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -47,6 +58,13 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
   }
 
   init {
+    setBackgroundColor(Color.TRANSPARENT)
+    minimumHeight = 0
+    minimumWidth = 0
+    minHeight = 0
+    minWidth = 0
+    setPadding(0, 0, 0, 0)
+    gravity = Gravity.TOP or Gravity.START
     addTextChangedListener(watcher)
     isSingleLine = false
   }
@@ -71,6 +89,7 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
 
   fun setFontSizeValue(size: Float) {
     setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size)
+    post { notifyContentSizeChange() }
   }
 
   fun setColorValue(color: String) {
@@ -92,17 +111,38 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
     notifyContentSizeChange()
   }
 
-  override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: Rect?) {
-    super.onFocusChanged(focused, direction, previouslyFocusedRect)
-    if (focused) {
-      setSelection(text?.length ?: 0)
-    }
+  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+    super.onLayout(changed, left, top, right, bottom)
+    notifyContentSizeChange()
+  }
+
+  override fun onDetachedFromWindow() {
+    imageScope.coroutineContext.cancelChildren()
+    super.onDetachedFromWindow()
   }
 
   private fun notifyContentSizeChange() {
-    val lineHeight = lineHeight.takeIf { it > 0 } ?: textSize.toInt()
-    val contentHeight = (lineCount.takeIf { it > 0 } ?: 1) * lineHeight + compoundPaddingTop + compoundPaddingBottom
-    onContentSizeChange(ContentSizeEvent(width, contentHeight))
+    val availableWidth = width - compoundPaddingLeft - compoundPaddingRight
+    // TextWatcher runs before TextView rebuilds its layout. Measure independently
+    // so wrapping/deletion updates even when React Native fixes the view height.
+    val contentHeight = if (availableWidth > 0) {
+      val value = text?.toString().orEmpty()
+      StaticLayout.Builder.obtain(value, 0, value.length, paint, availableWidth)
+        .setIncludePad(includeFontPadding)
+        .setLineSpacing(lineSpacingExtra, lineSpacingMultiplier)
+        .setBreakStrategy(breakStrategy)
+        .setHyphenationFrequency(hyphenationFrequency)
+        .build().height + compoundPaddingTop + compoundPaddingBottom
+    } else {
+      lineHeight + compoundPaddingTop + compoundPaddingBottom
+    }
+    val density = resources.displayMetrics.density
+    val logicalWidth = width / density
+    val logicalHeight = contentHeight / density
+    if (logicalWidth == lastContentWidth && logicalHeight == lastContentHeight) return
+    lastContentWidth = logicalWidth
+    lastContentHeight = logicalHeight
+    onContentSizeChange(ContentSizeEvent(logicalWidth, logicalHeight))
   }
   override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
     var connection = super.onCreateInputConnection(outAttrs)
@@ -110,13 +150,30 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
       outAttrs.contentMimeTypes = IMAGE_MIME_TYPES
       connection = InputConnectionCompat.createWrapper(connection, outAttrs, object : InputConnectionCompat.OnCommitContentListener {
         override fun onCommitContent(inputContentInfo: InputContentInfoCompat, flags: Int, opts: Bundle?): Boolean {
+          val needsPermission = flags and InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION != 0
+          var permissionGranted = false
           return try {
-            inputContentInfo.requestPermission()
+            if (needsPermission) {
+              inputContentInfo.requestPermission()
+              permissionGranted = true
+            }
             val uri = inputContentInfo.contentUri
             val mimeType = context.contentResolver.getType(uri) ?: "image/*"
-            onImageInsert(ImageInsertEvent(uri.toString(), mimeType))
+            imageScope.launch {
+              try {
+                val (cachedUri, _) = withContext(Dispatchers.IO) { ComposerImageCache.copy(context, uri) }
+                onImageInsert(ImageInsertEvent(cachedUri.toString(), mimeType))
+              } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+              } catch (error: Throwable) {
+                onImageInsert(ImageInsertEvent("", mimeType, error.message ?: "Could not read the keyboard image."))
+              } finally {
+                if (permissionGranted) inputContentInfo.releasePermission()
+              }
+            }
             true
           } catch (_: Throwable) {
+            if (permissionGranted) inputContentInfo.releasePermission()
             false
           }
         }
