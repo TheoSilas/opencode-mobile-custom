@@ -311,8 +311,9 @@ async function waitForServer(request, url, timeoutMs = 10_000) {
 }
 
 async function attachFile(page, name, mimeType, buffer) {
-  const chooser = page.waitForEvent('filechooser');
   await page.getByTestId('chat-attach-button').click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Files', exact: true }).click();
   await (await chooser).setFiles({ name, mimeType, buffer });
 }
 
