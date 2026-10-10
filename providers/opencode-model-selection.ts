@@ -206,3 +206,12 @@ export function restoreSessionModelPreference(current: ChatPreferences, session:
     providerModelSelections: { ...current.providerModelSelections, [model.providerID]: model.id },
   };
 }
+
+export function getSessionSelection(
+  choices: Map<string, string>, key: string, session: unknown, models: ModelOption[], fallback?: string,
+) {
+  const selected = choices.get(key) ?? getSessionModelId(session);
+  if (selected && models.some((model) => model.id === selected)) return selected;
+  if (!selected && fallback) choices.set(key, fallback);
+  return undefined;
+}

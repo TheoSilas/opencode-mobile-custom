@@ -41,6 +41,7 @@ import type { useConnectionActions } from '@/providers/use-connection-actions';
 import type { useConversationState } from '@/providers/use-conversation-state';
 import type { usePromptLifecycle } from '@/providers/use-prompt-lifecycle';
 import type { useProjectMemory } from '@/providers/use-project-memory';
+import type { useHiddenProjects } from '@/providers/use-hidden-projects';
 import type { useSessionActions } from '@/providers/use-session-actions';
 import type { useWorkspaceActions } from '@/providers/use-workspace-actions';
 
@@ -71,6 +72,7 @@ export type ProviderValuesInput = ActionInputs & {
   availableAgents: AgentOption[];
   chatPreferences: ChatPreferences;
   projects: OpencodeProject[];
+  projectVisibility: ReturnType<typeof useHiddenProjects>;
   activeProjectPath?: string;
   activeProject?: OpencodeProject;
   serverProjects: Project[];

@@ -119,6 +119,13 @@ a user turn: it remains in that session's server history and may remain in its
 model-visible context or compaction summary. The switch prevents future
 automatic reads and injections; it does not redact earlier messages.
 
+Hidden workspaces are stored per connection scope as a list of directory paths.
+Hiding a non-active entry filters only this app's picker; it never calls a server
+delete API, removes sessions, or touches source files. The picker can restore
+hidden entries. The active workspace remains visible. The OpenCode 2.0.12
+project API exposes list/update but no project-delete endpoint; whole-project
+server removal and optional bulk session deletion are unavailable.
+
 V2 lists active providers through `/api/provider`; `/api/integration` supplies
 the connectable catalog. The adapter merges integration-only entries (without
 models until connected) into the provider picker and excludes MCP integrations.
@@ -202,7 +209,8 @@ capability catalog are available, runs once for that connection/project/session,
 and does not overwrite a model the user chooses while remaining in the chat.
 Sending already switches the server session model, so revisiting or relaunching
 the chat restores that session's last used model. New chats inherit the current
-selection.
+selection. An unsent selection is kept per connection/project/session in the
+provider for the lifetime of this app process, before the server has recorded it.
 
 `browser`, selected file content, worktree inventory/owning project identity, and MCP status/config are server-derived and not persisted. Text edits remain local to `FilePreview` until the provider conflict-checks and saves them as a VCS patch. Listing, search and file-open commits check the current client identity and request order; saves check client identity before applying a patch and only update the selected file if that selection is still current. Identical directory paths on different servers do not make a response current.
 

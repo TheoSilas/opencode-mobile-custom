@@ -61,7 +61,13 @@
     "serverDirectory": "Serververzeichnis",
     "add": "Arbeitsbereich hinzufügen",
     "selectLabel": "{{name}} auswählen",
-    "empty": "Keine Arbeitsbereiche verfügbar."
+    "empty": "Keine Arbeitsbereiche verfügbar.",
+    "hide": "Ausblenden",
+    "hideNamed": "{{name}} in dieser App ausblenden",
+    "hideTitle": "Arbeitsbereich ausblenden",
+    "hideConfirm": "Nur in dieser App ausblenden? Dateien, Serverprojekt und Chats bleiben erhalten. Hier kannst du ihn wieder einblenden.",
+    "hidden": "In dieser App ausgeblendet",
+    "showNamed": "{{name}} wieder einblenden"
   },
   "errors": {
     "refreshWorkspace": "Der Arbeitsbereich konnte nicht aktualisiert werden.",

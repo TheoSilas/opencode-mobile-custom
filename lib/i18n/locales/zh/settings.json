@@ -60,7 +60,7 @@
   "providers": {
     "accounts": "Accounts",
     "addAnotherAccount": "Add another account",
-    "removeAccount": "Remove account",
+    "removeAccount": "移除这条账号凭据",
     "selectMethod": "Select login method",
     "apiKey": "API 密钥",
     "pasteApiKey": "粘贴你的 API 密钥",

@@ -224,7 +224,7 @@ export type ProjectsContextValue = {
   activeProject?: OpencodeProject;
   selectProject: (path: string) => void;
   addWorkspace: (directory: string) => Promise<string>;
-  serverProjects: Project[];
+  projectVisibility: { paths: string[]; hide: (path: string) => Promise<void>; show: (path: string) => Promise<void> };
   currentProjectPath?: string;
   serverRootPath?: string;
   isRefreshingWorkspaceCatalog: boolean;

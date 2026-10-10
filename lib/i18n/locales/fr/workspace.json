@@ -61,7 +61,13 @@
     "serverDirectory": "Répertoire du serveur",
     "add": "Ajouter un espace de travail",
     "selectLabel": "Sélectionner {{name}}",
-    "empty": "Aucun espace de travail disponible."
+    "empty": "Aucun espace de travail disponible.",
+    "hide": "Masquer",
+    "hideNamed": "Masquer {{name}} dans cette appli",
+    "hideTitle": "Masquer l’espace de travail",
+    "hideConfirm": "Masquer cet espace de travail dans cette appli uniquement ? Les fichiers, le projet serveur et les discussions restent intacts. Vous pouvez le réafficher ici.",
+    "hidden": "Masqués dans cette appli",
+    "showNamed": "Réafficher {{name}}"
   },
   "errors": {
     "refreshWorkspace": "Impossible d'actualiser l'espace de travail.",

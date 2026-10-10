@@ -1,6 +1,6 @@
-import { useCallback, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 
-import type { Config } from '@/lib/opencode/types';
+import type { Config, Session } from '@/lib/opencode/types';
 import type { ScopedOpencodeClient } from '@/lib/opencode/client';
 import { isAutoApproveEnabled, mergePermissionConfig } from '@/providers/opencode-capabilities';
 import {
@@ -10,7 +10,9 @@ import {
   getInitialModelId,
   getInitialProviderId,
   getModelIdForProvider,
+  getSessionSelection,
   recordRecentModelId,
+  restoreSessionModelPreference,
 } from '@/providers/opencode-model-selection';
 import type { ChatPreferences } from '@/providers/opencode-preferences';
 import type { AgentOption, ModelOption } from '@/providers/opencode-model-selection';
@@ -19,6 +21,10 @@ import type { ProviderAuthMethod, ProviderAuthValues, ProviderOption } from '@/p
 type CapabilitiesActionsInput = {
   client: ScopedOpencodeClient;
   activeProjectPath?: string;
+  connectionScope: string;
+  currentSessionId?: string;
+  sessions: Session[];
+  chatPreferences: ChatPreferences;
   isCurrentClient: (candidate: object) => boolean;
   currentConfig?: Config;
   availableProviders: ProviderOption[];
@@ -34,6 +40,10 @@ type CapabilitiesActionsInput = {
 export function useCapabilitiesActions({
   client,
   activeProjectPath,
+  connectionScope,
+  currentSessionId,
+  sessions,
+  chatPreferences,
   isCurrentClient,
   currentConfig,
   availableProviders,
@@ -45,6 +55,28 @@ export function useCapabilitiesActions({
   setAvailableAgents,
   setChatPreferences,
 }: CapabilitiesActionsInput) {
+  const selectedBySessionRef = useRef(new Map<string, string>());
+  const restoredSessionRef = useRef<string | undefined>(undefined);
+  const sessionKey = currentSessionId && activeProjectPath
+    ? `${connectionScope}\n${activeProjectPath}\n${currentSessionId}` : undefined;
+
+  useEffect(() => {
+    if (!sessionKey || !currentSessionId) {
+      restoredSessionRef.current = undefined;
+      return;
+    }
+    if (restoredSessionRef.current === sessionKey) return;
+    const session = sessions.find((item) => item.id === currentSessionId);
+    // Wait for a real session and catalog before restoring. New sessions have
+    // no server model yet and inherit the last selected model.
+    if (!session || !availableModels.length) return;
+    const selectedId = getSessionSelection(selectedBySessionRef.current, sessionKey, session, availableModels, chatPreferences.modelId);
+    if (selectedId && !availableModels.some((item) => item.id === selectedId)) return;
+    restoredSessionRef.current = sessionKey;
+    if (selectedId) {
+      setChatPreferences((current) => restoreSessionModelPreference(current, { model: selectedId }, availableModels));
+    }
+  }, [sessionKey, currentSessionId, sessions, availableModels, chatPreferences.modelId, setChatPreferences]);
   const refreshChatCapabilities = useCallback(async () => {
     const result = await import('@/providers/services/capabilities-service').then((m) => m.discoverChatCapabilities(client, activeProjectPath));
     if (!isCurrentClient(client)) {
@@ -240,6 +272,7 @@ export function useCapabilitiesActions({
   }, [client, refreshChatCapabilities]);
 
   const updateChatPreferences = useCallback((patch: Partial<ChatPreferences>) => {
+    if (patch.modelId && sessionKey) selectedBySessionRef.current.set(sessionKey, patch.modelId);
     setChatPreferences((current) => {
       const configuredProviderIds = new Set(availableProviders.filter((provider) => provider.configured).map((provider) => provider.id));
       const configuredModels = availableModels.filter((model) => configuredProviderIds.has(model.providerID));
@@ -279,7 +312,7 @@ export function useCapabilitiesActions({
             : nextProviderModelSelections,
       };
     });
-  }, [availableModels, availableProviders, setChatPreferences]);
+  }, [availableModels, availableProviders, sessionKey, setChatPreferences]);
 
   const setAutoApprove = useCallback(
     async (enabled: boolean) => {

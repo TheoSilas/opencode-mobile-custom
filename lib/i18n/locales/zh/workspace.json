@@ -61,7 +61,13 @@
     "serverDirectory": "服务器目录",
     "add": "添加工作区",
     "selectLabel": "选择 {{name}}",
-    "empty": "没有可用的工作区。"
+    "empty": "没有可用的工作区。",
+    "hide": "隐藏",
+    "hideNamed": "在本应用隐藏 {{name}}",
+    "hideTitle": "隐藏工作区",
+    "hideConfirm": "只在本应用隐藏此工作区？源码、服务器项目记录和聊天均保留，可在这里重新显示。",
+    "hidden": "在本应用隐藏",
+    "showNamed": "重新显示 {{name}}"
   },
   "errors": {
     "refreshWorkspace": "无法刷新工作区。",

@@ -61,7 +61,13 @@
     "serverDirectory": "Directorio del servidor",
     "add": "Añadir espacio de trabajo",
     "selectLabel": "Seleccionar {{name}}",
-    "empty": "No hay espacios de trabajo disponibles."
+    "empty": "No hay espacios de trabajo disponibles.",
+    "hide": "Ocultar",
+    "hideNamed": "Ocultar {{name}} en esta aplicación",
+    "hideTitle": "Ocultar espacio de trabajo",
+    "hideConfirm": "¿Ocultar este espacio de trabajo solo en esta aplicación? Los archivos, el proyecto y los chats permanecen intactos. Puedes volver a mostrarlo aquí.",
+    "hidden": "Ocultos en esta aplicación",
+    "showNamed": "Mostrar {{name}} de nuevo"
   },
   "errors": {
     "refreshWorkspace": "No se pudo actualizar el espacio de trabajo.",

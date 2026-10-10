@@ -33,9 +33,16 @@ layout, safe areas and screen-reader actions on iOS and Android.
 
 ## Current Strategy
 
+Workspace visibility is connection-scoped AsyncStorage metadata only. Device
+acceptance should hide a non-active workspace, switch servers, relaunch, restore
+it, and confirm that its sessions and server files were never deleted. The
+active workspace cannot be hidden from its picker row.
+
 Session-model selection tests normalize the server model shapes used by both
-contracts. Provider effects restore a valid catalog model once per actual chat
+contracts. Provider capability actions restore a valid catalog model once per actual chat
 transition rather than treating the global default as every chat's model. The
+regression also covers two chats with unsent model choices and a fresh chat with
+no server model; the earlier server-only restore missed these cases. The
 local OpenCode 2.0.12 session list was inspected read-only and confirmed that
 different chats retain different model records. Device acceptance must switch
 between two existing chats with different models, send in each, relaunch, and

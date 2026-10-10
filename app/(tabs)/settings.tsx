@@ -140,6 +140,24 @@ export default function SettingsScreen() {
     ]);
   }
 
+  function handleRemoveProviderAccount(credentialId: string) {
+    const provider = configuredProviders.find((entry) => entry.accounts?.some((item) => item.id === credentialId));
+    const account = provider?.accounts?.find((item) => item.id === credentialId);
+    if (!account) return;
+    const remove = () => void providerAccounts.remove(credentialId)
+      .then(() => providerConfig.setFeedback({ type: 'success', message: t('settings:providers.credentialsRemoved', { provider: account.label }) }))
+      .catch((error) => providerConfig.setFeedback({ type: 'error', message: error instanceof Error ? error.message : t('settings:providers.couldNotRemove') }));
+    const message = `${provider?.label ?? provider?.id}: ${account.label} (${credentialId.slice(-6)}) — ${t('settings:providers.removeMessage')}`;
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm(message)) remove();
+      return;
+    }
+    Alert.alert(t('settings:providers.removeAccount'), message, [
+      { text: t('common:actions.cancel'), style: 'cancel' },
+      { text: t('common:actions.remove'), style: 'destructive', onPress: remove },
+    ]);
+  }
+
   const sections: SettingsSection[] = [
     {
       id: 'connection',
@@ -155,7 +173,7 @@ export default function SettingsScreen() {
       title: t('settings:screen.categories.ai'),
       summary: t('settings:screen.summaries.configuredCount', { value: configuredProviders.length }),
       onPress: () => setOpenSection('ai'),
-      render: () => <AiDefaultsSection availableModels={availableModels} availableProviders={availableProviders} configuredProviders={configuredProviders} contract={serverCapabilities.contract} enabledModelIds={enabledModelIds} expandedProviderId={expandedProviderId} onActivateProviderAccount={providerAccounts.activate} onExpandedProviderChange={setExpandedProviderId} onModelToggle={handleModelToggle} onRemoveProvider={handleRemoveProvider} onRemoveProviderAccount={(credentialId) => void providerAccounts.remove(credentialId)} onStartProviderConfiguration={providerConfig.startProviderConfiguration} palette={palette} providerAuthMethodsById={providerAuthMethodsById} />,
+       render: () => <AiDefaultsSection availableModels={availableModels} availableProviders={availableProviders} configuredProviders={configuredProviders} contract={serverCapabilities.contract} enabledModelIds={enabledModelIds} expandedProviderId={expandedProviderId} onActivateProviderAccount={providerAccounts.activate} onExpandedProviderChange={setExpandedProviderId} onModelToggle={handleModelToggle} onRemoveProvider={handleRemoveProvider} onRemoveProviderAccount={handleRemoveProviderAccount} onStartProviderConfiguration={providerConfig.startProviderConfiguration} palette={palette} providerAuthMethodsById={providerAuthMethodsById} />,
     },
     {
       id: 'project-memory',

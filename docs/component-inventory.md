@@ -24,6 +24,11 @@ re-reads it on opening, supports server-confirmed account activation and renamin
 activation affects later server requests across chats/clients. When the server
 exposes accounts (OpenCode 2) but none are stored, the sheet shows an explicit
 empty state instead of silently hiding the account entry.
+Settings → AI & providers displays each stored credential with a short ID
+suffix to distinguish repeated labels. Its close action confirms individual
+credential removal; provider-wide removal remains separate. The server does not
+expose enough identity metadata to reliably map all stored credentials to
+distinct real-world logins.
 
 Settings has a project-scoped Cross-chat project memory section: switch,
 view/edit, and clear. It explains that the shared record is a brief local
@@ -434,6 +439,9 @@ This is important to parity because the chat layout is intentionally dense and h
 
 - keeps its active-project title, path, and dropdown trigger in the header; the dropdown opens the shared workspace picker overlay
 - the shared picker can add a server directory as a workspace
+- non-active workspaces can be hidden from this app's list and restored within
+  the same picker; confirmation explains that server projects, chats and source
+  files are not removed
 - provides one workspace refresh action
 - shows files directly with breadcrumbs and scoped search; worktree controls live in the shared workspace picker
 - opens file viewing and editing in a focused full-screen surface

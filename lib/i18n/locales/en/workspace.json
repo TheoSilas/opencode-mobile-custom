@@ -61,7 +61,13 @@
     "serverDirectory": "Server directory",
     "add": "Add workspace",
     "selectLabel": "Select {{name}}",
-    "empty": "No workspaces available."
+    "empty": "No workspaces available.",
+    "hide": "Hide",
+    "hideNamed": "Hide {{name}} from this app",
+    "hideTitle": "Hide workspace",
+    "hideConfirm": "Hide this workspace in this app? Source files, server records and chats remain untouched. You can show it again here.",
+    "hidden": "Hidden in this app",
+    "showNamed": "Show {{name}} again"
   },
   "errors": {
     "refreshWorkspace": "Could not refresh the workspace.",

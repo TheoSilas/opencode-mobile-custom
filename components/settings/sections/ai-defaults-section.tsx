@@ -128,9 +128,9 @@ export function AiDefaultsSection({
                             .finally(() => setBusyAccount(undefined));
                         }
                       }}
-                      closeIconAccessibilityLabel={t('settings:providers.removeAccount')}
+                      closeIconAccessibilityLabel={`${t('settings:providers.removeAccount')}: ${provider.label} ${account.label} (${account.id.slice(-6)})`}
                       onClose={() => onRemoveProviderAccount(account.id)}>
-                      {account.label}
+                       {account.label} · {account.id.slice(-6)}
                     </Chip>
                   ))}
                 </View>

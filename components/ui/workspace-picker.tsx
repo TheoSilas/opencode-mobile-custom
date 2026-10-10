@@ -1,11 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text as NativeText, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text as NativeText, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 
 import { WorktreePicker } from '@/components/workspace/worktree-picker';
-import { useWorkspaceFiles } from '@/providers/opencode-contexts';
+import { useProjects, useWorkspaceFiles } from '@/providers/opencode-contexts';
 import { ProjectOptions } from '@/components/onboarding/project-options';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -34,11 +34,21 @@ export function WorkspacePicker({ visible, onClose, projects, activePath, onSele
   const { t } = useTranslation();
   const palette = Colors[useColorScheme() ?? 'light'];
   const { worktrees } = useWorkspaceFiles();
+  const { projectVisibility } = useProjects();
   const [adding, setAdding] = useState(false);
   const [directory, setDirectory] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const close = () => { setAdding(false); setDirectory(''); setError(undefined); onClose(); };
+  const hide = (path: string) => {
+    const action = () => void projectVisibility.hide(path).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.refreshWorkspace')));
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm(t('workspace:picker.hideConfirm'))) action();
+    } else Alert.alert(t('workspace:picker.hideTitle'), t('workspace:picker.hideConfirm'), [
+      { text: t('common:actions.cancel'), style: 'cancel' },
+      { text: t('workspace:picker.hide'), onPress: action },
+    ]);
+  };
   return <OverlaySheet visible={visible} title={t('workspace:picker.title')} testID={testID} onClose={close}>
     {adding ? <View style={styles.addForm}>
       <Text style={{ color: palette.muted }}>{t('workspace:picker.enterPath')}</Text>
@@ -48,12 +58,22 @@ export function WorkspacePicker({ visible, onClose, projects, activePath, onSele
         <Button disabled={saving} onPress={() => { setAdding(false); setError(undefined); }}>{t('common:actions.cancel')}</Button>
         <Button testID="workspace-add-submit" mode="contained" loading={saving} disabled={saving || !directory.trim()} onPress={() => {
           setSaving(true); setError(undefined);
-          void onAdd(directory).then(close).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.addWorkspace'))).finally(() => setSaving(false));
+          void onAdd(directory).then(async (path) => {
+            if (typeof path === 'string' && projectVisibility.paths.includes(path)) await projectVisibility.show(path);
+            close();
+          }).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.addWorkspace'))).finally(() => setSaving(false));
         }}>{t('workspace:picker.add')}</Button>
       </View>
     </View> : <>
     {projects.length === 0 ? <Text style={{ color: palette.muted }}>{t('workspace:picker.empty')}</Text> : null}
-    <ProjectOptions activePath={activePath} onSelect={(path) => { onSelect(path); close(); }} projects={projects.filter((project) => project.path === worktrees.project?.root || !worktrees.entries.some((entry) => entry.directory === project.path))} />
+    <ProjectOptions activePath={activePath} onHide={hide} onSelect={(path) => { onSelect(path); close(); }} projects={projects.filter((project) => project.path === worktrees.project?.root || !worktrees.entries.some((entry) => entry.directory === project.path))} />
+    {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
+    {projectVisibility.paths.length > 0 ? <View style={styles.addForm}>
+      <Text style={{ color: palette.muted }}>{t('workspace:picker.hidden')}</Text>
+      {projectVisibility.paths.map((path) => <Button key={path} icon="eye-outline" onPress={() => void projectVisibility.show(path).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.refreshWorkspace')))}>
+        {t('workspace:picker.showNamed', { name: path.split('/').filter(Boolean).pop() || path })}
+      </Button>)}
+    </View> : null}
     {visible ? <WorktreePicker key={activePath} visible onSelect={(path) => { onSelect(path); close(); }} /> : null}
     <Button testID="workspace-add-button" icon="plus" onPress={() => setAdding(true)}>{t('workspace:picker.add')}</Button>
     </>}

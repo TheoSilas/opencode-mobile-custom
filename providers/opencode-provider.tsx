@@ -45,6 +45,7 @@ import { usePromptLifecycle } from '@/providers/use-prompt-lifecycle';
 import { useConnectionActions } from '@/providers/use-connection-actions';
 import { useOpencodeProviderValues } from '@/providers/opencode-provider-values';
 import { useProjectMemory } from '@/providers/use-project-memory';
+import { useHiddenProjects } from '@/providers/use-hidden-projects';
 
 export type {
   AgentOption,
@@ -68,6 +69,7 @@ export type {
 
 export function OpencodeProvider({ children }: PropsWithChildren) {
   const state = useOpencodeProviderState();
+  const projectVisibility = useHiddenProjects(state.connectionScope);
   const {
     setOnboardingVersion,
     setOnboardingActive,
@@ -153,8 +155,9 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
       });
     }
 
-    return [...entries.values()].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
-  }, [state.activeProjectPath, state.currentProjectPath, state.serverProjects]);
+    return [...entries.values()].filter((entry) => entry.path === state.activeProjectPath || !projectVisibility.paths.includes(entry.path))
+      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
+  }, [state.activeProjectPath, state.currentProjectPath, state.serverProjects, projectVisibility.paths]);
 
   const activeProject = useMemo(
     () => projects.find((project) => project.path === state.activeProjectPath),
@@ -416,6 +419,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     startOnboardingReview,
     stopOnboardingReview,
     projects,
+    projectVisibility,
     activeProject,
     eventStreamStatus,
   });

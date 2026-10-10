@@ -70,6 +70,7 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     projectMemory,
     updateChatPreferences,
     projects,
+    projectVisibility,
     activeProjectPath,
     activeProject,
     serverProjects,
@@ -314,8 +315,8 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const projectsValue = useMemo<ProjectsContextValue>(
-    () => ({ projects, activeProjectPath, activeProject, selectProject, addWorkspace, serverProjects, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshWorkspaceStatus: refreshServerFeatures }),
-    [projects, activeProjectPath, activeProject, selectProject, addWorkspace, serverProjects, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshServerFeatures],
+    () => ({ projects, activeProjectPath, activeProject, selectProject, addWorkspace, projectVisibility, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshWorkspaceStatus: refreshServerFeatures }),
+    [projects, activeProjectPath, activeProject, selectProject, addWorkspace, projectVisibility, currentProjectPath, serverRootPath, isRefreshingWorkspaceCatalog, refreshWorkspaceCatalog, refreshServerFeatures],
   );
 
   const workspaceFilesValue = useMemo<WorkspaceFilesContextValue>(

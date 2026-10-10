@@ -1,0 +1,1 @@
+Keep unsent model choices separate across chats. Confirm individual provider credential removal and distinguish duplicate labels. Hide and restore workspaces in this app without deleting server chats or source files.
