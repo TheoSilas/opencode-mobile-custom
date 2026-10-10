@@ -1298,16 +1298,17 @@ test('OpenCode 2 lists provider accounts and switches the active one', async ({ 
     await ensureAiSection(page);
 
     await expect(page.getByText('Accounts', { exact: true })).toBeVisible();
-    const work = page.getByRole('button', { name: 'Work', exact: true });
-    const personal = page.getByRole('button', { name: 'Personal', exact: true });
+    const work = page.getByRole('button', { name: 'Work · openai' });
+    const personal = page.getByRole('button', { name: 'Personal · enai-2' });
     await expect(work).toBeVisible();
     await expect(personal).toBeVisible();
 
     await personal.click();
     await expect(personal).toBeVisible();
 
-    const removeButtons = page.getByRole('button', { name: 'Remove account', exact: true });
+    const removeButtons = page.getByRole('button', { name: /^Remove account: / });
     await expect(removeButtons).toHaveCount(2);
+    page.once('dialog', (dialog) => dialog.accept());
     await removeButtons.last().click();
     await expect(personal).not.toBeVisible();
     await expect(work).toBeVisible();

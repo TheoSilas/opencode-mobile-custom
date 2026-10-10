@@ -66,6 +66,8 @@ server-confirmed activation, and rejected/malformed reads. Read-only inspection
 of the local 2.0.12 server confirmed the missing route and existing labeled
 OpenAI/DeepSeek connections; its CLI marks the first credential active. This
 does not replace acceptance of switching/renaming through the installed APK.
+The account E2E also selects credentials by their distinct label and short ID
+and accepts the explicit deletion confirmation before checking removal.
 
 Android 1.0.61 device crash logs identified Expo's reflective view creation
 failure (`Didn't find a correct constructor`). Inspection of the shipped APK
