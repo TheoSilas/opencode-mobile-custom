@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { getSessionModelId, getSessionSelection, restoreSessionModelPreference } from '@/providers/opencode-model-selection';
+import * as selection from '@/providers/opencode-model-selection';
+import { hookRuntime, loadTs } from '../helpers/runtime.mjs';
 
 describe('session model selection', () => {
   it('reads the OpenCode 2 session model shape', () => {
@@ -51,4 +53,46 @@ describe('session model selection', () => {
     expect(getSessionSelection(choices, 'new', {}, models, 'openai/gpt-a')).toBeUndefined();
     expect(getSessionSelection(choices, 'new', {}, models, 'deepseek/v4')).toBe('openai/gpt-a');
   });
+});
+
+it('drives actual provider model actions across two chats without a send', async () => {
+  const runtime = hookRuntime();
+  const { useCapabilitiesActions } = await loadTs('providers/use-capabilities-actions.ts', {
+    react: runtime.react,
+    '@/providers/opencode-model-selection': selection,
+    '@/providers/opencode-capabilities': { isAutoApproveEnabled: () => false, mergePermissionConfig: () => ({}) },
+  });
+  const models = [
+    { id: 'openai/a', providerID: 'openai' },
+    { id: 'deepseek/b', providerID: 'deepseek' },
+  ];
+  const sessions = [
+    { id: 'a', model: { providerID: 'openai', id: 'a' } },
+    { id: 'b', model: { providerID: 'deepseek', id: 'b' } },
+  ];
+  function Driver(props: { currentSessionId: string }) {
+    const [chatPreferences, setChatPreferences] = runtime.react.useState({
+      providerId: 'openai', modelId: 'openai/a', enabledModelIds: ['openai/a', 'deepseek/b'],
+      providerModelSelections: {}, recentModelIds: [],
+    });
+    const actions = useCapabilitiesActions({
+      ...props, chatPreferences, setChatPreferences, connectionScope: 'server', activeProjectPath: '/repo',
+      sessions, availableModels: models, availableProviders: [
+        { id: 'openai', configured: true }, { id: 'deepseek', configured: true },
+      ], client: {}, isCurrentClient: () => true,
+    });
+    return { chatPreferences, actions };
+  }
+  runtime.mount(Driver, { currentSessionId: 'a' });
+  runtime.value.actions.updateChatPreferences({ providerId: 'deepseek', modelId: 'deepseek/b' });
+  runtime.flush();
+  expect(runtime.value.chatPreferences.modelId).toBe('deepseek/b');
+  runtime.update({ currentSessionId: 'b' });
+  expect(runtime.value.chatPreferences.modelId).toBe('deepseek/b');
+  runtime.value.actions.updateChatPreferences({ providerId: 'openai', modelId: 'openai/a' });
+  runtime.flush();
+  runtime.update({ currentSessionId: 'a' });
+  expect(runtime.value.chatPreferences.modelId).toBe('deepseek/b');
+  runtime.update({ currentSessionId: 'b' });
+  expect(runtime.value.chatPreferences.modelId).toBe('openai/a');
 });

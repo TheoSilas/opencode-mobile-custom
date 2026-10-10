@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { hiddenProjectsKey } from '@/lib/storage-keys';
 
@@ -14,9 +14,11 @@ export function parseHiddenProjectPaths(stored: string | null): string[] {
 }
 
 /** Only filters this app's catalog; it never removes server records or source. */
+const emptyPaths: string[] = [];
+
 export function useHiddenProjects(connectionScope: string) {
   const [snapshot, setSnapshot] = useState<{ scope: string; paths: string[] }>();
-  const paths = snapshot?.scope === connectionScope ? snapshot.paths : [];
+  const paths = snapshot?.scope === connectionScope ? snapshot.paths : emptyPaths;
 
   useEffect(() => {
     let current = true;
@@ -36,5 +38,7 @@ export function useHiddenProjects(connectionScope: string) {
     setSnapshot({ scope: connectionScope, paths: next });
   }, [connectionScope]);
 
-  return { paths, hide: (path: string) => update(path, true), show: (path: string) => update(path, false) };
+  const hide = useCallback((path: string) => update(path, true), [update]);
+  const show = useCallback((path: string) => update(path, false), [update]);
+  return useMemo(() => ({ paths, hide, show }), [paths, hide, show]);
 }
