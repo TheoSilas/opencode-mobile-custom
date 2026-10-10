@@ -33,6 +33,13 @@ layout, safe areas and screen-reader actions on iOS and Android.
 
 ## Current Strategy
 
+Provider-account regression tests cover OpenCode 2.0.12's missing credential
+list route, scoped integration-connection fallback, active-first ordering,
+server-confirmed activation, and rejected/malformed reads. Read-only inspection
+of the local 2.0.12 server confirmed the missing route and existing labeled
+OpenAI/DeepSeek connections; its CLI marks the first credential active. This
+does not replace acceptance of switching/renaming through the installed APK.
+
 Android 1.0.61 device crash logs identified Expo's reflective view creation
 failure (`Didn't find a correct constructor`). Inspection of the shipped APK
 confirmed R8 removed the `ImageKeyboardEditText(Context)` constructor and made

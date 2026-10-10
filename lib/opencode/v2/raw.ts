@@ -29,15 +29,27 @@ export function buildV2Raw(settings: OpencodeConnectionSettings): { client: Reco
     fetch: prefixedFetch,
   });
 
-  // Credential management is a newer V2 surface that the pinned client does not
-  // type. Read it through the same prefixed/authenticated transport and degrade
-  // to "no accounts" on servers that do not expose it.
+  // Older V2 servers expose credentials through ordered integration connections:
+  // the first credential is active, as in the server's own account picker.
+  // Newer servers also expose a credential list with explicit active flags.
   const listCredentials = async (): Promise<RawCredential[]> => {
     const response = await prefixedFetch(new URL('/api/credential', base.origin).toString(), { method: 'GET', headers });
-    if (response.status === 404 || response.status === 405) return [];
+    if (response.status === 404 || response.status === 405) {
+      const integrations = await api.integration.list(vcsLocation);
+      if (!Array.isArray(integrations.data)) throw new Error('Could not read provider account connections.');
+      return integrations.data.flatMap((integration) => integration.connections
+        .filter((connection) => connection.type === 'credential')
+        .map((connection, index) => ({
+          id: connection.id,
+          integrationID: integration.id,
+          label: connection.label,
+          active: index === 0,
+        })));
+    }
     if (!response.ok) throw new Error(`Could not load provider accounts (${response.status}).`);
     const body = (await response.json()) as { data?: RawCredential[] };
-    return Array.isArray(body?.data) ? body.data : [];
+    if (!Array.isArray(body?.data)) throw new Error('Could not read provider accounts: unexpected response format.');
+    return body.data;
   };
 
   const ctx: AdapterContext = {

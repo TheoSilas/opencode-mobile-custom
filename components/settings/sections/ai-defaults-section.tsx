@@ -115,7 +115,7 @@ export function AiDefaultsSection({
                   {(provider.accounts || []).map((account) => (
                     <Chip
                       key={account.id}
-                      icon={account.active ? 'check' : account.method === 'oauth' ? 'account-key' : 'key-variant'}
+                      icon={account.active ? 'check' : account.method === 'oauth' ? 'account-key' : account.method === 'key' ? 'key-variant' : 'account'}
                       selected={account.active}
                       disabled={!!busyAccount}
                       onPress={() => {

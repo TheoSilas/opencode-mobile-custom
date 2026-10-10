@@ -139,6 +139,11 @@ method that integration serves. On V2, stored credentials are surfaced per
 provider as `accounts` (`{id,label,method,active}`), read from `/api/credential`;
 exactly one account is active per integration and the provider is configured when
 it has at least one account. V1 providers expose no account list.
+OpenCode 2.0.12 lacks the credential-list endpoint: account discovery falls back
+to location-scoped integration connections, with the first credential active
+(the same ordering used by that server's account picker). Connection metadata
+does not expose the login method, so the app marks it unknown rather than
+guessing key or OAuth. Failed or malformed reads are reported as errors.
 Provider auth methods are normalized into one prompt model (text/select/number/
 integer/boolean/multiselect/external with `when` conditions); V2 integration
 `form` fields and V1 auth metadata both map into it.

@@ -85,7 +85,7 @@ export function buildCapabilitiesApi({ api, ctx, vcsLocation, ok }: V2Adapter): 
           id: credential.id,
           providerId: credential.integrationID,
           label: credential.label,
-          method: credential.value?.type === 'oauth' ? 'oauth' as const : 'key' as const,
+          method: credential.value?.type === 'oauth' ? 'oauth' as const : credential.value?.type === 'key' ? 'key' as const : 'unknown' as const,
           active: Boolean(credential.active),
         }));
       },

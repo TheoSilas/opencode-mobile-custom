@@ -1,0 +1,1 @@
+Show existing provider accounts and the active account on older OpenCode 2 servers. Fix account switching and renaming discovery on these servers, and report invalid account responses instead of showing an empty list.

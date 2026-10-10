@@ -26,9 +26,43 @@ describe('v2 provider accounts', () => {
     ]);
   });
 
-  it('treats a missing credential endpoint as no accounts', async () => {
+  it('reads older V2 ordered integration credentials when the list endpoint is absent', async () => {
     h.request = vi.fn(async () => new Response('', { status: 404 }));
-    await expect(buildV2Client(settings).accounts!.list()).resolves.toEqual([]);
+    const list = vi.fn(async () => ({ data: [{ id: 'openai', connections: [
+      { type: 'env', name: 'OPENAI_API_KEY' },
+      { type: 'credential', id: 'c2', label: 'Personal' },
+      { type: 'credential', id: 'c1', label: 'Work' },
+    ] }] }));
+    h.api = { integration: { list } };
+    await expect(buildV2Client(settings).accounts!.list()).resolves.toEqual([
+      { id: 'c2', providerId: 'openai', label: 'Personal', method: 'unknown', active: true },
+      { id: 'c1', providerId: 'openai', label: 'Work', method: 'unknown', active: false },
+    ]);
+    expect(list).toHaveBeenCalledWith({ location: { directory: '/repo' } });
+  });
+
+  it('does not disguise malformed or denied credential reads as an empty list', async () => {
+    h.request = vi.fn(async () => new Response('{}', { status: 200 }));
+    await expect(buildV2Client(settings).accounts!.list()).rejects.toThrow('unexpected response format');
+    h.request = vi.fn(async () => new Response('', { status: 401 }));
+    await expect(buildV2Client(settings).accounts!.list()).rejects.toThrow('401');
+  });
+
+  it('confirms older V2 activation through the server connection order', async () => {
+    h.request = vi.fn(async () => new Response('', { status: 405 }));
+    const activate = vi.fn(async () => undefined);
+    const list = vi.fn()
+      .mockResolvedValueOnce({ data: [{ id: 'openai', connections: [
+        { type: 'credential', id: 'c1', label: 'Work' },
+        { type: 'credential', id: 'c2', label: 'Personal' },
+      ] }] })
+      .mockResolvedValueOnce({ data: [{ id: 'openai', connections: [
+        { type: 'credential', id: 'c2', label: 'Personal' },
+        { type: 'credential', id: 'c1', label: 'Work' },
+      ] }] });
+    h.api = { integration: { list }, credential: { activate } };
+    await expect(activateVerifiedAccount(buildV2Client(settings), 'c2')).resolves.toBeUndefined();
+    expect(activate).toHaveBeenCalledOnce();
   });
 
   it('sends account label updates and activation to the server rather than session state', async () => {

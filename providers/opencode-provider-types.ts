@@ -48,7 +48,7 @@ export type ProviderAccount = {
   id: string;
   integrationId?: string;
   label: string;
-  method: 'key' | 'oauth';
+  method: 'key' | 'oauth' | 'unknown';
   active: boolean;
 };
 
