@@ -71,6 +71,7 @@ export function useChatViewController() {
   const {
     handleSpeakEntry,
     handleAttach,
+    handleImageInsert,
     handleNewSession,
     handleAbort,
     handleConfirmStopConversation,
@@ -398,7 +399,7 @@ export function useChatViewController() {
     currentUsage, diffAdditions, diffCount, diffDeletions, diffDetails, diffTurns,
     displayTranscript, draft, expandedDiffId, forkSession, handleAbort, handleAttach,
     handleConfirmStopConversation, handleCopyMessage, handleNewSession, handleReviewChanges,
-    handleSendPrompt, handleSpeakEntry, handleToggleRecording, handleVoiceRecovery,
+    handleSendPrompt, handleSpeakEntry, handleToggleRecording, handleVoiceRecovery, handleImageInsert,
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
     pendingPrompts, pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,

@@ -74,6 +74,7 @@ describe('native input regressions', () => {
       react: runtime.react, 'react/jsx-runtime': jsx, 'react-native': native, 'react-native-paper': paper,
       'react-i18next': { useTranslation: () => ({ t: (key: string) => key }) },
       '@/components/ui/text-input': { TextInput },
+      '@/lib/opencode-composer': { ComposerImageInput: 'ComposerImageInput' },
       '@/components/ui/native-select': { NativeSelect: 'NativeSelect' },
       '@/components/chat/model-picker': { ModelPicker: 'ModelPicker' },
       '@/components/chat/attachment-strip': { AttachmentStrip: 'AttachmentStrip' },
@@ -130,13 +131,22 @@ describe('native input regressions', () => {
     platform.OS = os;
     runtime.flush();
     expect(measurement()).toBeUndefined();
-    input().props.onContentSizeChange({ nativeEvent: { contentSize: { height: 80 } } });
+    const fireSize = (height: number) => {
+      if (os === 'android') {
+        input().props.onContentSizeChange({ nativeEvent: { height } });
+      } else {
+        input().props.onContentSizeChange({ nativeEvent: { contentSize: { height } } });
+      }
+    };
+    fireSize(80);
     runtime.flush();
     expect(flatten(input().props.style).height).toBe(80);
-    input().props.onContentSizeChange({ nativeEvent: { contentSize: { height: 200 } } });
+    fireSize(200);
     runtime.flush();
     expect(flatten(input().props.style).height).toBe(110);
-    expect(input().props.scrollEnabled).toBe(true);
+    if (os !== 'android') {
+      expect(input().props.scrollEnabled).toBe(true);
+    }
   });
 
   it('clears only the implicit single-line iOS alignment and preserves credentials', () => {

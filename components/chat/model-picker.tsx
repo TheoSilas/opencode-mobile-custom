@@ -23,6 +23,7 @@ type ModelPickerProps = {
   models: ModelOption[];
   providers?: ProviderOption[];
   accountActions?: CapabilitiesContextValue['providerAccounts'];
+  supportsAccounts?: boolean;
   onSelect: (model: ModelOption) => void;
   recentModelIds?: string[];
   selectedModelId?: string;
@@ -34,7 +35,7 @@ function getSelectedModelLabel(models: ModelOption[], selectedModelId: string | 
   return selected ? `${selected.label} · ${selected.providerLabel}` : fallback;
 }
 
-export function ModelPicker({ disabled = false, models, providers, accountActions, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
+export function ModelPicker({ disabled = false, models, providers, accountActions, supportsAccounts = false, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
@@ -84,7 +85,7 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
   const open = () => {
     Keyboard.dismiss();
     setVisible(true);
-    if (accountActions && selectedModelId) {
+    if (supportsAccounts && accountActions && selectedModelId) {
       setBusyAccount('refresh');
       setAccountStatus('checking');
       setAccountFeedback('');
@@ -201,30 +202,38 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
                   />
                 </View>
                ) : null}
-               {accounts.length > 0 && accountActions ? (
-                 <View style={{ paddingHorizontal: 16, paddingVertical: 8, gap: 6 }}>
-                   <Text style={{ color: palette.text }}>{t('chat:accounts.current')}: {busyAccount === 'refresh' ? t('chat:accounts.switching') : activeAccount?.label || t('chat:accounts.unknown')}</Text>
-                   <Text style={{ color: palette.muted, fontSize: 12 }}>{t('chat:accounts.globalHint')}</Text>
-                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                     {accounts.map((account, index) => <View key={account.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                       <Pressable disabled={!!busyAccount || account.active} accessibilityRole="button"
-                         onPress={() => void changeAccount(account.id, () => accountActions.activate(account.id), t('chat:accounts.switched'))}
-                         style={[styles.option, { marginBottom: 0, minHeight: 44, borderColor: account.active ? palette.tint : palette.border, backgroundColor: palette.surface }]}>
-                         <Text style={{ color: palette.text }}>{account.label}{accounts.filter((item) => item.label === account.label).length > 1 ? ` (${index + 1})` : ''}{account.active ? ' ✓' : ''}</Text>
-                       </Pressable>
-                       <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat:accounts.name')}: ${account.label}`} onPress={() => { setRenaming(account.id); setNewLabel(account.label); }} style={{ padding: 10 }}>
-                         <MaterialCommunityIcons name="pencil" size={18} color={palette.tint} />
-                       </Pressable>
-                     </View>)}
-                   </View>
-                   {renaming ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                     <TextInput accessibilityLabel={t('chat:accounts.name')} value={newLabel} onChangeText={setNewLabel} style={[styles.searchInput, { color: palette.text, flex: 1 }]} />
-                     <Pressable accessibilityRole="button" onPress={() => void changeAccount(renaming, () => accountActions.rename(renaming, newLabel), t('chat:accounts.renamed'))}>
-                       <Text style={{ color: palette.tint }}>{t('chat:accounts.save')}</Text>
-                     </Pressable>
-                   </View> : null}
+               {supportsAccounts && accountActions && selectedProvider ? (
+                 <View testID="chat-account-panel" style={{ paddingHorizontal: 16, paddingVertical: 8, gap: 6 }}>
+                   {accounts.length > 0 ? (
+                     <>
+                       <Text style={{ color: palette.text }}>{t('chat:accounts.current')}: {busyAccount === 'refresh' ? t('chat:accounts.switching') : activeAccount?.label || t('chat:accounts.unknown')}</Text>
+                       <Text style={{ color: palette.muted, fontSize: 12 }}>{t('chat:accounts.globalHint')}</Text>
+                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                         {accounts.map((account, index) => <View key={account.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                           <Pressable disabled={!!busyAccount || account.active} accessibilityRole="button"
+                             onPress={() => void changeAccount(account.id, () => accountActions.activate(account.id), t('chat:accounts.switched'))}
+                             style={[styles.option, { marginBottom: 0, minHeight: 44, borderColor: account.active ? palette.tint : palette.border, backgroundColor: palette.surface }]}>
+                             <Text style={{ color: palette.text }}>{account.label}{accounts.filter((item) => item.label === account.label).length > 1 ? ` (${index + 1})` : ''}{account.active ? ' ✓' : ''}</Text>
+                           </Pressable>
+                           <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat:accounts.name')}: ${account.label}`} onPress={() => { setRenaming(account.id); setNewLabel(account.label); }} style={{ padding: 10 }}>
+                             <MaterialCommunityIcons name="pencil" size={18} color={palette.tint} />
+                           </Pressable>
+                         </View>)}
+                       </View>
+                       {renaming ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                         <TextInput accessibilityLabel={t('chat:accounts.name')} value={newLabel} onChangeText={setNewLabel} style={[styles.searchInput, { color: palette.text, flex: 1 }]} />
+                         <Pressable accessibilityRole="button" onPress={() => void changeAccount(renaming, () => accountActions.rename(renaming, newLabel), t('chat:accounts.renamed'))}>
+                           <Text style={{ color: palette.tint }}>{t('chat:accounts.save')}</Text>
+                         </Pressable>
+                       </View> : null}
+                     </>
+                   ) : (
+                     <Text accessibilityRole="alert" style={{ color: accountStatus === 'error' ? palette.danger : palette.muted }}>
+                       {accountStatus === 'error' ? (accountFeedback || t('chat:accounts.failed')) : accountStatus === 'checking' ? t('chat:accounts.switching') : t('chat:accounts.empty')}
+                     </Text>
+                   )}
                    {busyAccount ? <Text accessibilityRole="alert" style={{ color: palette.muted }}>{t('chat:accounts.switching')}</Text> : null}
-                   {accountFeedback ? <Text accessibilityRole="alert" style={{ color: palette.text }}>{accountFeedback}</Text> : null}
+                   {accountFeedback && accountStatus !== 'error' ? <Text accessibilityRole="alert" style={{ color: palette.text }}>{accountFeedback}</Text> : null}
                  </View>
                ) : null}
               <View style={[styles.searchShell, { backgroundColor: palette.background, borderColor: palette.border }]}>

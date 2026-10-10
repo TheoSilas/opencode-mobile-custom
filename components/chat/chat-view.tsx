@@ -27,7 +27,7 @@ export function ChatView() {
     conversation, copiedMessageId, currentActivityLabel, currentDiffs, currentDiffScope,
     currentPendingPermissions, currentPendingQuestions, currentSessionId, currentTodos,
     currentUsage, diffAdditions, diffCount, diffDeletions, diffDetails, diffTurns,
-    displayTranscript, draft, expandedDiffId, forkSession, handleAbort, handleAttach,
+    displayTranscript, draft, expandedDiffId, forkSession, handleAbort, handleAttach, handleImageInsert,
     handleConfirmStopConversation, handleCopyMessage, handleNewSession, handleReviewChanges,
     handleSendPrompt, handleSpeakEntry, handleToggleRecording, handleVoiceRecovery,
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
@@ -213,6 +213,7 @@ export function ChatView() {
           attachments={attachments}
           configuredProviders={configuredProviders}
           providerAccounts={providerAccounts}
+          supportsAccounts={serverCapabilities.contract === 'v2'}
           autoApproveAvailable={serverCapabilities.configWrite}
           availableAgents={availableAgents}
           chatPreferences={chatPreferences}
@@ -228,6 +229,7 @@ export function ChatView() {
           isUpdatingAutoApprove={isUpdatingAutoApprove}
           onToggleConversationMode={() => void toggleConversationMode()}
           onAttach={(source) => void handleAttach(source)}
+          onImageInsert={(uri, mimeType) => handleImageInsert(uri, mimeType)}
           onDraftChange={(value) => {
             setSendFeedback(undefined);
             setDraft(value);

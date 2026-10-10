@@ -97,7 +97,9 @@ Settings but are not mislabeled as the active account for another route.
 Renaming uses V2 credential label update and also confirms by re-reading the
 server list. V1 has no credential list. No remaining provider quota is inferred
 from session token usage. A 404/unsupported rename is reported, not simulated
-locally.
+locally. On OpenCode 2 the model sheet surfaces the account entry even when the
+provider has no stored accounts, showing an explicit empty state (or the refresh
+failure reason) instead of hiding the entry; V1 keeps no account entry.
 
 Project handoff records and their enabled switches are stored in AsyncStorage
 under separate connection-scope + directory keys. Each project defaults to

@@ -77,9 +77,43 @@ export function useChatViewActions({
     }
   }
 
+  function applyImages(images: { uri: string; mimeType: string; name?: string; size?: number }[]) {
+    if (!images.length) return;
+    const allowed = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+    if (images.some((image) => image.mimeType && image.mimeType !== 'image/*' && !allowed.has(image.mimeType))) {
+      setSendFeedback(t('chat:accounts.unsupportedFormat'));
+      return;
+    }
+    if (images.some((image) => typeof image.size === 'number' && image.size > 10 * 1024 * 1024)) {
+      setSendFeedback(t('chat:view.fileTooLarge'));
+      return;
+    }
+    setSendFeedback(undefined);
+    setAttachments((current) => {
+      const next = [...current];
+      images.forEach((image) => {
+        const mimeType = image.mimeType && image.mimeType !== 'image/*' ? image.mimeType : 'image/jpeg';
+        const name = image.name || `photo.${mimeType.split('/')[1] || 'jpg'}`;
+        const attachment = pickedAttachment({ uri: image.uri, mimeType, name });
+        if (!next.some((entry) => entry.uri === attachment.uri)) next.push(attachment);
+      });
+      return next;
+    });
+  }
+
+  /** Adds an image committed by the Android soft keyboard into the attachment draft. */
+  function handleImageInsert(uri: string, mimeType: string) {
+    applyImages([{ uri, mimeType: mimeType || 'image/*' }]);
+  }
+
   async function handleAttach(source: 'photos' | 'files' = 'files') {
     try {
       if (source === 'photos') {
+        if (Platform.OS === 'android') {
+          const { pickImages } = await import('@/lib/opencode-composer');
+          applyImages(await pickImages(true));
+          return;
+        }
         const picker = await import('expo-image-picker');
         const result = await picker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 1, base64: Platform.OS === 'web' });
         if (result.canceled || !result.assets?.length) return;
@@ -178,6 +212,7 @@ export function useChatViewActions({
   return {
     handleSpeakEntry,
     handleAttach,
+    handleImageInsert,
     handleNewSession,
     handleAbort,
     handleConfirmStopConversation,

@@ -6,9 +6,19 @@ The composer attachment button offers Photo library and Files. The photo picker
 normalizes its result into the same attachment tiles, preview, remove, combined
 text/file submission and failed-send recovery as document picks. Images require
 the selected model's image input capability and still obey client/server limits.
+On Android the Photo library entry uses the system Photo Picker when available
+and falls back to `ACTION_PICK` against `MediaStore.Images.Media`, opening the
+gallery app directly instead of the DocumentsUI file manager that
+`ACTION_GET_CONTENT` opens. The Android composer input also accepts images
+committed directly from the soft keyboard's image panel (GIF/sticker): the
+`OpencodeComposer` native view declares image MIME types and forwards committed
+images into the same attachment draft and preview/send flow as photo and
+document picks, distinct from the explicit `+ → Photo library` entry.
 The model sheet displays the server's active account for its selected provider,
 re-reads it on opening, supports server-confirmed account activation and renaming, and explains that
-activation affects later server requests across chats/clients.
+activation affects later server requests across chats/clients. When the server
+exposes accounts (OpenCode 2) but none are stored, the sheet shows an explicit
+empty state instead of silently hiding the account entry.
 
 Settings has a project-scoped Cross-chat project memory section: switch,
 view/edit, and clear. It explains that the shared record is a brief local

@@ -5,6 +5,7 @@ import { Chip, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 
 import { Colors } from '@/constants/theme';
 import { TextInput } from '@/components/ui/text-input';
+import { ComposerImageInput } from '@/lib/opencode-composer';
 import { NativeSelect } from '@/components/ui/native-select';
 import { AttachmentStrip } from '@/components/chat/attachment-strip';
 import { ModelPicker } from '@/components/chat/model-picker';
@@ -23,6 +24,7 @@ type ChatComposerProps = {
   availableAgents: AgentOption[];
   configuredProviders?: ProviderOption[];
   providerAccounts?: CapabilitiesContextValue['providerAccounts'];
+  supportsAccounts?: boolean;
   chatPreferences: ChatPreferences;
   connectionStatus: 'idle' | 'connecting' | 'connected' | 'error';
   conversation: { active: boolean; isListening: boolean; phase: string; statusLabel?: string };
@@ -34,6 +36,7 @@ type ChatComposerProps = {
   isUpdatingAutoApprove: boolean;
   autoApproveAvailable?: boolean;
   onAttach: (source: 'photos' | 'files') => void;
+  onImageInsert: (uri: string, mimeType: string) => void;
   onDraftChange: (value: string) => void;
   onRemoveAttachment: (index: number) => void;
   onSend: () => void;
@@ -56,6 +59,7 @@ export function ChatComposer({
   availableAgents,
   configuredProviders,
   providerAccounts,
+  supportsAccounts = false,
   chatPreferences,
   connectionStatus,
   conversation,
@@ -71,6 +75,7 @@ export function ChatComposer({
   onAttach,
   onCommandSelect,
   onDraftChange,
+  onImageInsert,
   onRemoveAttachment,
   onSend,
   onToggleAutoApprove,
@@ -115,6 +120,7 @@ export function ChatComposer({
       models={visibleModels}
       providers={configuredProviders}
       accountActions={providerAccounts}
+      supportsAccounts={supportsAccounts}
       onSelect={(model) => updateChatPreferences({ providerId: model.providerID, modelId: model.id })}
       recentModelIds={chatPreferences.recentModelIds}
       selectedModelId={chatPreferences.modelId}
@@ -183,24 +189,41 @@ export function ChatComposer({
             {`${draft}\u200b`}
           </NativeText>
         ) : null}
-        <TextInput
-          testID="chat-prompt-input"
-          mode="flat"
-          dense
-          value={draft}
-          onChangeText={onDraftChange}
-          onContentSizeChange={Platform.OS === 'ios' ? undefined : ({ nativeEvent }) => updateInputHeight(nativeEvent.contentSize.height)}
-          editable={!isSpeechInputListening}
-          multiline
-          scrollEnabled={displayedInputHeight >= maxInputHeight}
-          placeholder={t('chat:composer.placeholder')}
-          placeholderTextColor={palette.muted}
-          style={[inputTextStyle, { height: displayedInputHeight, color: palette.text }]}
-          contentStyle={styles.inputContentCompact}
-          underlineColor="transparent"
-          activeUnderlineColor="transparent"
-          textAlignVertical="top"
-        />
+        {Platform.OS === 'android' && ComposerImageInput ? (
+          <ComposerImageInput
+            testID="chat-prompt-input"
+            value={draft}
+            onChangeText={(event) => onDraftChange(event.nativeEvent.text)}
+            onImageInsert={(event) => onImageInsert(event.nativeEvent.uri, event.nativeEvent.mimeType)}
+            onContentSizeChange={(event) => updateInputHeight(event.nativeEvent.height)}
+            editable={!isSpeechInputListening}
+            multiline
+            supportsImageInsertion
+            placeholder={t('chat:composer.placeholder')}
+            fontSize={slim ? 15 : 17}
+            textColor={palette.text}
+            style={{ height: displayedInputHeight, marginHorizontal: 8, paddingVertical: 0 }}
+          />
+        ) : (
+          <TextInput
+            testID="chat-prompt-input"
+            mode="flat"
+            dense
+            value={draft}
+            onChangeText={onDraftChange}
+            onContentSizeChange={Platform.OS === 'ios' ? undefined : ({ nativeEvent }) => updateInputHeight(nativeEvent.contentSize.height)}
+            editable={!isSpeechInputListening}
+            multiline
+            scrollEnabled={displayedInputHeight >= maxInputHeight}
+            placeholder={t('chat:composer.placeholder')}
+            placeholderTextColor={palette.muted}
+            style={[inputTextStyle, { height: displayedInputHeight, color: palette.text }]}
+            contentStyle={styles.inputContentCompact}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            textAlignVertical="top"
+          />
+        )}
         {fontScale > 1.3 ? <View>{modelPicker}</View> : null}
         <View style={styles.composerToolbar}>
           <NativeSelect<'photos' | 'files'>
