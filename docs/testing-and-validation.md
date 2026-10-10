@@ -33,6 +33,14 @@ layout, safe areas and screen-reader actions on iOS and Android.
 
 ## Current Strategy
 
+Session-model selection tests normalize the server model shapes used by both
+contracts. Provider effects restore a valid catalog model once per actual chat
+transition rather than treating the global default as every chat's model. The
+local OpenCode 2.0.12 session list was inspected read-only and confirmed that
+different chats retain different model records. Device acceptance must switch
+between two existing chats with different models, send in each, relaunch, and
+verify both selections without changing either chat merely by opening it.
+
 The local-attachment read suite covers MIUI content-provider and cached file
 URIs, rejected grants, and metadata/actual-byte size limits. Sending now uses
 the modern File API, whose Android content-provider implementation opens the

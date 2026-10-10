@@ -1,5 +1,5 @@
 import type { Agent, Config, Model } from '@/lib/opencode/types';
-import { defaultChatPreferences } from '@/providers/opencode-preferences';
+import { defaultChatPreferences, type ChatPreferences } from '@/providers/opencode-preferences';
 
 // Model/provider/agent catalog shapes and the pure selection rules that keep the
 // stored choice valid against the current server catalog.
@@ -180,5 +180,29 @@ export function getSelectedModelParts(modelId?: string) {
   return {
     providerID,
     modelID: selectedModelID,
+  };
+}
+
+/** Read the server-owned model attached to a session without assuming one SDK shape. */
+export function getSessionModelId(session: unknown) {
+  if (!session || typeof session !== 'object') return undefined;
+  const model = (session as { model?: unknown }).model;
+  if (typeof model === 'string') return model.includes('/') ? model : undefined;
+  if (!model || typeof model !== 'object') return undefined;
+  const value = model as { providerID?: unknown; id?: unknown; modelID?: unknown };
+  const providerID = typeof value.providerID === 'string' ? value.providerID : '';
+  const modelID = typeof value.id === 'string' ? value.id : typeof value.modelID === 'string' ? value.modelID : '';
+  return providerID && modelID ? `${providerID}/${modelID}` : undefined;
+}
+
+export function restoreSessionModelPreference(current: ChatPreferences, session: unknown, models: ModelOption[]) {
+  const modelId = getSessionModelId(session);
+  const model = models.find((candidate) => candidate.id === modelId);
+  if (!model || current.modelId === model.id && current.providerId === model.providerID) return current;
+  return {
+    ...current,
+    providerId: model.providerID,
+    modelId: model.id,
+    providerModelSelections: { ...current.providerModelSelections, [model.providerID]: model.id },
   };
 }

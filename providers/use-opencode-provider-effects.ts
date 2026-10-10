@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
 import { changeAppLanguage } from '@/lib/i18n';
@@ -10,6 +10,7 @@ import {
 } from '@/lib/voice/working-sound';
 import type { ConversationPhase } from '@/providers/opencode-provider-types';
 import type { OpencodeProviderState } from '@/providers/use-opencode-provider-state';
+import { getSessionModelId, restoreSessionModelPreference } from '@/providers/opencode-model-selection';
 
 type ProviderEffectsInput = OpencodeProviderState & {
   client: ScopedOpencodeClient;
@@ -55,9 +56,11 @@ export function useOpencodeProviderEffects({
   activeProjectPath,
   currentSessionId,
   sessions,
+  availableModels,
   sessionStatuses,
   lastSessionByConnection,
   setCurrentSessionId,
+  setChatPreferences,
   setMessagesBySession,
   setDiffsBySession,
   setTodosBySession,
@@ -67,6 +70,7 @@ export function useOpencodeProviderEffects({
   sessionRefreshOptionsRef,
   initialConnectStartedRef,
 }: ProviderEffectsInput) {
+  const restoredSessionModelRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!isHydrated) {
       return;
@@ -74,6 +78,22 @@ export function useOpencodeProviderEffects({
 
     changeAppLanguage(chatPreferences.language);
   }, [chatPreferences.language, isHydrated]);
+
+  useEffect(() => {
+    if (!currentSessionId) {
+      restoredSessionModelRef.current = undefined;
+      return;
+    }
+    const restoreKey = `${connectionScope}\n${activeProjectPath ?? ''}\n${currentSessionId}`;
+    if (restoredSessionModelRef.current === restoreKey) return;
+    const modelId = getSessionModelId(sessions.find((session) => session.id === currentSessionId));
+    // Capability discovery can finish after session bootstrap. Do not consume
+    // the one-time restore until the server model is present in the catalog.
+    const model = availableModels.find((candidate) => candidate.id === modelId);
+    if (!model) return;
+    restoredSessionModelRef.current = restoreKey;
+    setChatPreferences((current) => restoreSessionModelPreference(current, sessions.find((session) => session.id === currentSessionId), availableModels));
+  }, [activeProjectPath, availableModels, connectionScope, currentSessionId, sessions, setChatPreferences]);
 
   useEffect(() => {
     if (connection.status !== 'connected') {

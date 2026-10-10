@@ -196,6 +196,14 @@ Current fields:
 
 These values combine true application behavior settings and output-style preferences that are sent to the model as prompt instructions.
 
+The selected provider/model is also restored from the server-owned model on
+each actual session transition. The restore waits until both the session and
+capability catalog are available, runs once for that connection/project/session,
+and does not overwrite a model the user chooses while remaining in the chat.
+Sending already switches the server session model, so revisiting or relaunching
+the chat restores that session's last used model. New chats inherit the current
+selection.
+
 `browser`, selected file content, worktree inventory/owning project identity, and MCP status/config are server-derived and not persisted. Text edits remain local to `FilePreview` until the provider conflict-checks and saves them as a VCS patch. Listing, search and file-open commits check the current client identity and request order; saves check client identity before applying a patch and only update the selected file if that selection is still current. Identical directory paths on different servers do not make a response current.
 
 ## Terminal State
