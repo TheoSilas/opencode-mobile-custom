@@ -12,6 +12,10 @@ export const ONBOARDING_VERSION_STORAGE_KEY = 'opencode-mobile.onboarding-versio
 export const LAST_SESSION_BY_PROJECT_STORAGE_KEY = 'opencode-mobile.last-session-by-project';
 export const PENDING_NOTIFICATION_SESSIONS_STORAGE_KEY = 'opencode-mobile.pending-notification-sessions';
 export const FAVORITE_SESSIONS_STORAGE_KEY = 'opencode-mobile.favorite-sessions';
+export function projectMemoryKeys(connectionScope: string, projectPath: string) {
+  const scope = encodeURIComponent(connectionScope) + '.' + encodeURIComponent(projectPath);
+  return { enabled: `opencode-mobile.project-memory.enabled.${scope}`, record: `opencode-mobile.project-memory.record.${scope}` };
+}
 // Per-day network usage diagnostic (requests + bytes). See
 // lib/opencode/data-usage.ts.
 export const DATA_USAGE_STORAGE_KEY = 'opencode-mobile.data-usage';

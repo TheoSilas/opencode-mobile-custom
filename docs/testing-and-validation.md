@@ -33,6 +33,17 @@ layout, safe areas and screen-reader actions on iOS and Android.
 
 ## Current Strategy
 
+`tests/vitest/project-memory.test.ts` covers scoped record reads, one-time
+handoff inclusion, disabled-record retention, and switching servers/projects.
+`tests/vitest/gallery-attachment.test.ts` checks gallery and file picks share
+the composer attachment list and reject oversized gallery selections.
+Provider-account Vitest checks server activation/rename requests and refuses to
+report success without authoritative account-list confirmation.
+Static checks and fake-server self-tests cannot verify the native photo picker,
+an authenticated server's credential label/update support, or actual provider
+image acceptance; those require device/server validation. The local V2 server
+responds 401 without credentials, so its account operations were not inspected.
+
 This repository validates behavior primarily through end-to-end flow tests and static checks, not broad unit-test coverage.
 
 That choice matches the app's risk profile:

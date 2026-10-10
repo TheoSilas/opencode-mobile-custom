@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text as NativeText, View } from 'react-native';
 import { Checkbox, Chip, HelperText, List, Text } from 'react-native-paper';
 
@@ -17,7 +18,7 @@ type AiDefaultsSectionProps = {
   contract: ServerContract;
   enabledModelIds: Set<string>;
   expandedProviderId?: string;
-  onActivateProviderAccount: (credentialId: string) => void;
+  onActivateProviderAccount: (credentialId: string) => Promise<void>;
   onExpandedProviderChange: (providerId?: string) => void;
   onModelToggle: (modelId: string, checked: boolean) => void;
   onRemoveProvider: (providerId: string) => void;
@@ -44,6 +45,8 @@ export function AiDefaultsSection({
   providerAuthMethodsById,
 }: AiDefaultsSectionProps) {
   const { t } = useTranslation();
+  const [busyAccount, setBusyAccount] = useState<string>();
+  const [accountFeedback, setAccountFeedback] = useState('');
   const configuredModels = availableModels.filter((model) => configuredProviders.some((provider) => provider.id === model.providerID));
   const configuredProviderModels = configuredProviders
     .map((provider) => ({
@@ -102,6 +105,9 @@ export function AiDefaultsSection({
         {configuredProviders.some((provider) => provider.accounts && provider.accounts.length > 0) ? (
           <View style={styles.accountsGroup}>
             <Text variant="labelLarge" style={{ color: palette.text }}>{t('settings:providers.accounts')}</Text>
+            <Text variant="bodySmall" style={{ color: palette.muted }}>{t('chat:accounts.globalHint')}</Text>
+            {busyAccount ? <Text accessibilityRole="alert">{t('chat:accounts.switching')}</Text> : null}
+            {accountFeedback ? <Text accessibilityRole="alert">{accountFeedback}</Text> : null}
             {configuredProviders.filter((provider) => provider.accounts && provider.accounts.length > 0).map((provider) => (
               <View key={provider.id} style={styles.accountProviderGroup}>
                 <Text variant="bodySmall" style={{ color: palette.muted }}>{getProviderCopy(provider.id, provider.label, t).label}</Text>
@@ -111,8 +117,16 @@ export function AiDefaultsSection({
                       key={account.id}
                       icon={account.active ? 'check' : account.method === 'oauth' ? 'account-key' : 'key-variant'}
                       selected={account.active}
+                      disabled={!!busyAccount}
                       onPress={() => {
-                        if (!account.active) onActivateProviderAccount(account.id);
+                        if (!account.active) {
+                          setBusyAccount(account.id);
+                          setAccountFeedback('');
+                          void onActivateProviderAccount(account.id)
+                            .then(() => setAccountFeedback(t('chat:accounts.switched')))
+                            .catch((error) => setAccountFeedback(error instanceof Error ? error.message : t('chat:accounts.failed')))
+                            .finally(() => setBusyAccount(undefined));
+                        }
                       }}
                       closeIconAccessibilityLabel={t('settings:providers.removeAccount')}
                       onClose={() => onRemoveProviderAccount(account.id)}>

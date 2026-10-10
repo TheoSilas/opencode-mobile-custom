@@ -1,4 +1,5 @@
 {
+  "projectMemory": { "title": "Mémoire partagée du projet", "on": "Résumé activé", "off": "Résumé désactivé", "enabled": "Partager le résumé entre chats", "explanation": "Seul un bref résumé est partagé, pas l'historique complet. Le partage du code reste inchangé. Stocké sur cet appareil pour ce serveur et projet.", "noProject": "Sélectionnez un espace de travail.", "offHint": "La désactivation arrête la lecture et l'inclusion automatiques ; le dossier et l'historique des chats restent conservés.", "viewEdit": "Voir / modifier le dossier", "decisions": "Décisions importantes", "progress": "Progrès vérifié", "tests": "Tests, résultats et dates", "nextSteps": "Points en suspens et suite", "testHint": "Ne notez que des faits vérifiés ; datez les tests et conservez les points non résolus.", "updated": "Mis à jour", "save": "Enregistrer", "clear": "Effacer le dossier", "clearConfirm": "Effacer ce dossier ? Les chats seront conservés.", "saved": "Enregistré pour ce projet.", "cleared": "Dossier effacé.", "failed": "Impossible de modifier le dossier." },
   "screen": {
     "categories": {
       "connection": "Connexion",

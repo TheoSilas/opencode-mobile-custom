@@ -46,6 +46,7 @@ export type { ProviderAuthMethod, ProviderAuthPrompt, ProviderAuthValues } from 
 // accounts (exactly one active); V1 providers have no account list.
 export type ProviderAccount = {
   id: string;
+  integrationId?: string;
   label: string;
   method: 'key' | 'oauth';
   active: boolean;
@@ -59,6 +60,9 @@ export type ProviderOption = {
   // Integrations that serve this provider's login methods (its own id plus any
   // linked Console integration). Used to associate stored accounts.
   integrationIds?: string[];
+  // The integration used for model requests; linked login integrations may also
+  // appear in the account list but are not necessarily the active model route.
+  requestIntegrationId?: string;
   accounts?: ProviderAccount[];
 };
 
@@ -200,8 +204,10 @@ export type CapabilitiesContextValue = {
     cancel: (providerId: string) => Promise<void>;
   };
   providerAccounts: {
+    refresh: () => Promise<void>;
     add: (providerId: string, values: ProviderAuthValues, label?: string) => Promise<void>;
     activate: (credentialId: string) => Promise<void>;
+    rename: (credentialId: string, label: string) => Promise<void>;
     remove: (credentialId: string) => Promise<void>;
   };
 };
@@ -209,6 +215,7 @@ export type CapabilitiesContextValue = {
 export type PreferencesContextValue = {
   chatPreferences: ChatPreferences;
   updateChatPreferences: (patch: Partial<ChatPreferences>) => void;
+  projectMemory: ReturnType<typeof import('@/providers/use-project-memory').useProjectMemory>;
 };
 
 export type ProjectsContextValue = {

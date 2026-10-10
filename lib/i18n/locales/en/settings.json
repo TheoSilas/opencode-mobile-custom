@@ -1,4 +1,7 @@
 {
+  "projectMemory": {
+    "title": "Cross-chat project memory", "on": "Project summary on", "off": "Project summary off", "enabled": "Share project summary across chats", "explanation": "Only a brief project handoff is shared, not full chat histories. This switch does not affect access to shared source files. The summary is stored on this device for this server and project.", "noProject": "Select a workspace first.", "offHint": "Turning off stops automatic summary reads and inclusion in new prompts. A summary already sent into a chat's context will not disappear automatically. Existing records and each chat's own history remain; you can still view and edit the record.", "viewEdit": "View / edit handoff", "decisions": "Important decisions", "progress": "Verified progress", "tests": "Test commands, results and dates", "nextSteps": "Unresolved items and next steps", "testHint": "Enter verified facts only; date test results and retain unresolved items until confirmed complete.", "updated": "Updated", "save": "Save handoff", "clear": "Clear handoff", "clearConfirm": "Clear this project's handoff? Chat histories will remain.", "saved": "Saved for this project.", "cleared": "Handoff cleared.", "failed": "Unable to update project handoff."
+  },
   "screen": {
     "categories": {
       "connection": "Connection",

@@ -26,6 +26,7 @@ import {
 } from '@/components/settings/settings-sections';
 import { useNotificationSetup } from '@/components/settings/use-notification-setup';
 import { useProviderConfiguration } from '@/components/settings/use-provider-configuration';
+import { ProjectMemorySection } from '@/components/settings/project-memory-section';
 import { useVoiceSetup } from '@/components/settings/use-voice-setup';
 import {
   getProviderCopy,
@@ -35,7 +36,7 @@ import {
 import { OverlaySheet } from '@/components/ui/overlay-sheet';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getSpeechVoiceOptions, type SpeechVoiceOption } from '@/lib/voice/speech-output';
-import { useApprovals, useCapabilities, useConnection, useDiagnostics, useMcp, useOnboarding, usePreferences } from '@/providers/opencode-contexts';
+import { useApprovals, useCapabilities, useConnection, useDiagnostics, useMcp, useOnboarding, usePreferences, useProjects } from '@/providers/opencode-contexts';
 
 // One entry per settings section. Adding a section means adding an entry here
 // (and its presentational component); the row list and the overlay both derive
@@ -56,7 +57,8 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   const { availableModels, availableProviders, configuredProviders, currentConfig, providerAccounts, providerAuthMethodsById, removeProvider } = useCapabilities();
   const { addMcpServer, completeMcpOAuth, connectMcpServer, disconnectMcpServer, mcpStatuses, refreshMcpServers, setMcpServerEnabled, startMcpOAuth } = useMcp();
-  const { chatPreferences, updateChatPreferences } = usePreferences();
+  const { chatPreferences, updateChatPreferences, projectMemory } = usePreferences();
+  const { activeProjectPath } = useProjects();
   const { connect, connection, serverCapabilities, connectSetup } = useConnection();
   const { diagnostics, eventStreamStatus, refreshDiagnostics } = useDiagnostics();
   const { approvals } = useApprovals();
@@ -153,7 +155,15 @@ export default function SettingsScreen() {
       title: t('settings:screen.categories.ai'),
       summary: t('settings:screen.summaries.configuredCount', { value: configuredProviders.length }),
       onPress: () => setOpenSection('ai'),
-      render: () => <AiDefaultsSection availableModels={availableModels} availableProviders={availableProviders} configuredProviders={configuredProviders} contract={serverCapabilities.contract} enabledModelIds={enabledModelIds} expandedProviderId={expandedProviderId} onActivateProviderAccount={(credentialId) => void providerAccounts.activate(credentialId)} onExpandedProviderChange={setExpandedProviderId} onModelToggle={handleModelToggle} onRemoveProvider={handleRemoveProvider} onRemoveProviderAccount={(credentialId) => void providerAccounts.remove(credentialId)} onStartProviderConfiguration={providerConfig.startProviderConfiguration} palette={palette} providerAuthMethodsById={providerAuthMethodsById} />,
+      render: () => <AiDefaultsSection availableModels={availableModels} availableProviders={availableProviders} configuredProviders={configuredProviders} contract={serverCapabilities.contract} enabledModelIds={enabledModelIds} expandedProviderId={expandedProviderId} onActivateProviderAccount={providerAccounts.activate} onExpandedProviderChange={setExpandedProviderId} onModelToggle={handleModelToggle} onRemoveProvider={handleRemoveProvider} onRemoveProviderAccount={(credentialId) => void providerAccounts.remove(credentialId)} onStartProviderConfiguration={providerConfig.startProviderConfiguration} palette={palette} providerAuthMethodsById={providerAuthMethodsById} />,
+    },
+    {
+      id: 'project-memory',
+      icon: 'notebook-outline',
+      title: t('settings:projectMemory.title'),
+      summary: projectMemory.enabled ? t('settings:projectMemory.on') : t('settings:projectMemory.off'),
+      onPress: () => setOpenSection('project-memory'),
+      render: () => <ProjectMemorySection key={projectMemory.scope} memory={projectMemory} projectPath={activeProjectPath} />,
     },
     {
       id: 'notifications',

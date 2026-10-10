@@ -87,6 +87,36 @@ Important behavior:
 
 ## Capabilities And Preferences State
 
+The chat model picker reads the server's active V2 credential label for the
+selected provider. Switching a credential activates it for its server
+integration, not for an individual session; the provider re-reads the
+credential list and confirms the target is active before reporting success.
+The chat picker associates an account with the provider's current request
+integration; credentials of a linked login integration are still available in
+Settings but are not mislabeled as the active account for another route.
+Renaming uses V2 credential label update and also confirms by re-reading the
+server list. V1 has no credential list. No remaining provider quota is inferred
+from session token usage. A 404/unsupported rename is reported, not simulated
+locally.
+
+Project handoff records and their enabled switches are stored in AsyncStorage
+under separate connection-scope + directory keys. Each project defaults to
+enabled; turning it off leaves its record intact but stops automatic reads and
+inclusion. Manual view/edit/clear remains available while off. Records contain
+user-edited decisions, verified progress, dated test results and open next
+steps, with bounded fields and a last-edited timestamp. Nothing writes dynamic
+progress into AGENTS.md or automatically converts model guesses into facts.
+At the first accepted prompt per session in an app runtime, the provider reads
+the enabled switch and record at submission time and prepends a short labeled
+handoff to that prompt. Failed admissions do not consume the one-time marker;
+subsequent prompts in that session do not repeat the summary. Other chats'
+transcripts are never merged. This device-local record does not sync to other
+OpenCode clients or change their access to the project's source files.
+Turning the switch off does not remove a handoff already submitted as part of
+a user turn: it remains in that session's server history and may remain in its
+model-visible context or compaction summary. The switch prevents future
+automatic reads and injections; it does not redact earlier messages.
+
 V2 lists active providers through `/api/provider`; `/api/integration` supplies
 the connectable catalog. The adapter merges integration-only entries (without
 models until connected) into the provider picker and excludes MCP integrations.

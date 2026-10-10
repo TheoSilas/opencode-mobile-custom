@@ -6,6 +6,30 @@ import type { ProviderAuthMethod, ProviderAuthPrompt } from '@/lib/opencode/type
 import { getConfiguredProviderIds, toAgentOption, type ModelOption } from '@/providers/opencode-model-selection';
 import { requireData } from '@/providers/services/require-data';
 
+export async function activateVerifiedAccount(client: ScopedOpencodeClient, credentialId: string) {
+  if (!client.accounts) throw new Error('Managing multiple provider accounts requires OpenCode 2.');
+  const before = await client.accounts.list();
+  const target = before.find((account) => account.id === credentialId);
+  if (!target) throw new Error('This account is no longer available on the server.');
+  await client.accounts.activate(credentialId);
+  const after = await client.accounts.list();
+  if (!after.some((account) => account.id === credentialId && account.active)
+    || after.some((account) => account.providerId === target.providerId && account.id !== credentialId && account.active)) {
+    throw new Error('The server did not confirm this account as active. Refresh and try again.');
+  }
+}
+
+export async function renameVerifiedAccount(client: ScopedOpencodeClient, credentialId: string, label: string) {
+  if (!client.accounts) throw new Error('Managing multiple provider accounts requires OpenCode 2.');
+  const name = label.trim();
+  if (!name) throw new Error('Enter an account name.');
+  await client.accounts.rename(credentialId, name);
+  const accounts = await client.accounts.list();
+  if (!accounts.some((account) => account.id === credentialId && account.label === name)) {
+    throw new Error('The server did not confirm the new account name.');
+  }
+}
+
 const PROMPT_TYPES: ProviderAuthPrompt['type'][] = ['text', 'select', 'number', 'integer', 'boolean', 'multiselect', 'external'];
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -150,8 +174,9 @@ export async function discoverChatCapabilities(client: ScopedOpencodeClient, act
         modelCount: Object.keys(provider.models).length,
         configured: configuredProviderIds.has(provider.id) || providerAccounts.length > 0,
         integrationIds,
+        requestIntegrationId: integrationIds[0] ?? provider.id,
         ...(providerAccounts.length
-          ? { accounts: providerAccounts.map(({ id, label, method, active }) => ({ id, label, method, active })) }
+          ? { accounts: providerAccounts.map(({ id, providerId, label, method, active }) => ({ id, integrationId: providerId, label, method, active })) }
           : {}),
       };
     })

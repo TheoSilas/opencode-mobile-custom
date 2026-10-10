@@ -1,4 +1,5 @@
 {
+  "accounts": { "photos": "Photothèque", "files": "Fichiers", "current": "Compte actif du serveur", "unknown": "Inconnu", "globalHint": "Le changement affecte les futures requêtes de tous les chats et clients du serveur ; ce chat n'est pas lié à un compte.", "renameHint": "Appui long sur un compte pour le renommer sur le serveur.", "name": "Nom du compte", "save": "Enregistrer", "switching": "Changement de compte…", "switched": "Changement de compte confirmé par le serveur.", "renamed": "Nom confirmé par le serveur.", "failed": "Impossible de changer de compte.", "imageUnsupported": "Le modèle choisi n'accepte pas les images.", "unsupportedFormat": "Choisissez PNG, JPEG, GIF ou WebP." },
   "view": {
     "tabSession": "Session",
     "tabFilesChanged": "{{files}} fichiers modifiés",

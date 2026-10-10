@@ -1,4 +1,5 @@
 {
+  "accounts": { "photos": "Fotomediathek", "files": "Dateien", "current": "Aktives Serverkonto", "unknown": "Unbekannt", "globalHint": "Der Wechsel betrifft künftige Anfragen aller Chats und Clients dieses Servers; dieser Chat ist nicht an ein Konto gebunden.", "renameHint": "Konto gedrückt halten, um es auf dem Server umzubenennen.", "name": "Kontoname", "save": "Speichern", "switching": "Konto wird gewechselt…", "switched": "Server hat den Kontowechsel bestätigt.", "renamed": "Server hat den Kontonamen bestätigt.", "failed": "Kontowechsel fehlgeschlagen.", "imageUnsupported": "Das ausgewählte Modell unterstützt keine Bilder.", "unsupportedFormat": "Bitte PNG, JPEG, GIF oder WebP wählen." },
   "view": {
     "tabSession": "Sitzung",
     "tabFilesChanged": "{{files}} Dateien geändert",

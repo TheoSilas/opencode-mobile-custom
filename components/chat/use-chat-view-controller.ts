@@ -28,7 +28,7 @@ export function useChatViewController() {
   const { activeProject } = useProjects();
   const { activeSession, createSession, currentSessionId, ensureActiveSession, openSession } = useCurrentSession();
   const { forkSession, revertSession, sessionStatuses, sessions, unrevertSession } = useSessionLibrary();
-  const { availableAgents, availableModels, configuredProviders } = useCapabilities();
+  const { availableAgents, availableModels, configuredProviders, providerAccounts } = useCapabilities();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const slim = chatPreferences.slimInterface === true;
   const { connection, settings, serverCapabilities } = useConnection();
@@ -408,6 +408,6 @@ export function useChatViewController() {
     setCopiedMessageId, setDiffScope, setDraft, setExpandedDiffId, setIsUpdatingAutoApprove,
     setProgressVisible, setSendFeedback, setSessionMenuVisible, setVoiceFeedback, showSendAction,
     slim, speakingMessageId, toggleConversationMode, transcriptPaging, unrevertSession,
-    updateChatPreferences, visibleModels, voiceFeedback, voiceRecoveryAction,
+    updateChatPreferences, visibleModels, voiceFeedback, voiceRecoveryAction, configuredProviders, providerAccounts,
   };
 }

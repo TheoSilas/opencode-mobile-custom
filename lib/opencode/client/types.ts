@@ -109,6 +109,7 @@ export type ProviderAccountsApi = {
   list: () => Promise<ProviderAccountInfo[]>;
   add: (providerId: string, values: ProviderAuthValues, label?: string) => Promise<void>;
   activate: (credentialId: string) => Promise<void>;
+  rename: (credentialId: string, label: string) => Promise<void>;
   remove: (credentialId: string) => Promise<void>;
 };
 

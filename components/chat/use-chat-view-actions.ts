@@ -77,8 +77,30 @@ export function useChatViewActions({
     }
   }
 
-  async function handleAttach() {
+  async function handleAttach(source: 'photos' | 'files' = 'files') {
     try {
+      if (source === 'photos') {
+        const picker = await import('expo-image-picker');
+        const result = await picker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 1, base64: Platform.OS === 'web' });
+        if (result.canceled || !result.assets?.length) return;
+        if (result.assets.some((asset) => asset.mimeType && !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(asset.mimeType))) {
+          setSendFeedback(t('chat:accounts.unsupportedFormat'));
+          return;
+        }
+        if (result.assets.some((asset) => typeof asset.fileSize === 'number' && asset.fileSize > 10 * 1024 * 1024)) {
+          setSendFeedback(t('chat:view.fileTooLarge'));
+          return;
+        }
+        setSendFeedback(undefined);
+        setAttachments((current) => {
+          const next = [...current];
+          result.assets.forEach((asset) => {
+            if (!next.some((entry) => entry.uri === asset.uri)) next.push(pickedAttachment({ uri: asset.uri, base64: asset.base64 || undefined, mimeType: asset.mimeType || 'image/jpeg', name: asset.fileName || `photo.${asset.mimeType?.split('/')[1] || 'jpg'}` }));
+          });
+          return next;
+        });
+        return;
+      }
       const picker = await import('expo-document-picker');
       const result = await picker.getDocumentAsync({
         base64: Platform.OS === 'web',

@@ -62,9 +62,12 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     cancelProviderOAuth,
     addProviderAccount,
     activateProviderAccount,
+    refreshProviderAccounts,
+    renameProviderAccount,
     removeProviderAccount,
     setAutoApprove,
     chatPreferences,
+    projectMemory,
     updateChatPreferences,
     projects,
     activeProjectPath,
@@ -301,13 +304,13 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const capabilitiesValue = useMemo<CapabilitiesContextValue>(
-    () => ({ currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, providerOAuth: { start: startProviderOAuth, complete: completeProviderOAuth, completeAutomatic: completeAutomaticProviderOAuth, cancel: cancelProviderOAuth }, providerAccounts: { add: addProviderAccount, activate: activateProviderAccount, remove: removeProviderAccount } }),
-    [currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth, cancelProviderOAuth, addProviderAccount, activateProviderAccount, removeProviderAccount],
+    () => ({ currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, providerOAuth: { start: startProviderOAuth, complete: completeProviderOAuth, completeAutomatic: completeAutomaticProviderOAuth, cancel: cancelProviderOAuth }, providerAccounts: { refresh: refreshProviderAccounts, add: addProviderAccount, activate: activateProviderAccount, rename: renameProviderAccount, remove: removeProviderAccount } }),
+    [currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth, cancelProviderOAuth, refreshProviderAccounts, addProviderAccount, activateProviderAccount, renameProviderAccount, removeProviderAccount],
   );
 
   const preferencesValue = useMemo<PreferencesContextValue>(
-    () => ({ chatPreferences, updateChatPreferences }),
-    [chatPreferences, updateChatPreferences],
+    () => ({ chatPreferences, updateChatPreferences, projectMemory }),
+    [chatPreferences, updateChatPreferences, projectMemory],
   );
 
   const projectsValue = useMemo<ProjectsContextValue>(

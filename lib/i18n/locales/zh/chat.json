@@ -1,4 +1,7 @@
 {
+  "accounts": {
+    "photos": "手机相册", "files": "选择文件", "current": "服务器当前账号", "unknown": "未知", "globalHint": "切换会影响服务器后续请求，包括其他聊天和客户端；此聊天没有独立绑定账号。", "renameHint": "长按账号可在服务器上重命名。", "name": "账号名称", "save": "保存", "switching": "正在切换服务器账号…", "switched": "服务器已确认账号切换。", "renamed": "服务器已确认账号名称。", "failed": "账号操作失败。", "imageUnsupported": "当前模型不支持图片输入，请切换支持图片的模型。", "unsupportedFormat": "此图片格式无法发送给模型，请选择 PNG、JPEG、GIF 或 WebP。"
+  },
   "view": {
     "tabSession": "会话",
     "tabFilesChanged": "{{files}} 个文件已更改",

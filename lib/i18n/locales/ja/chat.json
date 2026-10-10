@@ -1,4 +1,5 @@
 {
+  "accounts": { "photos": "写真ライブラリ", "files": "ファイル", "current": "サーバーの現在のアカウント", "unknown": "不明", "globalHint": "切り替えはこのサーバーの他のチャットやクライアントの今後のリクエストにも影響します。このチャット専用の設定ではありません。", "renameHint": "長押しするとサーバー上のアカウント名を変更できます。", "name": "アカウント名", "save": "保存", "switching": "アカウントを切り替え中…", "switched": "サーバーが切り替えを確認しました。", "renamed": "サーバーが名前を確認しました。", "failed": "アカウントの変更に失敗しました。", "imageUnsupported": "選択したモデルは画像に対応していません。", "unsupportedFormat": "PNG、JPEG、GIF、WebP を選択してください。" },
   "view": {
     "tabSession": "セッション",
     "tabFilesChanged": "{{files}}件のファイル変更",

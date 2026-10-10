@@ -11,7 +11,8 @@ import { ControlButton } from '@/components/chat/chat-controls';
 import { renderProviderIcon } from '@/components/ui/provider-icon';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { ModelOption, ReasoningLevel } from '@/providers/opencode-provider';
+import type { ModelOption, ProviderOption, ReasoningLevel } from '@/providers/opencode-provider';
+import type { CapabilitiesContextValue } from '@/providers/opencode-provider-types';
 
 type ModelPickerProps = {
   disabled?: boolean;
@@ -20,6 +21,8 @@ type ModelPickerProps = {
   reasoning?: ReasoningLevel;
   onReasoningChange?: (value: ReasoningLevel) => void;
   models: ModelOption[];
+  providers?: ProviderOption[];
+  accountActions?: CapabilitiesContextValue['providerAccounts'];
   onSelect: (model: ModelOption) => void;
   recentModelIds?: string[];
   selectedModelId?: string;
@@ -31,12 +34,17 @@ function getSelectedModelLabel(models: ModelOption[], selectedModelId: string | 
   return selected ? `${selected.label} · ${selected.providerLabel}` : fallback;
 }
 
-export function ModelPicker({ disabled = false, models, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
+export function ModelPicker({ disabled = false, models, providers, accountActions, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
+  const [busyAccount, setBusyAccount] = useState<string>();
+  const [accountStatus, setAccountStatus] = useState<'ready' | 'checking' | 'error'>('ready');
+  const [accountFeedback, setAccountFeedback] = useState('');
+  const [renaming, setRenaming] = useState<string>();
+  const [newLabel, setNewLabel] = useState('');
   const keyboardHeight = useKeyboardHeight(visible);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const matchingModels = useMemo(
@@ -73,12 +81,42 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
   }, [visible]);
 
   const close = () => setVisible(false);
+  const open = () => {
+    Keyboard.dismiss();
+    setVisible(true);
+    if (accountActions && selectedModelId) {
+      setBusyAccount('refresh');
+      setAccountStatus('checking');
+      setAccountFeedback('');
+      void accountActions.refresh().then(() => setAccountStatus('ready')).catch((error) => {
+        setAccountStatus('error');
+        setAccountFeedback(error instanceof Error ? error.message : t('chat:accounts.failed'));
+      }).finally(() => setBusyAccount(undefined));
+    }
+  };
   useDismissOnBack(visible, close);
   const select = (model: ModelOption) => {
     close();
     onSelect(model);
   };
   const selected = models.find((model) => model.id === selectedModelId);
+  const selectedProvider = providers?.find((provider) => provider.id === selected?.providerID);
+  const accounts = (selectedProvider?.accounts ?? []).filter((account) => !account.integrationId || account.integrationId === selectedProvider?.requestIntegrationId);
+  const activeAccount = accountStatus === 'error' ? undefined : accounts.find((account) => account.active);
+  async function changeAccount(id: string, action: () => Promise<void>, success: string) {
+    setBusyAccount(id);
+    setAccountFeedback('');
+    try {
+      await action();
+      setAccountStatus('ready');
+      setAccountFeedback(success);
+      setRenaming(undefined);
+    } catch (error) {
+      setAccountFeedback(error instanceof Error ? error.message : t('chat:accounts.failed'));
+    } finally {
+      setBusyAccount(undefined);
+    }
+  }
   const recentModels = useMemo(() => (recentModelIds ?? [])
     .map((id) => models.find((model) => model.id === id))
     .filter((model): model is ModelOption => model !== undefined && model.id !== selectedModelId)
@@ -118,13 +156,14 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
         <Pressable
           testID="chat-model-picker-trigger"
           accessibilityRole="button"
-          accessibilityLabel={`${getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}${reasoningLabel ? ` · ${reasoningLabel}` : ''}`}
+           accessibilityLabel={`${getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}${activeAccount ? ` · ${t('chat:accounts.current')}: ${activeAccount.label}` : ''}${reasoningLabel ? ` · ${reasoningLabel}` : ''}`}
           accessibilityState={{ disabled: disabled || models.length === 0 }}
           disabled={disabled || models.length === 0}
-          onPress={() => { Keyboard.dismiss(); setVisible(true); }}
+           onPress={open}
           style={({ pressed }) => [styles.summary, { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 }]}>
-          <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryModel, { color: palette.text }]}>{selected?.label || t('chat:modelPicker.selectModel')}</Text>
-          {reasoningLabel ? <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.text }]}>{reasoningLabel}</Text> : null}
+           <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryModel, { color: palette.text }]}>{selected?.label || t('chat:modelPicker.selectModel')}</Text>
+           {activeAccount ? <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.muted }]}>{activeAccount.label}</Text> : null}
+           {reasoningLabel ? <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.text }]}>{reasoningLabel}</Text> : null}
         </Pressable>
       ) : (
         <ControlButton
@@ -132,10 +171,10 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
           disabled={disabled || models.length === 0}
           grow
           icon={(props) => renderProviderIcon(selected?.providerID, props.size, props.color)}
-          onPress={() => setVisible(true)}
+           onPress={open}
           slim={slim}
           testID="chat-model-picker-trigger">
-          {getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}
+           {`${getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}${activeAccount ? ` · ${activeAccount.label}` : ''}`}
         </ControlButton>
       )}
       <Modal animationType="slide" transparent visible={visible} onRequestClose={close}>
@@ -148,7 +187,7 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
                   <Text style={[styles.closeLabel, { color: palette.tint }]}>{t('common:actions.close')}</Text>
                 </Pressable>
               </View>
-              {reasoning && onReasoningChange ? (
+               {reasoning && onReasoningChange ? (
                 <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
                   <NumericSlider
                     label={t('chat:composer.reasoning')}
@@ -161,7 +200,33 @@ export function ModelPicker({ disabled = false, models, onSelect, recentModelIds
                     palette={palette}
                   />
                 </View>
-              ) : null}
+               ) : null}
+               {accounts.length > 0 && accountActions ? (
+                 <View style={{ paddingHorizontal: 16, paddingVertical: 8, gap: 6 }}>
+                   <Text style={{ color: palette.text }}>{t('chat:accounts.current')}: {busyAccount === 'refresh' ? t('chat:accounts.switching') : activeAccount?.label || t('chat:accounts.unknown')}</Text>
+                   <Text style={{ color: palette.muted, fontSize: 12 }}>{t('chat:accounts.globalHint')}</Text>
+                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                     {accounts.map((account, index) => <View key={account.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                       <Pressable disabled={!!busyAccount || account.active} accessibilityRole="button"
+                         onPress={() => void changeAccount(account.id, () => accountActions.activate(account.id), t('chat:accounts.switched'))}
+                         style={[styles.option, { marginBottom: 0, minHeight: 44, borderColor: account.active ? palette.tint : palette.border, backgroundColor: palette.surface }]}>
+                         <Text style={{ color: palette.text }}>{account.label}{accounts.filter((item) => item.label === account.label).length > 1 ? ` (${index + 1})` : ''}{account.active ? ' ✓' : ''}</Text>
+                       </Pressable>
+                       <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat:accounts.name')}: ${account.label}`} onPress={() => { setRenaming(account.id); setNewLabel(account.label); }} style={{ padding: 10 }}>
+                         <MaterialCommunityIcons name="pencil" size={18} color={palette.tint} />
+                       </Pressable>
+                     </View>)}
+                   </View>
+                   {renaming ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                     <TextInput accessibilityLabel={t('chat:accounts.name')} value={newLabel} onChangeText={setNewLabel} style={[styles.searchInput, { color: palette.text, flex: 1 }]} />
+                     <Pressable accessibilityRole="button" onPress={() => void changeAccount(renaming, () => accountActions.rename(renaming, newLabel), t('chat:accounts.renamed'))}>
+                       <Text style={{ color: palette.tint }}>{t('chat:accounts.save')}</Text>
+                     </Pressable>
+                   </View> : null}
+                   {busyAccount ? <Text accessibilityRole="alert" style={{ color: palette.muted }}>{t('chat:accounts.switching')}</Text> : null}
+                   {accountFeedback ? <Text accessibilityRole="alert" style={{ color: palette.text }}>{accountFeedback}</Text> : null}
+                 </View>
+               ) : null}
               <View style={[styles.searchShell, { backgroundColor: palette.background, borderColor: palette.border }]}>
                 <MaterialCommunityIcons name="magnify" size={20} color={palette.muted} />
                 <TextInput

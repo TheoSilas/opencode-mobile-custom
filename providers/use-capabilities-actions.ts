@@ -218,8 +218,18 @@ export function useCapabilitiesActions({
   }, [client, configureProvider]);
 
   const activateProviderAccount = useCallback(async (credentialId: string) => {
-    if (!client.accounts) throw new Error('Managing multiple provider accounts requires OpenCode 2.');
-    await client.accounts.activate(credentialId);
+    await import('@/providers/services/capabilities-service').then((service) => service.activateVerifiedAccount(client, credentialId));
+    await refreshChatCapabilities();
+  }, [client, refreshChatCapabilities]);
+
+  const refreshProviderAccounts = useCallback(async () => {
+    if (!client.accounts) return;
+    await client.accounts.list();
+    await refreshChatCapabilities();
+  }, [client, refreshChatCapabilities]);
+
+  const renameProviderAccount = useCallback(async (credentialId: string, label: string) => {
+    await import('@/providers/services/capabilities-service').then((service) => service.renameVerifiedAccount(client, credentialId, label));
     await refreshChatCapabilities();
   }, [client, refreshChatCapabilities]);
 
@@ -300,6 +310,8 @@ export function useCapabilitiesActions({
     cancelProviderOAuth,
     addProviderAccount,
     activateProviderAccount,
+    refreshProviderAccounts,
+    renameProviderAccount,
     removeProviderAccount,
     updateChatPreferences,
     setAutoApprove,

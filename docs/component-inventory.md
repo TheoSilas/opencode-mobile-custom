@@ -2,6 +2,18 @@
 
 ## Chat attachments and pending messages
 
+The composer attachment button offers Photo library and Files. The photo picker
+normalizes its result into the same attachment tiles, preview, remove, combined
+text/file submission and failed-send recovery as document picks. Images require
+the selected model's image input capability and still obey client/server limits.
+The model sheet displays the server's active account for its selected provider,
+re-reads it on opening, supports server-confirmed account activation and renaming, and explains that
+activation affects later server requests across chats/clients.
+
+Settings has a project-scoped Cross-chat project memory section: switch,
+view/edit, and clear. It explains that the shared record is a brief local
+project handoff rather than a full chat transcript or source-code permission.
+
 `attachment-strip.tsx` renders shared 56 px square tiles in the composer,
 pending stack and message cards, above each message's text. Images fill the tile;
 audio and documents use icons. Filename labels remain available to assistive

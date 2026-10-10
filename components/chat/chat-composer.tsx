@@ -10,7 +10,8 @@ import { AttachmentStrip } from '@/components/chat/attachment-strip';
 import { ModelPicker } from '@/components/chat/model-picker';
 import { styles, slimStyles } from '@/components/chat/chat-view-styles';
 import { getAutoApproveIcon, REASONING_OPTIONS } from '@/components/chat/chat-view-utils';
-import type { AgentOption, ChatPreferences, ModelOption } from '@/providers/opencode-provider';
+import type { AgentOption, ChatPreferences, ModelOption, ProviderOption } from '@/providers/opencode-provider';
+import type { CapabilitiesContextValue } from '@/providers/opencode-provider-types';
 import type { Command } from '@/lib/opencode/types';
 
 type Palette = typeof Colors.light;
@@ -20,6 +21,8 @@ type Attachment = { uri: string; mime?: string; filename?: string };
 type ChatComposerProps = {
   attachments: Attachment[];
   availableAgents: AgentOption[];
+  configuredProviders?: ProviderOption[];
+  providerAccounts?: CapabilitiesContextValue['providerAccounts'];
   chatPreferences: ChatPreferences;
   connectionStatus: 'idle' | 'connecting' | 'connected' | 'error';
   conversation: { active: boolean; isListening: boolean; phase: string; statusLabel?: string };
@@ -30,7 +33,7 @@ type ChatComposerProps = {
   isStoppingSession: boolean;
   isUpdatingAutoApprove: boolean;
   autoApproveAvailable?: boolean;
-  onAttach: () => void;
+  onAttach: (source: 'photos' | 'files') => void;
   onDraftChange: (value: string) => void;
   onRemoveAttachment: (index: number) => void;
   onSend: () => void;
@@ -51,6 +54,8 @@ type ChatComposerProps = {
 export function ChatComposer({
   attachments,
   availableAgents,
+  configuredProviders,
+  providerAccounts,
   chatPreferences,
   connectionStatus,
   conversation,
@@ -108,6 +113,8 @@ export function ChatComposer({
       onReasoningChange={(reasoning) => updateChatPreferences({ reasoning })}
       disabled={visibleModels.length === 0}
       models={visibleModels}
+      providers={configuredProviders}
+      accountActions={providerAccounts}
       onSelect={(model) => updateChatPreferences({ providerId: model.providerID, modelId: model.id })}
       recentModelIds={chatPreferences.recentModelIds}
       selectedModelId={chatPreferences.modelId}
@@ -132,6 +139,9 @@ export function ChatComposer({
       ) : null}
 
       {attachments.length > 0 ? <AttachmentStrip attachments={attachments} onRemove={onRemoveAttachment} /> : null}
+      {attachments.some((attachment) => attachment.mime?.startsWith('image/'))
+        && !visibleModels.find((model) => model.id === chatPreferences.modelId)?.inputModalities?.includes('image')
+        ? <Text style={{ color: palette.danger }}>{t('chat:accounts.imageUnsupported')}</Text> : null}
 
       {draft.startsWith('/') && !draft.includes(' ') && commands.length > 0 ? (
         <View style={styles.attachmentRow}>
@@ -193,15 +203,20 @@ export function ChatComposer({
         />
         {fontScale > 1.3 ? <View>{modelPicker}</View> : null}
         <View style={styles.composerToolbar}>
-          <IconButton
-            testID="chat-attach-button"
-            accessibilityLabel={t('chat:composer.attachFiles')}
-            icon="plus"
-            size={24}
-            iconColor={palette.text}
-            containerColor="transparent"
-            style={styles.composerActionButton}
-            onPress={onAttach}
+          <NativeSelect<'photos' | 'files'>
+            options={[{ value: 'photos', label: t('chat:accounts.photos') }, { value: 'files', label: t('chat:accounts.files') }]}
+            onValueChange={onAttach}
+            title={t('chat:composer.attachFiles')}
+            renderTrigger={({ open }) => <IconButton
+              testID="chat-attach-button"
+              accessibilityLabel={t('chat:composer.attachFiles')}
+              icon="plus"
+              size={24}
+              iconColor={palette.text}
+              containerColor="transparent"
+              style={styles.composerActionButton}
+              onPress={open}
+            />}
           />
           {autoApproveAvailable ? (
             <IconButton

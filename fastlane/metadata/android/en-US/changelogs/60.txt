@@ -1,0 +1,3 @@
+Choose photos directly from chat and preview them before sending.
+See and switch the active provider account from the model picker, with server-confirmed changes and account names.
+Keep an editable, project-specific handoff summary across chats, with a separate sharing switch for each project.

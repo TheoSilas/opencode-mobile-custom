@@ -16,6 +16,7 @@ import { getSelectedModelParts } from '@/providers/opencode-model-selection';
 import type { ChatPreferences } from '@/providers/opencode-preferences';
 import { buildSystemPrompt } from '@/providers/opencode-preferences';
 import type { SessionRefreshOptions } from '@/providers/opencode-provider-events';
+import type { useProjectMemory } from '@/providers/use-project-memory';
 
 type TrackedPendingNotification = {
   sessionId: string;
@@ -46,6 +47,7 @@ type PromptLifecycleInput = {
   refreshSessionTodos: (sessionId: string) => Promise<unknown>;
   scheduleSessionRefresh: (sessionId: string, options?: SessionRefreshOptions) => void;
   summarizeSessionTitle: (sessionId: string, knownSessions?: Session[]) => Promise<Session | undefined>;
+  projectMemory: Pick<ReturnType<typeof useProjectMemory>, 'introFor' | 'markSent'>;
 };
 
 export function usePromptLifecycle({
@@ -71,6 +73,7 @@ export function usePromptLifecycle({
   refreshSessionTodos,
   scheduleSessionRefresh,
   summarizeSessionTitle,
+  projectMemory,
 }: PromptLifecycleInput) {
   const [sendingState, setSendingState] = useState<{ sessionId?: string; active: boolean }>({ active: false });
   const [promptError, setPromptError] = useState<{ message: string; occurredAt: number; sessionId?: string }>();
@@ -171,8 +174,10 @@ export function usePromptLifecycle({
         }
 
         const parts: (TextPartInput | FilePartInput)[] = [];
-        if (trimmedPrompt) {
-          parts.push({ type: 'text', text: trimmedPrompt });
+        const handoff = await projectMemory.introFor(sessionId);
+        if (!isCurrentClient(client)) return false;
+        if (trimmedPrompt || handoff) {
+          parts.push({ type: 'text', text: handoff ? `${handoff}\n\n${trimmedPrompt}` : trimmedPrompt });
         }
         parts.push(...preparedFileParts);
 
@@ -184,6 +189,7 @@ export function usePromptLifecycle({
           parts,
         }, chatPreferences.promptDelivery ?? 'steer');
         promptAccepted = true;
+        if (handoff) projectMemory.markSent(sessionId);
         if (promptSubmissionRef.current.sessionId === sessionId) {
           promptSubmissionRef.current = { active: false, sessionId: undefined };
         }
@@ -243,7 +249,7 @@ export function usePromptLifecycle({
         ));
       }
     },
-    [activeProjectPath, availableModels, busyNotificationsRef, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, pendingNotificationsRef, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, setCurrentSessionId, setPromptError, setSelectedDiffMessageBySession, settingsRef, submitPrompt, summarizeSessionTitle],
+    [activeProjectPath, availableModels, busyNotificationsRef, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, pendingNotificationsRef, projectMemory, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, setCurrentSessionId, setPromptError, setSelectedDiffMessageBySession, settingsRef, submitPrompt, summarizeSessionTitle],
   );
 
   const abortSession = useCallback(

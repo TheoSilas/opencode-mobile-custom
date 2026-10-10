@@ -107,6 +107,10 @@ export function buildCapabilitiesApi({ api, ctx, vcsLocation, ok }: V2Adapter): 
         await api.credential.activate({ ...vcsLocation, credentialID: credentialId });
         return ok(undefined);
       },
+      rename: async (credentialId: string, label: string) => {
+        await api.credential.update({ credentialID: credentialId, label });
+        return ok(undefined);
+      },
       remove: async (credentialId: string) => {
         await api.credential.remove({ ...vcsLocation, credentialID: credentialId });
         return ok(undefined);

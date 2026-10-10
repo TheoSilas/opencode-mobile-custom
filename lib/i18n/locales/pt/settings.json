@@ -1,4 +1,5 @@
 {
+  "projectMemory": { "title": "Memória compartilhada do projeto", "on": "Resumo ativado", "off": "Resumo desativado", "enabled": "Compartilhar resumo entre conversas", "explanation": "Compartilha apenas um resumo breve, não o histórico completo. Isto não afeta o código compartilhado. Fica neste dispositivo para este servidor e projeto.", "noProject": "Selecione um espaço de trabalho.", "offHint": "Desativar interrompe a leitura e inclusão automática; preserva o registro e o histórico de cada conversa.", "viewEdit": "Ver / editar registro", "decisions": "Decisões importantes", "progress": "Progresso verificado", "tests": "Testes, resultados e datas", "nextSteps": "Pendências e próximos passos", "testHint": "Registre somente fatos verificados; date os testes e mantenha pendências não resolvidas.", "updated": "Atualizado", "save": "Salvar", "clear": "Limpar registro", "clearConfirm": "Limpar o registro deste projeto? Os chats serão mantidos.", "saved": "Salvo para este projeto.", "cleared": "Registro limpo.", "failed": "Não foi possível atualizar o registro." },
   "screen": {
     "categories": {
       "connection": "Conexão",

@@ -39,7 +39,7 @@ export function ChatView() {
     setCopiedMessageId, setDiffScope, setDraft, setExpandedDiffId, setIsUpdatingAutoApprove,
     setProgressVisible, setSendFeedback, setSessionMenuVisible, setVoiceFeedback, showSendAction,
     slim, speakingMessageId, toggleConversationMode, transcriptPaging, unrevertSession,
-    updateChatPreferences, visibleModels, voiceFeedback, voiceRecoveryAction,
+    updateChatPreferences, visibleModels, voiceFeedback, voiceRecoveryAction, configuredProviders, providerAccounts,
   } = useChatViewController();
 
   const progressAction = !awaitingUserInput && currentTodos.length > 0 ? (
@@ -211,6 +211,8 @@ export function ChatView() {
         <ChatComposer
           key={`${currentSessionId}:${currentPendingPermissions.map((item) => item.id).join()}:${currentPendingQuestions.map((item) => item.id).join()}`}
           attachments={attachments}
+          configuredProviders={configuredProviders}
+          providerAccounts={providerAccounts}
           autoApproveAvailable={serverCapabilities.configWrite}
           availableAgents={availableAgents}
           chatPreferences={chatPreferences}
@@ -225,7 +227,7 @@ export function ChatView() {
           isStoppingSession={isStoppingSession}
           isUpdatingAutoApprove={isUpdatingAutoApprove}
           onToggleConversationMode={() => void toggleConversationMode()}
-          onAttach={() => void handleAttach()}
+          onAttach={(source) => void handleAttach(source)}
           onDraftChange={(value) => {
             setSendFeedback(undefined);
             setDraft(value);
