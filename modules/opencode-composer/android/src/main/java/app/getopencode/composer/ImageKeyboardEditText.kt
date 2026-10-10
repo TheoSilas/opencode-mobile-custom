@@ -24,9 +24,9 @@ import expo.modules.kotlin.viewevent.EventDispatcher
  * they enter the same attachment preview/send flow as gallery and document picks.
  */
 class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
-  private val onImageInsert by EventDispatcher<Map<String, Any>>()
-  private val onChangeText by EventDispatcher<Map<String, Any>>()
-  private val onContentSizeChange by EventDispatcher<Map<String, Any>>()
+  private val onImageInsert by EventDispatcher<ImageInsertEvent>()
+  private val onChangeText by EventDispatcher<TextChangeEvent>()
+  private val onContentSizeChange by EventDispatcher<ContentSizeEvent>()
 
   /** When true, advertise image MIME types to the IME so its image panel can insert. */
   var supportsImageInsertion: Boolean = false
@@ -38,7 +38,7 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
 
     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
       if (!isSettingTextFromJS) {
-        onChangeText(mapOf("text" to (s?.toString() ?: "")))
+        onChangeText(TextChangeEvent(s?.toString() ?: ""))
         notifyContentSizeChange()
       }
     }
@@ -102,7 +102,7 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
   private fun notifyContentSizeChange() {
     val lineHeight = lineHeight.takeIf { it > 0 } ?: textSize.toInt()
     val contentHeight = (lineCount.takeIf { it > 0 } ?: 1) * lineHeight + compoundPaddingTop + compoundPaddingBottom
-    onContentSizeChange(mapOf("width" to width, "height" to contentHeight))
+    onContentSizeChange(ContentSizeEvent(width, contentHeight))
   }
   override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
     var connection = super.onCreateInputConnection(outAttrs)
@@ -114,7 +114,7 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
             inputContentInfo.requestPermission()
             val uri = inputContentInfo.contentUri
             val mimeType = context.contentResolver.getType(uri) ?: "image/*"
-            onImageInsert(mapOf("uri" to uri.toString(), "mimeType" to mimeType))
+            onImageInsert(ImageInsertEvent(uri.toString(), mimeType))
             true
           } catch (_: Throwable) {
             false
