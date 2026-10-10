@@ -33,6 +33,15 @@ layout, safe areas and screen-reader actions on iOS and Android.
 
 ## Current Strategy
 
+Android 1.0.61 device crash logs identified Expo's reflective view creation
+failure (`Didn't find a correct constructor`). Inspection of the shipped APK
+confirmed R8 removed the `ImageKeyboardEditText(Context)` constructor and made
+the class abstract. The composer module now ships a consumer ProGuard rule to
+keep that class and constructor, because the Expo defaults only protect
+`ExpoView` subclasses. For the corrected release, inspect the minified APK for
+the public Context constructor and verify cold launch on the affected device;
+successful compilation and web E2E alone do not establish startup acceptance.
+
 `tests/vitest/project-memory.test.ts` covers scoped record reads, one-time
 handoff inclusion, disabled-record retention, and switching servers/projects.
 `tests/vitest/gallery-attachment.test.ts` checks gallery and file picks share

@@ -1,0 +1,1 @@
+Fix an Android startup crash caused by release optimization removing the chat input constructor.
