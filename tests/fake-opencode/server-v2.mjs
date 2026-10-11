@@ -462,6 +462,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && pathname === '/api/experimental/generate') {
+      const body = await readJson(req);
+      if (typeof body?.prompt !== 'string') return sendJson(res, 400, { error: 'prompt required' });
+      const match = body.prompt.match(/User message: ("(?:\\.|[^"\\])*")/);
+      let message = '';
+      try { message = match ? JSON.parse(match[1]) : ''; } catch { /* Reject malformed quoted input below. */ }
+      const memories = /prefer concise replies/i.test(message) ? ['User prefers concise replies.'] : [];
+      sendJson(res, 200, { text: JSON.stringify({ memories }) });
+      return;
+    }
+
     if (req.method === 'GET' && pathname === '/api/credential') {
       sendJson(res, 200, { data: state.credentials });
       return;

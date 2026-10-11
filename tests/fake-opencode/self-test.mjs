@@ -290,6 +290,8 @@ try {
 
   const v2Info = await v2request('/api/info');
   assert(v2Info.version === '2.0.0-fake', 'V2 server info missing');
+  const memoryCandidate = await v2request('/api/experimental/generate', json('POST', { prompt: 'User message: "I prefer concise replies"' }));
+  assert(JSON.parse(memoryCandidate.text).memories[0] === 'User prefers concise replies.', 'V2 stateless memory extraction missing');
   const initialProviders = (await v2request('/api/provider')).data;
   assert(initialProviders.length === 1 && initialProviders[0].id === 'openai', 'V2 lists active providers, not its unconnected catalog');
   const integrations = (await v2request('/api/integration')).data;

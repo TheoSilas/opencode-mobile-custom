@@ -41,6 +41,7 @@ import type { useConnectionActions } from '@/providers/use-connection-actions';
 import type { useConversationState } from '@/providers/use-conversation-state';
 import type { usePromptLifecycle } from '@/providers/use-prompt-lifecycle';
 import type { useProjectMemory } from '@/providers/use-project-memory';
+import type { usePersonalMemory } from '@/providers/use-personal-memory';
 import type { useHiddenProjects } from '@/providers/use-hidden-projects';
 import type { useSessionActions } from '@/providers/use-session-actions';
 import type { useWorkspaceActions } from '@/providers/use-workspace-actions';
@@ -55,6 +56,7 @@ type ActionInputs =
 
 export type ProviderValuesInput = ActionInputs & {
   projectMemory: ReturnType<typeof useProjectMemory>;
+  personalMemory: ReturnType<typeof usePersonalMemory>;
   isHydrated: boolean;
   onboardingCompleted: boolean;
   onboardingActive: boolean;

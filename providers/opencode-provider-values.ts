@@ -68,6 +68,7 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     setAutoApprove,
     chatPreferences,
     projectMemory,
+    personalMemory,
     updateChatPreferences,
     projects,
     projectVisibility,
@@ -310,8 +311,8 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const preferencesValue = useMemo<PreferencesContextValue>(
-    () => ({ chatPreferences, updateChatPreferences, projectMemory }),
-    [chatPreferences, updateChatPreferences, projectMemory],
+    () => ({ chatPreferences, updateChatPreferences, projectMemory: { ...projectMemory, personal: personalMemory } }),
+    [chatPreferences, updateChatPreferences, projectMemory, personalMemory],
   );
 
   const projectsValue = useMemo<ProjectsContextValue>(

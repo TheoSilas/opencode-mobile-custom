@@ -45,6 +45,7 @@ import { usePromptLifecycle } from '@/providers/use-prompt-lifecycle';
 import { useConnectionActions } from '@/providers/use-connection-actions';
 import { useOpencodeProviderValues } from '@/providers/opencode-provider-values';
 import { useProjectMemory } from '@/providers/use-project-memory';
+import { usePersonalMemory } from '@/providers/use-personal-memory';
 import { useHiddenProjects } from '@/providers/use-hidden-projects';
 
 export type {
@@ -192,6 +193,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const transcript = useTranscriptState({ ...state, client, isCurrentClient });
   const inbox = usePromptInbox({ client, isCurrentClient, refreshMessages: transcript.refreshMessages });
   const projectMemory = useProjectMemory(state.connectionScope, state.activeProjectPath);
+  const personalMemory = usePersonalMemory(state.connectionScope);
   const promptMemory = useMemo(() => ({ introFor: projectMemory.introFor, markSent: projectMemory.markSent }), [projectMemory.introFor, projectMemory.markSent]);
   const terminal = useTerminalState({
     ...state,
@@ -275,6 +277,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
   const prompt = usePromptLifecycle({
     submitPrompt: inbox.submitPrompt,
     projectMemory: promptMemory,
+    personalMemory,
     ...state,
     ...workspace,
     client,
@@ -405,6 +408,7 @@ export function OpencodeProvider({ children }: PropsWithChildren) {
     ...sessionActions,
     ...capabilities,
     projectMemory,
+    personalMemory,
     ...prompt,
     ...connectionActions,
     activeSessions: activeSessionsHook.activeSessions,

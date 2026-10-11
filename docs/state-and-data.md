@@ -101,6 +101,20 @@ locally. On OpenCode 2 the model sheet surfaces the account entry even when the
 provider has no stored accounts, showing an explicit empty state (or the refresh
 failure reason) instead of hiding the entry; V1 keeps no account entry.
 
+Personal memory is separate from project handoffs. On OpenCode 2, after an
+accepted text prompt, the V2 stateless generation endpoint considers only that
+user message and existing short memory items for stable, explicitly stated
+preferences/background. This extra model call does not mutate session history;
+failed or malformed extraction does not block prompt sending. At most three
+new items per message are stored, with 20 short items per connection scope on
+this device. The user can review, edit, clear, or disable them in Settings.
+The current memory is added to prompt instructions for chats in any project on
+the same server, and the current request takes precedence on conflict. Disabling
+stops both extraction and future injection while retaining the saved items;
+clearing deletes the items. OpenCode 1 has no stateless extraction API and can
+still edit and use items manually. This does not scan past chats, automatically
+sync between devices, or alter already-submitted messages.
+
 Project handoff records and their enabled switches are stored in AsyncStorage
 under separate connection-scope + directory keys. Each project defaults to
 enabled; turning it off leaves its record intact but stops automatic reads and
@@ -319,6 +333,7 @@ Persisted values:
 - `opencode-mobile.connect-control-plane` (last automatically resolved Cloud Link environment; defaults to production, accepts only production/staging, hydrated before pairing/Cloud Link startup)
 - `opencode-mobile.connection-profiles` (saved connections with name and optional per-profile model selection; passwords live in secure storage)
 - `opencode-mobile.chat-preferences` (chat preferences, including the global UI `language`; not connection-scoped)
+- `opencode-mobile.personal-memory.<connectionScope>` (enabled switch and bounded personal memory items; never credentials)
 - `opencode-mobile.active-project`
 - `opencode-mobile.onboarding-version` (completion-only first-run marker; see below)
 - `opencode-mobile.last-session-by-project` (nested `connectionScope -> projectPath -> sessionId`; legacy flat maps are discarded on hydration)

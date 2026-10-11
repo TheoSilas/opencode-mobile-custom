@@ -27,6 +27,7 @@ import {
 import { useNotificationSetup } from '@/components/settings/use-notification-setup';
 import { useProviderConfiguration } from '@/components/settings/use-provider-configuration';
 import { ProjectMemorySection } from '@/components/settings/project-memory-section';
+import { PersonalMemorySection } from '@/components/settings/personal-memory-section';
 import { useVoiceSetup } from '@/components/settings/use-voice-setup';
 import {
   getProviderCopy,
@@ -58,6 +59,7 @@ export default function SettingsScreen() {
   const { availableModels, availableProviders, configuredProviders, currentConfig, providerAccounts, providerAuthMethodsById, removeProvider } = useCapabilities();
   const { addMcpServer, completeMcpOAuth, connectMcpServer, disconnectMcpServer, mcpStatuses, refreshMcpServers, setMcpServerEnabled, startMcpOAuth } = useMcp();
   const { chatPreferences, updateChatPreferences, projectMemory } = usePreferences();
+  const personalMemory = projectMemory.personal;
   const { activeProjectPath } = useProjects();
   const { connect, connection, serverCapabilities, connectSetup } = useConnection();
   const { diagnostics, eventStreamStatus, refreshDiagnostics } = useDiagnostics();
@@ -178,10 +180,10 @@ export default function SettingsScreen() {
     {
       id: 'project-memory',
       icon: 'notebook-outline',
-      title: t('settings:projectMemory.title'),
-      summary: projectMemory.enabled ? t('settings:projectMemory.on') : t('settings:projectMemory.off'),
+       title: t('settings:personalMemory.category'),
+       summary: personalMemory.enabled ? t('settings:projectMemory.on') : t('settings:projectMemory.off'),
       onPress: () => setOpenSection('project-memory'),
-      render: () => <ProjectMemorySection key={projectMemory.scope} memory={projectMemory} projectPath={activeProjectPath} />,
+       render: () => <><PersonalMemorySection key={personalMemory.scope} memory={personalMemory} supported={serverCapabilities.contract === 'v2'} /><ProjectMemorySection key={projectMemory.scope} memory={projectMemory} projectPath={activeProjectPath} /></>,
     },
     {
       id: 'notifications',

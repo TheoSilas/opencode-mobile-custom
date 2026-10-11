@@ -17,6 +17,7 @@ import type { ChatPreferences } from '@/providers/opencode-preferences';
 import { buildSystemPrompt } from '@/providers/opencode-preferences';
 import type { SessionRefreshOptions } from '@/providers/opencode-provider-events';
 import type { useProjectMemory } from '@/providers/use-project-memory';
+import type { usePersonalMemory } from '@/providers/use-personal-memory';
 
 type TrackedPendingNotification = {
   sessionId: string;
@@ -48,6 +49,7 @@ type PromptLifecycleInput = {
   scheduleSessionRefresh: (sessionId: string, options?: SessionRefreshOptions) => void;
   summarizeSessionTitle: (sessionId: string, knownSessions?: Session[]) => Promise<Session | undefined>;
   projectMemory: Pick<ReturnType<typeof useProjectMemory>, 'introFor' | 'markSent'>;
+  personalMemory: Pick<ReturnType<typeof usePersonalMemory>, 'intro' | 'learn'>;
 };
 
 export function usePromptLifecycle({
@@ -74,6 +76,7 @@ export function usePromptLifecycle({
   scheduleSessionRefresh,
   summarizeSessionTitle,
   projectMemory,
+  personalMemory,
 }: PromptLifecycleInput) {
   const [sendingState, setSendingState] = useState<{ sessionId?: string; active: boolean }>({ active: false });
   const [promptError, setPromptError] = useState<{ message: string; occurredAt: number; sessionId?: string }>();
@@ -170,6 +173,7 @@ export function usePromptLifecycle({
 
         const parts: (TextPartInput | FilePartInput)[] = [];
         const handoff = await projectMemory.introFor(sessionId);
+        const personal = await personalMemory.intro().catch(() => '');
         if (!isCurrentClient(client)) return false;
         if (trimmedPrompt || handoff) {
           parts.push({ type: 'text', text: handoff ? `${handoff}\n\n${trimmedPrompt}` : trimmedPrompt });
@@ -180,11 +184,14 @@ export function usePromptLifecycle({
           sessionID: sessionId,
           agent: chatPreferences.mode,
           model: getSelectedModelParts(chatPreferences.modelId),
-          system: buildSystemPrompt(chatPreferences),
+          system: [buildSystemPrompt(chatPreferences), personal].filter(Boolean).join('\n\n') || undefined,
           parts,
         }, chatPreferences.promptDelivery ?? 'steer');
         promptAccepted = true;
         if (handoff) projectMemory.markSent(sessionId);
+        if (isCurrentClient(client) && trimmedPrompt) {
+          void personalMemory.learn(client, trimmedPrompt, chatPreferences.modelId).catch(() => undefined);
+        }
         if (promptSubmissionRef.current.sessionId === sessionId) {
           promptSubmissionRef.current = { active: false, sessionId: undefined };
         }
@@ -244,7 +251,7 @@ export function usePromptLifecycle({
         ));
       }
     },
-    [activeProjectPath, availableModels, busyNotificationsRef, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, pendingNotificationsRef, projectMemory, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, setCurrentSessionId, setPromptError, setSelectedDiffMessageBySession, settingsRef, submitPrompt, summarizeSessionTitle],
+    [activeProjectPath, availableModels, busyNotificationsRef, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, pendingNotificationsRef, personalMemory, projectMemory, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, setCurrentSessionId, setPromptError, setSelectedDiffMessageBySession, settingsRef, submitPrompt, summarizeSessionTitle],
   );
 
   const abortSession = useCallback(

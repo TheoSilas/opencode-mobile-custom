@@ -33,6 +33,11 @@ distinct real-world logins.
 Settings has a project-scoped Cross-chat project memory section: switch,
 view/edit, and clear. It explains that the shared record is a brief local
 project handoff rather than a full chat transcript or source-code permission.
+The Memory category also shows personal memory above project handoff: an
+automatic-extraction switch, saved items, multiline one-item-per-line editor,
+and confirmed clear. It states the additional OpenCode 2 model call and the
+manual-only behavior on OpenCode 1. Personal items span projects on the same
+connection; the project handoff below remains project-scoped.
 
 `attachment-strip.tsx` renders shared 56 px square tiles in the composer,
 pending stack and message cards, above each message's text. Images fill the tile;

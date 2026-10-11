@@ -134,4 +134,5 @@ export type ScopedOpencodeClient = OpencodeClient & {
   providerOAuth?: ProviderOAuthApi;
   promptInbox?: PromptInboxApi;
   savedPermissions?: SavedPermissionsApi;
+  personalMemory?: { extract: (prompt: string, modelId?: string) => Promise<string> };
 };

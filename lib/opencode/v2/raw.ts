@@ -79,6 +79,11 @@ export function buildV2Raw(settings: OpencodeConnectionSettings): { client: Reco
 
   const client: Record<string, unknown> = {
     __opencode: { directory },
+    personalMemory: { extract: async (prompt: string, modelId?: string) => {
+      const [providerID, ...parts] = modelId?.split('/') ?? [];
+      const result = await api.generate.text({ prompt, ...(providerID && parts.length ? { model: { providerID, id: parts.join('/') } } : {}) });
+      return result.text;
+    } },
     ...buildProjectApi(adapter),
     ...buildSessionApi(adapter),
     ...buildCapabilitiesApi(adapter),

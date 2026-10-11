@@ -27,6 +27,7 @@ export function ProjectMemorySection({ memory, projectPath }: { memory: ReturnTy
     { key: 'nextSteps', label: t('settings:projectMemory.nextSteps') },
   ];
   return <View style={styles.section}>
+    <Text variant="titleMedium">{t('settings:projectMemory.title')}</Text>
     <Text variant="bodyMedium">{t('settings:projectMemory.explanation')}</Text>
     <Text variant="bodySmall">{projectPath || t('settings:projectMemory.noProject')}</Text>
     <View style={styles.toggle}>

@@ -2,6 +2,9 @@ export const SETTINGS_STORAGE_KEY = 'opencode-mobile.settings';
 export const CONNECT_CONTROL_PLANE_STORAGE_KEY = 'opencode-mobile.connect-control-plane';
 export const CONNECTION_PROFILES_STORAGE_KEY = 'opencode-mobile.connection-profiles';
 export const CHAT_PREFERENCES_STORAGE_KEY = 'opencode-mobile.chat-preferences';
+export function personalMemoryKey(connectionScope: string) {
+  return `opencode-mobile.personal-memory.${encodeURIComponent(connectionScope)}`;
+}
 export const ACTIVE_PROJECT_STORAGE_KEY = 'opencode-mobile.active-project';
 export function hiddenProjectsKey(connectionScope: string) {
   return `opencode-mobile.hidden-projects.${encodeURIComponent(connectionScope)}`;

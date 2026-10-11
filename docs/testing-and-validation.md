@@ -38,6 +38,15 @@ acceptance should hide a non-active workspace, switch servers, relaunch, restore
 it, and confirm that its sessions and server files were never deleted. The
 active workspace cannot be hidden from its picker row.
 
+Personal-memory tests verify bounded/validated items, server isolation,
+disable/clear and manual-edit-wins races during background extraction. The V2
+fake server supplies deterministic stateless generation and its self-test checks
+the response. Web E2E submits an explicit durable preference in one project and
+checks that the next project's prompt instructions include it. The extraction
+uses an additional model call; native acceptance must verify new prompts,
+manual edits, disabling, clearing and unsupported servers against a real API.
+Changes to fake-server and E2E need explicit human validation.
+
 Session-model selection tests normalize the server model shapes used by both
 contracts. Provider capability actions restore a valid catalog model once per actual chat
 transition rather than treating the global default as every chat's model. The

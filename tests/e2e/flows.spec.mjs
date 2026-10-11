@@ -1317,6 +1317,30 @@ test('OpenCode 2 lists provider accounts and switches the active one', async ({ 
   }
 });
 
+test('OpenCode 2 learns a personal preference and uses it in another project', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port);
+  try {
+    await waitForServer(request, `http://127.0.0.1:${port}/api/info`);
+    await openReadyChat(page);
+    await connectToServer(page, `http://127.0.0.1:${port}`);
+    await sendPrompt(page, 'I prefer concise replies');
+    await expect.poll(() => page.evaluate(() => Object.entries(localStorage)
+      .find(([key]) => key.includes('opencode-mobile.personal-memory.'))?.[1] ?? '')).toContain('User prefers concise replies.');
+
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Change workspace' }).click();
+    await page.getByRole('button', { name: 'Select secondary-project' }).click();
+    const instruction = page.waitForRequest((sent) => sent.method() === 'PUT' && sent.url().includes('/instructions/entries/')
+      && JSON.stringify(sent.postDataJSON()).includes('User prefers concise replies.'));
+    await sendPrompt(page, 'Review this project');
+    await instruction;
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
 test('OpenCode 2 adds a server workspace from the shared picker', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   const port = await getFreePort();

@@ -215,7 +215,9 @@ export type CapabilitiesContextValue = {
 export type PreferencesContextValue = {
   chatPreferences: ChatPreferences;
   updateChatPreferences: (patch: Partial<ChatPreferences>) => void;
-  projectMemory: ReturnType<typeof import('@/providers/use-project-memory').useProjectMemory>;
+  projectMemory: ReturnType<typeof import('@/providers/use-project-memory').useProjectMemory> & {
+    personal: ReturnType<typeof import('@/providers/use-personal-memory').usePersonalMemory>;
+  };
 };
 
 export type ProjectsContextValue = {
