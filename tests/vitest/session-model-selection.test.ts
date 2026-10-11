@@ -77,7 +77,7 @@ it('drives actual provider model actions across two chats without a send', async
     });
     const actions = useCapabilitiesActions({
       ...props, chatPreferences, setChatPreferences, connectionScope: 'server', activeProjectPath: '/repo',
-      sessions, availableModels: models, availableProviders: [
+      sessions, availableModels: models, availableAgents: [], availableProviders: [
         { id: 'openai', configured: true }, { id: 'deepseek', configured: true },
       ], client: {}, isCurrentClient: () => true,
     });
@@ -95,4 +95,36 @@ it('drives actual provider model actions across two chats without a send', async
   expect(runtime.value.chatPreferences.modelId).toBe('deepseek/b');
   runtime.update({ currentSessionId: 'b' });
   expect(runtime.value.chatPreferences.modelId).toBe('openai/a');
+});
+
+it('keeps Build and an unsent Plan selection in separate chats', async () => {
+  const runtime = hookRuntime();
+  const { useCapabilitiesActions } = await loadTs('providers/use-capabilities-actions.ts', {
+    react: runtime.react,
+    '@/providers/opencode-model-selection': selection,
+    '@/providers/opencode-capabilities': { isAutoApproveEnabled: () => false, mergePermissionConfig: () => ({}) },
+  });
+  const sessions = [{ id: 'a', agent: 'build' }, { id: 'b', agent: 'build' }];
+  function Driver(props: { currentSessionId: string; connectionScope: string }) {
+    const [chatPreferences, setChatPreferences] = runtime.react.useState({
+      mode: 'build', providerModelSelections: {}, recentModelIds: [], enabledModelIds: [],
+    });
+    const actions = useCapabilitiesActions({
+      ...props, chatPreferences, setChatPreferences, activeProjectPath: '/repo', sessions,
+      availableAgents: [{ id: 'build', label: 'Build' }, { id: 'plan', label: 'Plan' }],
+      availableModels: [], availableProviders: [], client: {}, isCurrentClient: () => true,
+    });
+    return { chatPreferences, actions };
+  }
+  runtime.mount(Driver, { currentSessionId: 'a', connectionScope: 'server' });
+  runtime.update({ currentSessionId: 'b' });
+  runtime.value.actions.updateChatPreferences({ mode: 'plan' });
+  runtime.flush();
+  expect(runtime.value.chatPreferences.mode).toBe('plan');
+  runtime.update({ currentSessionId: 'a' });
+  expect(runtime.value.chatPreferences.mode).toBe('build');
+  runtime.update({ currentSessionId: 'b' });
+  expect(runtime.value.chatPreferences.mode).toBe('plan');
+  runtime.update({ connectionScope: 'other', currentSessionId: 'a' });
+  expect(runtime.value.chatPreferences.mode).toBe('build');
 });

@@ -6,6 +6,7 @@ import {
   getSessionMessages,
   getSessionDiff,
   listSessions,
+  listOlderSessions,
   listArchivedSessions,
 } from '@/providers/services/session-service';
 
@@ -85,6 +86,22 @@ describe('session reads', () => {
     expect(v1.records[0].info.id).toBe('m-4280');
     expect(v1.records.at(-1)!.info.id).toBe('m-4299');
     expect(v1.nextBefore).toBe('4280');
+  });
+
+  it('follows V2 project-session cursors beyond the default first 50', async () => {
+    const first = Array.from({ length: 50 }, (_, i) => ({ id: `ses-${i}`, time: { created: 0, updated: 100 - i }, location: { directory: '/repo' } }));
+    const older = [{ id: 'ses-50', time: { created: 0, updated: 1 }, location: { directory: '/repo' } }];
+    const list = vi.spyOn(api.session, 'list');
+    list.mockResolvedValueOnce({ data: first, cursor: { next: 'opaque-50' } } as never);
+    const result = await listSessions(client);
+    expect(result.sessions).toHaveLength(50);
+    expect(result.nextCursor).toBe('opaque-50');
+    list.mockResolvedValueOnce({ data: older, cursor: { next: null } } as never);
+    const next = await listOlderSessions(client, result.nextCursor!);
+    expect(list).toHaveBeenLastCalledWith({ directory: '/repo', cursor: 'opaque-50' });
+    expect(next.sessions[0].id).toBe('ses-50');
+    expect(next.nextCursor).toBeUndefined();
+    list.mockRestore();
   });
 
   it('does not report idle when the V2 active-session read fails', async () => {

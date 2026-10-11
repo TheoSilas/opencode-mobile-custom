@@ -291,7 +291,7 @@ try {
   const v2Info = await v2request('/api/info');
   assert(v2Info.version === '2.0.0-fake', 'V2 server info missing');
   const memoryCandidate = await v2request('/api/experimental/generate', json('POST', { prompt: 'User message: "I prefer concise replies"' }));
-  assert(JSON.parse(memoryCandidate.text).memories[0] === 'User prefers concise replies.', 'V2 stateless memory extraction missing');
+  assert(JSON.parse(memoryCandidate.data?.text).memories[0] === 'User prefers concise replies.', 'V2 stateless memory extraction missing');
   const initialProviders = (await v2request('/api/provider')).data;
   assert(initialProviders.length === 1 && initialProviders[0].id === 'openai', 'V2 lists active providers, not its unconnected catalog');
   const integrations = (await v2request('/api/integration')).data;
@@ -313,6 +313,8 @@ try {
   assert(missingPrompt.status === 404, 'V2 prompts must reject a missing session');
 
   const v2Api = OpenCode.make({ baseUrl: v2Origin });
+  const sdkMemory = await v2Api.generate.text({ prompt: 'User message: "I prefer concise replies"' });
+  assert(JSON.parse(sdkMemory.text).memories[0] === 'User prefers concise replies.', 'V2 SDK must decode stateless memory extraction');
   for (const directory of ['/workspace/demo-project', '/workspace/secondary-project']) {
     const listed = await v2Api.file.list({ location: { directory }, path: 'src' });
     assert(listed.data.some((entry) => entry.path === 'src/demo.ts'), 'V2 directory entries must be relative to the workspace');

@@ -111,6 +111,7 @@ export function ChatView() {
           isRefreshingDiffs={isRefreshingDiffs}
           isRefreshingMessages={isRefreshingMessages}
           onCopyMessage={(entry) => void handleCopyMessage(entry)}
+          onCodeCopy={() => setCopiedMessageId('__code__')}
           onExpandDiff={setExpandedDiffId}
           onRefresh={() => void refreshCurrentSession()}
           onRefreshDiffs={() => void refreshDiffs()}
@@ -273,7 +274,7 @@ export function ChatView() {
       <ChatLibrary visible={sessionMenuVisible} onClose={() => setSessionMenuVisible(false)} />
 
       <Snackbar visible={Boolean(copiedMessageId)} onDismiss={() => setCopiedMessageId(undefined)} duration={1800}>
-        {copiedMessageId === '__send-error__' ? t('chat:view.errorDetailsCopied') : t('chat:view.messageCopied')}
+        {copiedMessageId === '__send-error__' ? t('chat:view.errorDetailsCopied') : copiedMessageId === '__code__' ? t('chat:cards.copied') : t('chat:view.messageCopied')}
       </Snackbar>
       <Snackbar
         visible={Boolean(conversation.feedback || voiceFeedback)}

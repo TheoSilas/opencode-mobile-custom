@@ -51,6 +51,9 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
       if (!isSettingTextFromJS) {
         onChangeText(TextChangeEvent(s?.toString() ?: ""))
         notifyContentSizeChange()
+        // TextWatcher fires before TextView has finalized the caret and layout.
+        // Once it has, scroll the fixed-height composer to the insertion point.
+        post { if (hasFocus()) bringPointIntoView(selectionEnd.coerceAtLeast(0)) }
       }
     }
 
@@ -109,6 +112,7 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
   override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
     super.onSizeChanged(w, h, oldw, oldh)
     notifyContentSizeChange()
+    post { if (hasFocus()) bringPointIntoView(selectionEnd.coerceAtLeast(0)) }
   }
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {

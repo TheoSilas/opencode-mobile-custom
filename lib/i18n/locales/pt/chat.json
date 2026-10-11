@@ -110,6 +110,7 @@
     "requestedBy": "Solicitado por {{name}}"
   },
   "composer": {
+    "expandDraft": "Expandir rascunho",
     "chooseAssistantMode": "Escolha o modo do assistente",
     "chooseReasoningLevel": "Escolha o nível de raciocínio",
     "autoApproveEnabled": "Aprovar automaticamente",
@@ -157,6 +158,7 @@
     "modelTokens": "{{input}} entrada  {{output}} saída  {{reasoning}} raciocínio  {{cacheRead}} leitura de cache  {{cacheWrite}} escrita de cache  {{steps}} etapas"
   },
   "library": {
+    "loadOlderChats": "Carregar conversas antigas",
     "title": "Chats",
     "searchPlaceholder": "Buscar chats",
     "chooseWorkspace": "Escolha um espaço de trabalho",

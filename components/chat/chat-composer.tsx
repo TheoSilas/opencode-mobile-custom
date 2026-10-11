@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Keyboard, Platform, Text as NativeText, useWindowDimensions, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Modal, Platform, Text as NativeText, useWindowDimensions, View } from 'react-native';
 import { Chip, IconButton, Surface, Text, useTheme } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
 import { TextInput } from '@/components/ui/text-input';
@@ -103,6 +104,7 @@ export function ChatComposer({
   const reasoningLabel = t(REASONING_OPTIONS.find((option) => option.id === chatPreferences.reasoning)?.labelKey || 'chat:composer.chooseReasoningLevel');
 
   const [inputHeight, setInputHeight] = useState(minInputHeight);
+  const [expanded, setExpanded] = useState(false);
   const displayedInputHeight = draft ? Math.min(maxInputHeight, Math.max(minInputHeight, inputHeight)) : minInputHeight;
   const inputTextStyle = [styles.composerTextArea, slim && { fontSize: 15 }];
   function updateInputHeight(height: number) {
@@ -129,6 +131,21 @@ export function ChatComposer({
   );
 
   return (
+    <>
+    <Modal visible={expanded} animationType="slide" onRequestClose={() => setExpanded(false)}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
+        <KeyboardAvoidingView style={{ flex: 1, padding: 12 }} behavior="padding">
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text variant="titleMedium">{t('chat:composer.expandDraft')}</Text>
+            <IconButton accessibilityLabel={t('common:actions.close')} icon="check" onPress={() => setExpanded(false)} />
+          </View>
+          <TextInput testID="chat-expanded-input" mode="outlined" multiline autoFocus scrollEnabled
+            editable={!isSpeechInputListening} value={draft} onChangeText={onDraftChange}
+            placeholder={t('chat:composer.placeholder')} textAlignVertical="top"
+            style={{ flex: 1, color: palette.text }} contentStyle={{ flex: 1, textAlignVertical: 'top' }} />
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </Modal>
     <Surface
       style={[styles.composer, slim && slimStyles.composer, { backgroundColor: palette.background, borderTopWidth: 0 }]}
       elevation={0}>
@@ -226,6 +243,9 @@ export function ChatComposer({
         )}
         {fontScale > 1.3 ? <View>{modelPicker}</View> : null}
         <View style={styles.composerToolbar}>
+          <IconButton testID="chat-expand-draft" accessibilityLabel={t('chat:composer.expandDraft')}
+            icon="arrow-expand" size={slim ? 18 : 20} iconColor={palette.text}
+            style={styles.composerActionButton} onPress={() => { Keyboard.dismiss(); setExpanded(true); }} />
           <NativeSelect<'photos' | 'files'>
             options={[{ value: 'photos', label: t('chat:accounts.photos') }, { value: 'files', label: t('chat:accounts.files') }]}
             onValueChange={onAttach}
@@ -306,5 +326,6 @@ export function ChatComposer({
         </View>
       </View>
     </Surface>
+    </>
   );
 }

@@ -16,7 +16,7 @@ function openMarkdownLink(url: string) {
   void Linking.openURL(url).catch(() => undefined);
 }
 
-function MarkdownTextImpl({ text, color, fontSize, mutedColor }: { text: string; color: string; fontSize: number; mutedColor: string }) {
+function MarkdownTextImpl({ text, color, fontSize, mutedColor, onCodeCopy }: { text: string; color: string; fontSize: number; mutedColor: string; onCodeCopy?: () => void }) {
   const scale = fontSize / 16;
   const markdownStyle = useMemo<MarkdownStyle>(() => ({
     paragraph: { fontSize, color, lineHeight: 26 * scale },
@@ -55,6 +55,7 @@ function MarkdownTextImpl({ text, color, fontSize, mutedColor }: { text: string;
       containerStyle={{ alignSelf: 'stretch', minWidth: 0 }}
       markdownStyle={markdownStyle}
       onLinkPress={({ url }) => openMarkdownLink(url)}
+      onCopyPress={onCodeCopy}
     />
   );
 }

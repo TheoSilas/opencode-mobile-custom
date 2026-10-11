@@ -45,6 +45,7 @@ type ChatContentProps = {
   isRefreshingDiffs: boolean;
   isRefreshingMessages: boolean;
   onCopyMessage: (entry: TranscriptEntry) => void;
+  onCodeCopy: () => void;
   onForkMessage: (messageId: string) => void;
   onRevertMessage: (messageId: string) => void;
   onUnrevert: () => void;
@@ -83,6 +84,7 @@ export function ChatContent({ ...props }: ChatContentProps) {
         isLoadingOlderMessages={props.isLoadingOlderMessages}
         isRefreshingMessages={props.isRefreshingMessages}
         onCopyMessage={props.onCopyMessage}
+        onCodeCopy={props.onCodeCopy}
         onForkMessage={props.onForkMessage}
         onLoadOlderMessages={props.onLoadOlderMessages}
         onRefresh={props.onRefresh}

@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Keyboard, Platform } from 'react-native';
+import { Keyboard } from 'react-native';
 
 import { type TranscriptEntry } from '@/lib/opencode/format';
 import { getTranscriptActivityLabel, getUserTurnForMessage, isTranscriptDisplayMessage } from '@/lib/opencode/transcript';
@@ -37,14 +37,15 @@ export function useChatViewController() {
   const {
     pendingPrompts, abortSession, clearPromptError, commands, currentDiffs, currentDiffScope, currentMessages,
     currentPendingPermissions, currentPendingQuestions, currentTodos, currentTranscript, currentUsage,
-    diffTurns, executeCommand, isRefreshingDiffs, isRefreshingMessages,
+    diffTurns, executeCommand, refreshing, drafts,
     latestAssistantTurnUsage, promptError, refreshCurrentSession, refreshDiffs, rejectQuestion,
     replyToPermission, replyToQuestion, selectDiffMessage, selectedDiffMessageId, sendPrompt,
     sendingState, setAutoApprove, setDiffScope, transcriptPaging,
   } = useChat();
 
-  const [draft, setDraft] = useState('');
-  const [attachments, setAttachments] = useState<{ uri: string; mime?: string; filename?: string }[]>([]);
+  const { draft, attachments, setDraft, setAttachments } = drafts;
+  const isRefreshingMessages = refreshing.messages;
+  const isRefreshingDiffs = refreshing.diffs;
   const [changesVisible, setChangesVisible] = useState(false);
   const [progressVisible, setProgressVisible] = useState(false);
   const [sessionMenuVisible, setSessionMenuVisible] = useState(false);
@@ -250,7 +251,7 @@ export function useChatViewController() {
       setAttachments(nextAttachments);
       setSendFeedback(error instanceof Error ? error.message : t('chat:view.couldNotSend'));
     }
-  }, [commands, connection.status, currentSessionId, ensureActiveSession, executeCommand, sendPrompt, t]);
+  }, [commands, connection.status, currentSessionId, ensureActiveSession, executeCommand, sendPrompt, setAttachments, setDraft, t]);
 
   useEffect(() => {
     Keyboard.dismiss();

@@ -110,6 +110,7 @@
     "requestedBy": "Angefragt von {{name}}"
   },
   "composer": {
+    "expandDraft": "Entwurf groß anzeigen",
     "chooseAssistantMode": "Assistentenmodus wählen",
     "chooseReasoningLevel": "Schlussfolgerungsstufe wählen",
     "autoApproveEnabled": "Automatisch freigeben",
@@ -157,6 +158,7 @@
     "modelTokens": "{{input}} rein  {{output}} raus  {{reasoning}} Reasoning  {{cacheRead}} Cache lesen  {{cacheWrite}} Cache schreiben  {{steps}} Schritte"
   },
   "library": {
+    "loadOlderChats": "Ältere Chats laden",
     "title": "Chats",
     "searchPlaceholder": "Chats durchsuchen",
     "chooseWorkspace": "Arbeitsbereich wählen",

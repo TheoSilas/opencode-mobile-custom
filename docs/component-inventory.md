@@ -73,7 +73,7 @@ The goal is to make it possible to rebuild the UI tree without having to redisco
 
 - main chat screen controller
 - bridges provider state to presentational chat subcomponents
-- owns local UI state for draft, attachments, menu visibility, speaking state, snackbars, and voice draft capture
+- owns local UI state for menu visibility, speaking state, snackbars, and voice draft capture; per-chat unsent drafts and attachments live in provider memory
 - renders the chat approval alert for `approvals.mcpAuth` (MCP authentication required) with Open link and Dismiss actions
 
 ### Important local state
@@ -195,6 +195,7 @@ type ChatContentProps = {
 - dismiss the keyboard when opening selectors while preserving the parent-owned draft; model picker dismisses on Back/Escape or session/tab changes
 - render optional conversation banner
 - render attachments, voice status, prompt input, and action buttons
+- expand the same draft into a full-screen scrollable editor; closing returns to the composer without sending
 - On iOS, an invisible, accessibility-hidden native Text measures the draft at
   the input's width and typography because fixed-height Fabric inputs can miss
   content-size events. Trailing blank lines are included. The input grows from
@@ -283,6 +284,7 @@ type ChatHeaderProps = {
 - active, favorite, current-workspace, and archived rows share one FlashList scroll owner; search, filters, and New Chat stay outside the virtualized list
 - "Active across workspaces" group above Favorites listing up to four running/recent sessions from the whole connection; listed IDs are removed from the Chat list below, and tapping one switches project and opens it through `openSessionInProject`. Project-scoped actions (rename/share/archive/delete) appear only on the current-workspace rows
 - re-seeds the cross-workspace snapshot when the overlay opens
+- loads older current-workspace chats through a list footer or scrolling to the end
 - keeps the Hide subagents switch alongside the Active and Archived filters
 - header action opening the shared workspace picker overlay
 - uses provider actions for switching workspaces, opening chats, and persistence
@@ -345,6 +347,7 @@ Responsibility:
 - with the slim-interface preference, reduce bubble padding and action-button sizes
 - show copy state, optional TTS button, fork/revert actions for user messages, timestamp, markdown text, error, and summary chips
 - an explicit copy button keeps copying available without capturing table-scroll gestures; taps still dismiss the keyboard
+- code-block copy reports completion through the chat's existing snackbar
 
 ## `components/chat/chat-markdown.tsx`
 

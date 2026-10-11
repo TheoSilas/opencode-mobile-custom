@@ -110,6 +110,7 @@
     "requestedBy": "Demandé par {{name}}"
   },
   "composer": {
+    "expandDraft": "Agrandir le brouillon",
     "chooseAssistantMode": "Choisis le mode de l'assistant",
     "chooseReasoningLevel": "Choisis le niveau de raisonnement",
     "autoApproveEnabled": "Autoriser automatiquement",
@@ -157,6 +158,7 @@
     "modelTokens": "{{input}} entrée  {{output}} sortie  {{reasoning}} raisonnement  {{cacheRead}} lecture cache  {{cacheWrite}} écriture cache  {{steps}} étapes"
   },
   "library": {
+    "loadOlderChats": "Charger les anciennes discussions",
     "title": "Chats",
     "searchPlaceholder": "Rechercher des chats",
     "chooseWorkspace": "Choisis un espace de travail",

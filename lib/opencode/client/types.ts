@@ -6,7 +6,7 @@ import {
 import Constants from 'expo-constants';
 
 import type { ConnectMetadata } from '@/lib/connect';
-import type { ProviderAuthValues } from '@/lib/opencode/types';
+import type { ProviderAuthValues, Session } from '@/lib/opencode/types';
 import type { PromptInboxApi } from '@/lib/opencode/prompt-inbox';
 
 export type ServerContract = 'v1' | 'v2';
@@ -135,4 +135,5 @@ export type ScopedOpencodeClient = OpencodeClient & {
   promptInbox?: PromptInboxApi;
   savedPermissions?: SavedPermissionsApi;
   personalMemory?: { extract: (prompt: string, modelId?: string) => Promise<string> };
+  sessionPage?: (cursor: string) => Promise<{ sessions: Session[]; nextCursor?: string }>;
 };

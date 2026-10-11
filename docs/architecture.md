@@ -253,8 +253,8 @@ and provider setup remain in Settings.
   these IDs out of the current-workspace Chat list.
 - `providers/use-transcript-state.ts`
   Paginated transcript window state machine: newest-page load on open, scroll-up
-  history paging, bounded-window tail merge, and accumulation of session usage
-  steps and V2 `todowrite` records so a bounded window keeps exact totals.
+  history paging beyond the live-tail cap, tail merge that retains requested
+  history, and accumulation of session usage steps and V2 `todowrite` records.
 
 MCP and worktree callback bridges use stable callbacks backed by the provider's
 latest refs. Conversation submission similarly uses the latest send action

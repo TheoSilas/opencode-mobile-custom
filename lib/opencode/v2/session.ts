@@ -44,7 +44,9 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
     session: {
       list: async () => {
         const response = await listSessionPage();
-        return ok((response.data ?? []).map(sessionToV1));
+        const headers = new Headers();
+        if (response.cursor?.next) headers.set('x-next-cursor', response.cursor.next);
+        return { ...ok((response.data ?? []).map(sessionToV1)), response: { headers } };
       },
       status: async () => {
         const [active, list] = await Promise.all([
@@ -150,6 +152,10 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
         await api.session.command({ sessionID, name: parameters.command, text: parameters.arguments ?? '' });
         return ok(undefined);
       },
+    },
+    sessionPage: async (cursor: string) => {
+      const response = await api.session.list({ ...(directory ? { directory } : {}), cursor });
+      return { sessions: (response.data ?? []).map(sessionToV1), nextCursor: response.cursor?.next ?? undefined };
     },
     command: {
       list: async () => {

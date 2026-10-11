@@ -64,6 +64,7 @@ export type ProviderValuesInput = ActionInputs & {
   startOnboardingReview: () => void;
   stopOnboardingReview: () => void;
   settings: OpencodeConnectionSettings;
+  connectionScope: string;
   connection: ConnectionState;
   eventStreamStatus: 'idle' | 'connecting' | 'connected' | 'error';
   diagnostics?: Diagnostics;

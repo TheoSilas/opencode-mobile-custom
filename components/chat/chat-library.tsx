@@ -33,7 +33,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
     archivedSessions, archiveSession, clearFavoriteSession, deleteSession,
     favoriteSessions, isFavoriteSession, openSessionInProject, refreshArchivedSessions,
     renameSession, restoreSession, sessionPreviewById, sessionStatuses, sessions, shareSession,
-    toggleFavoriteSession, unshareSession,
+    sessionPaging, toggleFavoriteSession, unshareSession,
   } = useSessionLibrary();
   const { chatPreferences, updateChatPreferences } = usePreferences();
   const { serverCapabilities } = useConnection();
@@ -45,6 +45,7 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
   const [busyId, setBusyId] = useState<string>();
   const [error, setError] = useState<string>();
   const operationRef = useRef<{ id: string } | undefined>(undefined);
+  const scrolledRef = useRef(false);
   const queuedOpenRef = useRef<{ id: string; action: () => Promise<unknown>; onSuccess: () => void } | undefined>(undefined);
   useEffect(() => {
     return () => { operationRef.current = undefined; queuedOpenRef.current = undefined; };
@@ -62,6 +63,10 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
   const visibleFavorites = favoriteSessions.filter((favorite) => matches(favorite.title || t('chat:library.untitledChat'), favorite.projectPath));
   const visibleActiveSessions = activeSessionsValue.list.filter((session) => matches(session.title || t('chat:library.untitledChat'), session.projectPath));
   const visibleArchived = archivedSessions.filter((session) => matches(session.title || t('chat:library.untitledChat'), session.directory));
+  const loadMore = () => {
+    if (section !== 'active' || !sessionPaging.hasOlder || sessionPaging.isLoadingOlder) return;
+    void sessionPaging.loadMore().catch((reason) => setError(reason instanceof Error ? reason.message : t('chat:library.couldNotUpdate')));
+  };
 
   function confirm(title: string, message: string, action: string, run: () => void) {
     if (Platform.OS === 'web') { if (globalThis.confirm(`${title}\n\n${message}`)) run(); return; }
@@ -209,7 +214,11 @@ export function ChatLibrary({ visible, onClose }: { visible: boolean; onClose: (
       </View>
       {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
       <FlashList data={rows} style={{ flex: 1 }} keyExtractor={(row) => row.id} getItemType={(row) => row.kind}
-        keyboardShouldPersistTaps="handled" renderItem={({ item }) => <View style={{ paddingBottom: 8 }}>{renderRow(item)}</View>} />
+        keyboardShouldPersistTaps="handled" onScrollBeginDrag={() => { scrolledRef.current = true; }}
+        onEndReached={() => { if (scrolledRef.current) loadMore(); }} onEndReachedThreshold={0.3}
+        ListFooterComponent={section === 'active' && sessionPaging.hasOlder ? <Button loading={sessionPaging.isLoadingOlder}
+          disabled={sessionPaging.isLoadingOlder} onPress={loadMore}>{t('chat:library.loadOlderChats')}</Button> : null}
+        renderItem={({ item }) => <View style={{ paddingBottom: 8 }}>{renderRow(item)}</View>} />
       <Button icon="plus" disabled={!activeProject || Boolean(busyId)} onPress={() => void run('new', async () => { const session = await createSession(); await openSession(session.id); }, close)}>{t('chat:library.newChat')}</Button>
     </OverlaySheet>
 

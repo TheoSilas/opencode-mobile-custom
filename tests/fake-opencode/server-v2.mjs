@@ -469,7 +469,7 @@ const server = http.createServer(async (req, res) => {
       let message = '';
       try { message = match ? JSON.parse(match[1]) : ''; } catch { /* Reject malformed quoted input below. */ }
       const memories = /prefer concise replies/i.test(message) ? ['User prefers concise replies.'] : [];
-      sendJson(res, 200, { text: JSON.stringify({ memories }) });
+      sendJson(res, 200, { data: { text: JSON.stringify({ memories }) } });
       return;
     }
 
@@ -537,8 +537,14 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/session') {
       const directory = requestUrl.searchParams.get('directory');
-      const sessions = directory ? state.sessions.filter((session) => session.directory === directory) : state.sessions;
-      sendJson(res, 200, { data: sessions.map(sessionToV2), cursor: { next: null, previous: null } });
+      const sessions = (directory ? state.sessions.filter((session) => session.directory === directory) : state.sessions)
+        .slice().sort((left, right) => right.time.updated - left.time.updated);
+      const cursor = requestUrl.searchParams.get('cursor');
+      const offset = cursor ? Number(cursor.replace(/^index:/, '')) : 0;
+      if (!Number.isInteger(offset) || offset < 0 || cursor && !cursor.startsWith('index:')) return sendJson(res, 400, { error: 'invalid cursor' });
+      const limit = Math.min(100, Math.max(1, Number(requestUrl.searchParams.get('limit')) || 50));
+      const page = sessions.slice(offset, offset + limit);
+      sendJson(res, 200, { data: page.map(sessionToV2), cursor: { next: offset + page.length < sessions.length ? `index:${offset + page.length}` : null, previous: null } });
       return;
     }
 

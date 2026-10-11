@@ -273,7 +273,7 @@ export type SessionLibraryContextValue = {
   isFavoriteSession: (sessionId: string) => boolean;
   clearFavoriteSession: (sessionId: string) => void;
   sessionPreviewById: Record<string, string>;
-  isRefreshingSessions: boolean;
+  sessionPaging: { hasOlder: boolean; isLoadingOlder: boolean; loadMore: () => Promise<void> };
   refreshSessions: (silent?: boolean) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   archiveSession: (sessionId: string) => Promise<void>;
@@ -304,8 +304,8 @@ export type ChatContextValue = {
   currentTodos: Todo[];
   currentPendingPermissions: PendingPermission[];
   currentPendingQuestions: PendingQuestion[];
-  isRefreshingMessages: boolean;
-  isRefreshingDiffs: boolean;
+  refreshing: { messages: boolean; diffs: boolean };
+  drafts: ReturnType<typeof import('@/providers/use-chat-drafts').useChatDrafts>;
   isBootstrappingChat: boolean;
   // Grouped so the domain context surface does not grow one member per paging
   // concern.

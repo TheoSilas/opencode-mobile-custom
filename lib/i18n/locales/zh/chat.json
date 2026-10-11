@@ -112,6 +112,7 @@
     "requestedBy": "{{name}} 请求"
   },
   "composer": {
+    "expandDraft": "全屏编辑输入内容",
     "chooseAssistantMode": "选择助手模式",
     "chooseReasoningLevel": "选择推理级别",
     "autoApproveEnabled": "自动批准",
@@ -159,6 +160,7 @@
     "modelTokens": "{{input}} 输入  {{output}} 输出  {{reasoning}} 推理  {{cacheRead}} 缓存读取  {{cacheWrite}} 缓存写入  {{steps}} 步骤"
   },
   "library": {
+    "loadOlderChats": "加载更早的聊天",
     "title": "聊天",
     "searchPlaceholder": "搜索聊天",
     "chooseWorkspace": "选择工作区",

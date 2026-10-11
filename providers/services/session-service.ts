@@ -54,7 +54,13 @@ async function fetchSessions(client: OpencodeClient) {
 
   const nextSessions = [...requireData(sessionsResponse.data, 'session list request')]
     .sort((left, right) => right.time.updated - left.time.updated);
-  return { sessions: nextSessions.filter((session) => !session.time.archived), statuses: requireData(statusesResponse.data, 'session status request') };
+  return { sessions: nextSessions.filter((session) => !session.time.archived), statuses: requireData(statusesResponse.data, 'session status request'), nextCursor: sessionsResponse.response?.headers.get('x-next-cursor') ?? undefined };
+}
+
+export async function listOlderSessions(client: ScopedOpencodeClient, cursor: string) {
+  if (!client.sessionPage) return { sessions: [], nextCursor: undefined };
+  const page = await client.sessionPage(cursor);
+  return { sessions: page.sessions.filter((session) => !session.time.archived), nextCursor: page.nextCursor && page.nextCursor !== cursor ? page.nextCursor : undefined };
 }
 
 // Cross-workspace session snapshot for the Chat Library "Active" group. Uses an

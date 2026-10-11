@@ -110,6 +110,7 @@
     "requestedBy": "{{name}} द्वारा अनुरोधित"
   },
   "composer": {
+    "expandDraft": "मसौदा बड़ा करें",
     "chooseAssistantMode": "सहायक मोड चुनें",
     "chooseReasoningLevel": "तर्क स्तर चुनें",
     "autoApproveEnabled": "अपने आप अनुमति दें",
@@ -157,6 +158,7 @@
     "modelTokens": "{{input}} इन  {{output}} आउट  {{reasoning}} तर्क  {{cacheRead}} कैश रीड  {{cacheWrite}} कैश राइट  {{steps}} चरण"
   },
   "library": {
+    "loadOlderChats": "पुरानी चैट लोड करें",
     "title": "चैट",
     "searchPlaceholder": "चैट खोजें",
     "chooseWorkspace": "कार्यक्षेत्र चुनें",

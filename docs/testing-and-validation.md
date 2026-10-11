@@ -41,7 +41,7 @@ active workspace cannot be hidden from its picker row.
 Personal-memory tests verify bounded/validated items, server isolation,
 disable/clear and manual-edit-wins races during background extraction. The V2
 fake server supplies deterministic stateless generation and its self-test checks
-the response. Web E2E submits an explicit durable preference in one project and
+the SDK-compatible `data.text` response. Web E2E submits an explicit durable preference in one project and
 checks that the next project's prompt instructions include it. The extraction
 uses an additional model call; native acceptance must verify new prompts,
 manual edits, disabling, clearing and unsupported servers against a real API.
@@ -52,6 +52,8 @@ contracts. Provider capability actions restore a valid catalog model once per ac
 transition rather than treating the global default as every chat's model. The
 regression also covers two chats with unsent model choices and a fresh chat with
 no server model; the earlier server-only restore missed these cases. The
+same suite checks that an unsent Plan selection in one chat does not replace
+Build in another, including across connection scopes. The
 local OpenCode 2.0.12 session list was inspected read-only and confirmed that
 different chats retain different model records. Device acceptance must switch
 between two existing chats with different models, send in each, relaunch, and
@@ -197,6 +199,11 @@ iOS measurement-driven growth, height caps, scrolling, shrinking/clearing,
 trailing blank lines, regular/slim typography, accessibility exclusion,
 Android/web content-size callbacks, and single-line alignment overrides without
 altering password values. These checks do not reproduce UIKit rendering.
+
+`tests/vitest/chat-drafts.test.ts` checks that unsent text and attachment
+selections survive chat switches without leaking across server or project
+boundaries. Device acceptance must also switch chats while composing, then
+return to each draft and confirm its original contents.
 
 For native input changes, verify iOS typed newlines, automatic wrapping, long
 pasted prompts, scrolling at the cap, deletion, clearing, regular/slim layouts,

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { listPendingInteractions } from '@/lib/opencode/client';
 import { areSessionListsEqual, areSessionStatusMapsEqual, groupPendingRequestsBySession, mergeSessionStatuses } from '@/providers/opencode-provider-utils';
@@ -7,6 +7,7 @@ import type { SessionRefreshOptions } from '@/providers/opencode-provider-events
 import { persistSessionCache } from '@/providers/session-cache';
 import {
   listSessions as svcListSessions,
+  listOlderSessions as svcListOlderSessions,
   getSessionDiff as svcGetSessionDiff,
   getSessionTodos as svcGetSessionTodos,
 } from '@/providers/services/session-service';
@@ -37,6 +38,8 @@ export function useWorkspaceRefreshActions({
   connectionScope,
   refreshMessages,
 }: WorkspaceActionsInput) {
+  const pageRef = useRef<{ client: object; cursor?: string; loaded: boolean; busy: boolean } | undefined>(undefined);
+  const [pageState, setPageState] = useState<{ client: object; cursor?: string; busy: boolean }>();
   const fetchSessions = useCallback(
     async (silent = false) => {
       if (!activeProjectPath) {
@@ -54,7 +57,18 @@ export function useWorkspaceRefreshActions({
         if (!isCurrentClient(client)) {
           return result.sessions;
         }
-        setSessions((current) => (areSessionListsEqual(current, result.sessions) ? current : result.sessions));
+        const paging = pageRef.current;
+        setSessions((current) => {
+          const first = new Set(result.sessions.map((item) => item.id));
+          const merged = paging?.client === client && paging.loaded
+            ? [...result.sessions, ...current.filter((item) => !first.has(item.id))].sort((left, right) => right.time.updated - left.time.updated)
+            : result.sessions;
+          return areSessionListsEqual(current, merged) ? current : merged;
+        });
+        if (!paging || paging.client !== client) {
+          pageRef.current = { client, cursor: result.nextCursor, loaded: false, busy: false };
+          setPageState({ client, cursor: result.nextCursor, busy: false });
+        }
         setSessionStatuses((current) => {
           const next = mergeSessionStatuses(current, result.statuses);
           return areSessionStatusMapsEqual(current, next) ? current : next;
@@ -76,6 +90,33 @@ export function useWorkspaceRefreshActions({
     },
     [fetchSessions],
   );
+
+  const loadMoreSessions = useCallback(async () => {
+    const page = pageRef.current;
+    if (!page || page.client !== client || !page.cursor || page.busy) return;
+    page.busy = true;
+    setPageState({ client, cursor: page.cursor, busy: true });
+    try {
+      const older = await svcListOlderSessions(client, page.cursor);
+      if (!isCurrentClient(client) || pageRef.current !== page) return;
+      page.cursor = older.nextCursor;
+      page.loaded = true;
+      setSessions((current) => {
+        const ids = new Set(current.map((item) => item.id));
+        const next = [...current, ...older.sessions.filter((item) => !ids.has(item.id))]
+          .sort((left, right) => right.time.updated - left.time.updated);
+        return areSessionListsEqual(current, next) ? current : next;
+      });
+    } finally {
+      page.busy = false;
+      if (isCurrentClient(client) && pageRef.current === page) setPageState({ client, cursor: page.cursor, busy: false });
+    }
+  }, [client, isCurrentClient, setSessions]);
+  const sessionPaging = useMemo(() => ({
+    hasOlder: pageState?.client === client && Boolean(pageState.cursor),
+    isLoadingOlder: pageState?.client === client && pageState.busy,
+    loadMore: loadMoreSessions,
+  }), [client, loadMoreSessions, pageState]);
 
   const refreshSessionDiff = useCallback(
     async (sessionId: string, silent = false, messageId?: string) => {
@@ -243,6 +284,7 @@ export function useWorkspaceRefreshActions({
   return {
     fetchSessions,
     refreshSessions,
+    sessionPaging,
     refreshSessionDiff,
     refreshVcsDiff,
     setDiffScope,

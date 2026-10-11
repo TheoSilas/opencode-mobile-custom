@@ -38,6 +38,7 @@ type TranscriptListProps = {
   isLoadingOlderMessages: boolean;
   isRefreshingMessages: boolean;
   onCopyMessage: (entry: TranscriptEntry) => void;
+  onCodeCopy: () => void;
   onForkMessage: (messageId: string) => void;
   onLoadOlderMessages: () => void;
   onRefresh: () => void;
@@ -68,6 +69,7 @@ export function TranscriptList({
   isLoadingOlderMessages,
   isRefreshingMessages,
   onCopyMessage,
+  onCodeCopy,
   onForkMessage,
   onLoadOlderMessages,
   onRefresh,
@@ -140,6 +142,7 @@ export function TranscriptList({
             slim={slim}
             onReviewChanges={onReviewChanges}
             onCopy={() => onCopyMessage(entry)}
+            onCodeCopy={onCodeCopy}
             onFork={entry.role === 'user' ? () => onForkMessage(entry.id) : undefined}
             onRevert={entry.role === 'user' ? () => onRevertMessage(entry.id) : undefined}
             onToggleSpeak={() => onToggleSpeak(entry)}

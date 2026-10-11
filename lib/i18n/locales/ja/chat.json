@@ -110,6 +110,7 @@
     "requestedBy": "{{name}} からのリクエスト"
   },
   "composer": {
+    "expandDraft": "下書きを全画面で編集",
     "chooseAssistantMode": "アシスタントモードを選択",
     "chooseReasoningLevel": "推論レベルを選択",
     "autoApproveEnabled": "自動承認",
@@ -157,6 +158,7 @@
     "modelTokens": "{{input}} 入力  {{output}} 出力  {{reasoning}} 推論  {{cacheRead}} キャッシュ読み取り  {{cacheWrite}} キャッシュ書き込み  {{steps}} ステップ"
   },
   "library": {
+    "loadOlderChats": "古いチャットを読み込む",
     "title": "チャット",
     "searchPlaceholder": "チャットを検索",
     "chooseWorkspace": "ワークスペースを選択",

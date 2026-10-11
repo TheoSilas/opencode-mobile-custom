@@ -28,6 +28,7 @@ type CapabilitiesActionsInput = {
   isCurrentClient: (candidate: object) => boolean;
   currentConfig?: Config;
   availableProviders: ProviderOption[];
+  availableAgents: AgentOption[];
   availableModels: ModelOption[];
   setCurrentConfig: Dispatch<SetStateAction<Config | undefined>>;
   setAvailableProviders: Dispatch<SetStateAction<ProviderOption[]>>;
@@ -47,6 +48,7 @@ export function useCapabilitiesActions({
   isCurrentClient,
   currentConfig,
   availableProviders,
+  availableAgents,
   availableModels,
   setCurrentConfig,
   setAvailableProviders,
@@ -56,9 +58,33 @@ export function useCapabilitiesActions({
   setChatPreferences,
 }: CapabilitiesActionsInput) {
   const selectedBySessionRef = useRef(new Map<string, string>());
+  const agentBySessionRef = useRef(new Map<string, string>());
+  const previousAgentSessionRef = useRef<{ key: string; mode: string } | undefined>(undefined);
   const restoredSessionRef = useRef<string | undefined>(undefined);
   const sessionKey = currentSessionId && activeProjectPath
     ? `${connectionScope}\n${activeProjectPath}\n${currentSessionId}` : undefined;
+
+  useEffect(() => {
+    const previous = previousAgentSessionRef.current;
+    if (previous && previous.key === sessionKey) {
+      previous.mode = chatPreferences.mode;
+      return;
+    }
+    if (previous) agentBySessionRef.current.set(previous.key, previous.mode);
+    if (!sessionKey || !currentSessionId) {
+      previousAgentSessionRef.current = undefined;
+      return;
+    }
+    const session = sessions.find((item) => item.id === currentSessionId);
+    if (!session || !availableAgents.length) return;
+    const serverAgent = (session as Session & { agent?: string }).agent;
+    const preferred = agentBySessionRef.current.get(sessionKey) ?? serverAgent;
+    const mode = preferred && availableAgents.some((agent) => agent.id === preferred)
+      ? preferred : getInitialMode(availableAgents, undefined, chatPreferences.mode);
+    previousAgentSessionRef.current = { key: sessionKey, mode };
+    agentBySessionRef.current.set(sessionKey, mode);
+    if (mode !== chatPreferences.mode) setChatPreferences((current) => ({ ...current, mode }));
+  }, [sessionKey, currentSessionId, sessions, availableAgents, chatPreferences.mode, setChatPreferences]);
 
   useEffect(() => {
     if (!sessionKey || !currentSessionId) {
@@ -273,6 +299,7 @@ export function useCapabilitiesActions({
 
   const updateChatPreferences = useCallback((patch: Partial<ChatPreferences>) => {
     if (patch.modelId && sessionKey) selectedBySessionRef.current.set(sessionKey, patch.modelId);
+    if (patch.mode && sessionKey) agentBySessionRef.current.set(sessionKey, patch.mode);
     setChatPreferences((current) => {
       const configuredProviderIds = new Set(availableProviders.filter((provider) => provider.configured).map((provider) => provider.id));
       const configuredModels = availableModels.filter((model) => configuredProviderIds.has(model.providerID));

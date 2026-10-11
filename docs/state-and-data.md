@@ -78,7 +78,7 @@ Diff scope state:
 Important behavior:
 
 - data is fetched lazily when a session is opened or refreshed
-- the transcript window is paginated (newest 20 on open, older 20 per scroll-up, bounded at 200); see Message And Transcript Transformation
+- the transcript is paginated (newest 20 on open, older 20 per scroll-up); the live tail is bounded at 200 until the user requests earlier history, after which loaded history is retained during tail refreshes
 - message/diff/todo caches are updated by explicit refreshes, SSE events, and polling fallback
 - an incoming `session.diff` event only overwrites the turn diff when the surface is not pinned to an earlier turn
 - on V2 the server has no todo endpoint, so `currentTodos` derives from the accumulated `todowrite` tool records (`deriveTodosFromMessages`), not just the loaded window; V1 stays server-authoritative
@@ -225,6 +225,13 @@ Sending already switches the server session model, so revisiting or relaunching
 the chat restores that session's last used model. New chats inherit the current
 selection. An unsent selection is kept per connection/project/session in the
 provider for the lifetime of this app process, before the server has recorded it.
+
+The selected agent mode (Build, Plan, etc.) follows the same session boundary:
+the provider reads a valid server session agent on entry and remembers unsent
+mode changes per connection, project and session during the app process. Switching
+chats restores that chat's mode rather than carrying over the previous chat's
+selection. A new chat inherits the current default; a sent choice is stored by
+the server with its session.
 
 `browser`, selected file content, worktree inventory/owning project identity, and MCP status/config are server-derived and not persisted. Text edits remain local to `FilePreview` until the provider conflict-checks and saves them as a VCS patch. Listing, search and file-open commits check the current client identity and request order; saves check client identity before applying a patch and only update the selected file if that selection is still current. Identical directory paths on different servers do not make a response current.
 
@@ -519,13 +526,19 @@ Derived from phase plus latest non-display transcript activity.
 
 Session history is paginated. Opening a session loads only the newest 20 raw
 records; scrolling to the top of the transcript pulls the previous 20 through
-the server's backward cursor, and the loaded window is bounded at 200 records
-with the oldest records dropped on overflow. Tail activity (SSE part/message
+the server's backward cursor. The live window is bounded at 200 records until
+the user requests earlier history; requested pages remain visible during normal
+tail refreshes. Tail activity (SSE part/message
 updates, the safety poll, idle completion) fetches only the newest page and
 union-merges new records into the window, bridging backwards a bounded number of
 pages if a burst of messages arrived, so older loaded records are never
 re-downloaded. Removal, revert/unrevert, compaction, and reconnect reconciliation
 rebuild the window authoritatively instead of merging.
+
+OpenCode 2 project session lists default to the newest 50. The Chat Library
+offers older pages through the server's opaque cursor and appends them to the
+current workspace list. The connection-wide Running & recent group remains a
+separate, capped snapshot.
 
 V1 pages backwards with `limit`/`before` and an `x-next-cursor` header; V2
 translates descending API pages and opaque cursors into the same contract,
@@ -703,6 +716,7 @@ Current implementation assumes these invariants:
 - File transcript details preserve URI, MIME type and filename, including V2
   returned file bytes. File-only assistant messages remain displayable.
 - `SessionMessageRecord` objects stored in `messagesBySession` are never mutated in place; `mergeSessionMessageRecords` in `lib/opencode/format.ts` adopts a new record object when content changes and preserves record and array references when nothing changed, keeping the WeakMap caches in `toTranscriptEntry` and `getSessionPreviewById` correct
+- unsent composer text and attachment selections are kept separately per connection, project and session in provider memory; switching chats restores each draft, but app restarts do not persist drafts or attachment files
 
 ## Non-Persisted But Behavioral State
 

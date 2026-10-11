@@ -18,6 +18,7 @@ type TranscriptMessageProps = {
   flat?: boolean;
   fontSize: number;
   onCopy: () => void;
+  onCodeCopy?: () => void;
   onReviewChanges?: (messageId: string) => void;
   onFork?: () => void;
   onRevert?: () => void;
@@ -33,6 +34,7 @@ function TranscriptMessageImpl({
   flat = false,
   fontSize,
   onCopy,
+  onCodeCopy,
   onReviewChanges,
   onFork,
   onRevert,
@@ -111,6 +113,7 @@ function TranscriptMessageImpl({
               color={textColor}
               fontSize={fontSize}
               mutedColor={flat ? palette.muted : isUser ? palette.onBubbleUser : palette.muted}
+              onCodeCopy={onCodeCopy}
             />
           ) : null}
           {entry.error ? <Text variant="bodyMedium" style={{ color: palette.danger }}>{entry.error}</Text> : null}

@@ -11,7 +11,7 @@ const typography = { fontFamily: 'System', fontSize: 16, lineHeight: 24, letterS
 const native = {
   Platform: platform, StyleSheet: { create: (styles: unknown) => styles, flatten, absoluteFill: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } },
   Keyboard: { dismiss: vi.fn() }, Text: 'NativeText', View: 'View',
-  KeyboardAvoidingView: 'KeyboardAvoidingView', Pressable: 'Pressable', ScrollView: 'ScrollView',
+  KeyboardAvoidingView: 'KeyboardAvoidingView', Modal: 'Modal', Pressable: 'Pressable', ScrollView: 'ScrollView',
   useWindowDimensions: () => ({ fontScale: 1, height: 844 }),
 };
 const paper = {
@@ -72,6 +72,7 @@ describe('native input regressions', () => {
     runtime = hookRuntime();
     const { ChatComposer } = await loadTs('components/chat/chat-composer.tsx', {
       react: runtime.react, 'react/jsx-runtime': jsx, 'react-native': native, 'react-native-paper': paper,
+      'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
       'react-i18next': { useTranslation: () => ({ t: (key: string) => key }) },
       '@/components/ui/text-input': { TextInput },
       '@/lib/opencode-composer': { ComposerImageInput: 'ComposerImageInput' },
@@ -125,6 +126,18 @@ describe('native input regressions', () => {
     expect(flatten(measurement()!.props.style)).toMatchObject({ fontFamily: 'Avenir Next', fontSize: 17, letterSpacing: 0.5 });
     runtime.update({ slim: true });
     expect(flatten(measurement()!.props.style).fontSize).toBe(15);
+  });
+
+  it('expands the same draft into a keyboard-safe full-screen editor without sending', () => {
+    const onDraftChange = vi.fn();
+    runtime.update({ onDraftChange, draft: 'long text' });
+    find(runtime.value, 'chat-expand-draft')!.props.onPress();
+    runtime.flush();
+    const editor = find(runtime.value, 'chat-expanded-input')!;
+    expect(editor.props.value).toBe('long text');
+    expect(editor.props.onChangeText).toBe(onDraftChange);
+    expect(editor.props.scrollEnabled).toBe(true);
+    expect(runtime.value.props.children[0].props.visible).toBe(true);
   });
 
   it.each(['android', 'web'])('retains content-size growth and scrolling on %s', (os) => {

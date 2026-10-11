@@ -14,15 +14,14 @@ import {
   INITIAL_MESSAGE_LIMIT,
 } from '@/providers/services/session-service';
 
-// Bounds the in-memory transcript window: the newest live tail plus the older
-// pages the user pulls in by scrolling up. Dropping the oldest records keeps
-// the window contiguous and the working set small.
+// Bounds the live tail before the user requests older history. Once they do,
+// preserve their loaded pages so scrolling and a tail refresh cannot erase them.
 const MESSAGE_WINDOW_CAP = 200;
 // How many pages a tail sync may page back to bridge a burst of new messages
 // before it gives up and adopts the fetched tail authoritatively.
 const MAX_TAIL_BRIDGE_PAGES = 5;
 
-type MessageWindow = { nextBefore?: string; hasMore: boolean };
+type MessageWindow = { nextBefore?: string; hasMore: boolean; paged?: boolean };
 
 // Owns the paginated transcript window for every session: the loaded messages
 // are held by the provider, while this hook owns the pagination cursors, and
@@ -157,7 +156,8 @@ export function useTranscriptState({
         setMessagesBySession((current) => {
           const previous = current[sessionId] ?? held;
           const merged = mergeSessionMessageWindow(previous, fetched);
-          const bounded = merged.length > MESSAGE_WINDOW_CAP ? merged.slice(merged.length - MESSAGE_WINDOW_CAP) : merged;
+          const bounded = messageWindowsRef.current[sessionId]?.paged || merged.length <= MESSAGE_WINDOW_CAP
+            ? merged : merged.slice(merged.length - MESSAGE_WINDOW_CAP);
           if (bounded === previous) {
             return current;
           }
@@ -178,7 +178,7 @@ export function useTranscriptState({
     async (sessionId: string) => {
       const meta = messageWindowsRef.current[sessionId];
       const held = messagesBySessionRef.current[sessionId] ?? [];
-      if (!meta?.hasMore || loadingOlderBySessionRef.current[sessionId] || held.length >= MESSAGE_WINDOW_CAP) {
+      if (!meta?.hasMore || loadingOlderBySessionRef.current[sessionId]) {
         return;
       }
 
@@ -198,7 +198,7 @@ export function useTranscriptState({
         });
         setMessageWindows((current) => ({
           ...current,
-          [sessionId]: { nextBefore: page.nextBefore, hasMore: page.hasMore },
+          [sessionId]: { nextBefore: page.nextBefore, hasMore: page.hasMore, paged: true },
         }));
         recordUsageAndTodos(sessionId, page.records);
       } finally {
