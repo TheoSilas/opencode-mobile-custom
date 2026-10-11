@@ -353,9 +353,13 @@ test('attachment tiles preview images, text and documents above the related mess
   await sendPrompt(page, 'Explain the attached pixel');
   const message = page.locator('[data-testid^="transcript-message-"]').filter({ has: page.getByText('Explain the attached pixel', { exact: true }) });
   await expect(message.getByTestId('attachment-tile')).toBeVisible();
-  const previewBox = await message.getByTestId('attachment-tile').boundingBox();
-  const textBox = await message.getByText('Explain the attached pixel', { exact: true }).boundingBox();
-  expect(previewBox.y + previewBox.height).toBeLessThanOrEqual(textBox.y);
+  const attachmentAboveText = await message.evaluate((element) => {
+    const preview = element.querySelector('[data-testid="attachment-tile"]');
+    const text = [...element.querySelectorAll('*')].find((node) => node.textContent === 'Explain the attached pixel');
+    if (!preview || !text) return false;
+    return preview.getBoundingClientRect().bottom <= text.getBoundingClientRect().top;
+  });
+  expect(attachmentAboveText).toBe(true);
   await page.reload();
   await expect(message.getByTestId('attachment-tile')).toBeVisible({ timeout: 20_000 });
   await message.getByTestId('attachment-tile').click();
