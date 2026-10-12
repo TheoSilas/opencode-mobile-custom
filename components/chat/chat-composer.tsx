@@ -105,10 +105,11 @@ export function ChatComposer({
 
   const [inputHeight, setInputHeight] = useState(minInputHeight);
   const [expanded, setExpanded] = useState(false);
+  const showExpand = !!draft && inputHeight > maxInputHeight;
   const displayedInputHeight = draft ? Math.min(maxInputHeight, Math.max(minInputHeight, inputHeight)) : minInputHeight;
   const inputTextStyle = [styles.composerTextArea, slim && { fontSize: 15 }];
   function updateInputHeight(height: number) {
-    const nextHeight = Math.min(maxInputHeight, Math.max(minInputHeight, Math.ceil(height)));
+    const nextHeight = Math.max(minInputHeight, Math.ceil(height));
     setInputHeight((current) => (current === nextHeight ? current : nextHeight));
   }
 
@@ -201,7 +202,7 @@ export function ChatComposer({
               inputTextStyle,
               styles.inputContentCompact,
               // Match the card padding and input margins without affecting layout.
-              { position: 'absolute', top: 8, left: 8, right: 8, opacity: 0 },
+              { position: 'absolute', top: 8, left: 8, right: showExpand ? 48 : 8, opacity: 0 },
             ]}>
             {`${draft}\u200b`}
           </NativeText>
@@ -219,7 +220,7 @@ export function ChatComposer({
             placeholder={t('chat:composer.placeholder')}
             fontSize={slim ? 15 : 17}
             textColor={palette.text}
-            style={{ height: displayedInputHeight, marginHorizontal: 8, paddingVertical: 0 }}
+            style={{ height: displayedInputHeight, marginLeft: 8, marginRight: showExpand ? 48 : 8, paddingVertical: 0 }}
           />
         ) : (
           <TextInput
@@ -234,18 +235,19 @@ export function ChatComposer({
             scrollEnabled={displayedInputHeight >= maxInputHeight}
             placeholder={t('chat:composer.placeholder')}
             placeholderTextColor={palette.muted}
-            style={[inputTextStyle, { height: displayedInputHeight, color: palette.text }]}
+            style={[inputTextStyle, { height: displayedInputHeight, color: palette.text, marginRight: showExpand ? 48 : 8 }]}
             contentStyle={styles.inputContentCompact}
             underlineColor="transparent"
             activeUnderlineColor="transparent"
             textAlignVertical="top"
           />
         )}
+        {showExpand ? <IconButton testID="chat-expand-draft" accessibilityLabel={t('chat:composer.expandDraft')}
+          icon="arrow-expand" size={slim ? 18 : 20} iconColor={palette.text}
+          style={{ position: 'absolute', top: 4, right: 4, margin: 0, zIndex: 1 }}
+          onPress={() => { Keyboard.dismiss(); setExpanded(true); }} /> : null}
         {fontScale > 1.3 ? <View>{modelPicker}</View> : null}
         <View style={styles.composerToolbar}>
-          <IconButton testID="chat-expand-draft" accessibilityLabel={t('chat:composer.expandDraft')}
-            icon="arrow-expand" size={slim ? 18 : 20} iconColor={palette.text}
-            style={styles.composerActionButton} onPress={() => { Keyboard.dismiss(); setExpanded(true); }} />
           <NativeSelect<'photos' | 'files'>
             options={[{ value: 'photos', label: t('chat:accounts.photos') }, { value: 'files', label: t('chat:accounts.files') }]}
             onValueChange={onAttach}

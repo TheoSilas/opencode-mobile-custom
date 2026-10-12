@@ -131,6 +131,9 @@ describe('native input regressions', () => {
   it('expands the same draft into a keyboard-safe full-screen editor without sending', () => {
     const onDraftChange = vi.fn();
     runtime.update({ onDraftChange, draft: 'long text' });
+    expect(find(runtime.value, 'chat-expand-draft')).toBeUndefined();
+    measurement()!.props.onLayout({ nativeEvent: { layout: { height: 160 } } });
+    runtime.flush();
     find(runtime.value, 'chat-expand-draft')!.props.onPress();
     runtime.flush();
     const editor = find(runtime.value, 'chat-expanded-input')!;
@@ -138,6 +141,8 @@ describe('native input regressions', () => {
     expect(editor.props.onChangeText).toBe(onDraftChange);
     expect(editor.props.scrollEnabled).toBe(true);
     expect(runtime.value.props.children[0].props.visible).toBe(true);
+    runtime.update({ draft: '' });
+    expect(find(runtime.value, 'chat-expand-draft')).toBeUndefined();
   });
 
   it.each(['android', 'web'])('retains content-size growth and scrolling on %s', (os) => {

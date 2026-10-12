@@ -61,6 +61,7 @@ it('drives actual provider model actions across two chats without a send', async
     react: runtime.react,
     '@/providers/opencode-model-selection': selection,
     '@/providers/opencode-capabilities': { isAutoApproveEnabled: () => false, mergePermissionConfig: () => ({}) },
+    '@/providers/use-opencode-persistence': { readSessionModelSelection: async () => undefined, saveSessionModelSelection: async () => undefined },
   });
   const models = [
     { id: 'openai/a', providerID: 'openai' },
@@ -97,12 +98,101 @@ it('drives actual provider model actions across two chats without a send', async
   expect(runtime.value.chatPreferences.modelId).toBe('openai/a');
 });
 
+it('keeps unsent models independent while a newly created chat is absent from the session list', async () => {
+  const runtime = hookRuntime();
+  const { useCapabilitiesActions } = await loadTs('providers/use-capabilities-actions.ts', {
+    react: runtime.react,
+    '@/providers/opencode-model-selection': selection,
+    '@/providers/opencode-capabilities': { isAutoApproveEnabled: () => false, mergePermissionConfig: () => ({}) },
+    '@/providers/use-opencode-persistence': { readSessionModelSelection: async () => undefined, saveSessionModelSelection: async () => undefined },
+  });
+  const models = [
+    { id: 'openai/a', providerID: 'openai' },
+    { id: 'deepseek/b', providerID: 'deepseek' },
+  ];
+  function Driver(props: { currentSessionId: string; sessions: { id: string }[] }) {
+    const [chatPreferences, setChatPreferences] = runtime.react.useState({
+      providerId: 'openai', modelId: 'openai/a', enabledModelIds: ['openai/a', 'deepseek/b'],
+      providerModelSelections: {}, recentModelIds: [],
+    });
+    const actions = useCapabilitiesActions({
+      ...props, chatPreferences, setChatPreferences, connectionScope: 'server', activeProjectPath: '/repo',
+      availableModels: models, availableAgents: [], availableProviders: [
+        { id: 'openai', configured: true }, { id: 'deepseek', configured: true },
+      ], client: {}, isCurrentClient: () => true,
+    });
+    return { chatPreferences, actions };
+  }
+  runtime.mount(Driver, { currentSessionId: 'a', sessions: [] });
+  runtime.update({ currentSessionId: 'b', sessions: [{ id: 'b' }] });
+  runtime.value.actions.updateChatPreferences({ providerId: 'deepseek', modelId: 'deepseek/b' });
+  runtime.flush();
+  runtime.update({ currentSessionId: 'a', sessions: [{ id: 'a' }, { id: 'b' }] });
+  expect(runtime.value.chatPreferences.modelId).toBe('openai/a');
+  runtime.update({ currentSessionId: 'b', sessions: [{ id: 'a' }, { id: 'b' }] });
+  expect(runtime.value.chatPreferences.modelId).toBe('deepseek/b');
+});
+
+it('restores unsent per-chat choices after relaunch without mixing connection scopes', async () => {
+  const saved = new Map<string, string>();
+  const storage = {
+    readSessionModelSelection: async (server: string, project: string, session: string) => saved.get(`${server}:${project}:${session}`),
+    saveSessionModelSelection: async (server: string, project: string, session: string, model: string) => {
+      saved.set(`${server}:${project}:${session}`, model);
+    },
+  };
+  const models = [{ id: 'openai/a', providerID: 'openai' }, { id: 'deepseek/b', providerID: 'deepseek' }];
+  const sessions = [{ id: 'a', model: { providerID: 'openai', id: 'a' } }, { id: 'b', model: { providerID: 'openai', id: 'a' } }];
+  async function start(server = 'server') {
+    const runtime = hookRuntime();
+    const { useCapabilitiesActions } = await loadTs('providers/use-capabilities-actions.ts', {
+      react: runtime.react,
+      '@/providers/opencode-model-selection': selection,
+      '@/providers/opencode-capabilities': { isAutoApproveEnabled: () => false, mergePermissionConfig: () => ({}) },
+      '@/providers/use-opencode-persistence': storage,
+    });
+    function Driver(props: { currentSessionId: string }) {
+      const [chatPreferences, setChatPreferences] = runtime.react.useState({
+        providerId: 'openai', modelId: 'openai/a', enabledModelIds: ['openai/a', 'deepseek/b'],
+        providerModelSelections: {}, recentModelIds: [],
+      });
+      const actions = useCapabilitiesActions({
+        ...props, chatPreferences, setChatPreferences, connectionScope: server, activeProjectPath: '/repo',
+        sessions, availableModels: models, availableAgents: [], availableProviders: [
+          { id: 'openai', configured: true }, { id: 'deepseek', configured: true },
+        ], client: {}, isCurrentClient: () => true,
+      });
+      return { chatPreferences, actions };
+    }
+    runtime.mount(Driver, { currentSessionId: 'a' });
+    await runtime.settle();
+    return runtime;
+  }
+  const first = await start();
+  first.value.actions.updateChatPreferences({ providerId: 'deepseek', modelId: 'deepseek/b' });
+  first.flush();
+  await first.settle();
+  first.update({ currentSessionId: 'b' });
+  first.value.actions.updateChatPreferences({ providerId: 'openai', modelId: 'openai/a' });
+  first.flush();
+  await first.settle();
+  expect(saved.get('server:/repo:a')).toBe('deepseek/b');
+  const relaunched = await start();
+  expect(relaunched.value.chatPreferences.modelId).toBe('deepseek/b');
+  relaunched.update({ currentSessionId: 'b' });
+  await relaunched.settle();
+  expect(relaunched.value.chatPreferences.modelId).toBe('openai/a');
+  const otherServer = await start('other');
+  expect(otherServer.value.chatPreferences.modelId).toBe('openai/a');
+});
+
 it('keeps Build and an unsent Plan selection in separate chats', async () => {
   const runtime = hookRuntime();
   const { useCapabilitiesActions } = await loadTs('providers/use-capabilities-actions.ts', {
     react: runtime.react,
     '@/providers/opencode-model-selection': selection,
     '@/providers/opencode-capabilities': { isAutoApproveEnabled: () => false, mergePermissionConfig: () => ({}) },
+    '@/providers/use-opencode-persistence': { readSessionModelSelection: async () => undefined, saveSessionModelSelection: async () => undefined },
   });
   const sessions = [{ id: 'a', agent: 'build' }, { id: 'b', agent: 'build' }];
   function Driver(props: { currentSessionId: string; connectionScope: string }) {

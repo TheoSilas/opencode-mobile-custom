@@ -1,0 +1,3 @@
+Keep each chat's model choice separate, including after restarting the app.
+Improve long-text editing and cursor scrolling in the Android chat composer.
+Refresh the Android app icon.

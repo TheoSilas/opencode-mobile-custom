@@ -218,13 +218,16 @@ Current fields:
 These values combine true application behavior settings and output-style preferences that are sent to the model as prompt instructions.
 
 The selected provider/model is also restored from the server-owned model on
-each actual session transition. The restore waits until both the session and
-capability catalog are available, runs once for that connection/project/session,
+each actual session transition. The restore waits for the capability catalog
+and either the session or a remembered local choice, runs once for that connection/project/session,
 and does not overwrite a model the user chooses while remaining in the chat.
 Sending already switches the server session model, so revisiting or relaunching
 the chat restores that session's last used model. New chats inherit the current
-selection. An unsent selection is kept per connection/project/session in the
-provider for the lifetime of this app process, before the server has recorded it.
+selection. An unsent selection is kept per connection/project/session in local
+app storage, before the server has recorded it. It remains available after an
+app restart without changing the server model merely by opening a chat.
+Switching away from a newly created chat also remembers its displayed model
+when the server session list has not caught up yet.
 
 The selected agent mode (Build, Plan, etc.) follows the same session boundary:
 the provider reads a valid server session agent on entry and remembers unsent

@@ -51,9 +51,9 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
       if (!isSettingTextFromJS) {
         onChangeText(TextChangeEvent(s?.toString() ?: ""))
         notifyContentSizeChange()
-        // TextWatcher fires before TextView has finalized the caret and layout.
-        // Once it has, scroll the fixed-height composer to the insertion point.
-        post { if (hasFocus()) bringPointIntoView(selectionEnd.coerceAtLeast(0)) }
+        // A newline can change the layout after TextWatcher fires. Recheck the
+        // caret after the view has laid out, including when height is capped.
+        post { scrollCaretIntoView() }
       }
     }
 
@@ -112,12 +112,34 @@ class ImageKeyboardEditText(context: Context) : AppCompatEditText(context) {
   override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
     super.onSizeChanged(w, h, oldw, oldh)
     notifyContentSizeChange()
-    post { if (hasFocus()) bringPointIntoView(selectionEnd.coerceAtLeast(0)) }
+    post { scrollCaretIntoView() }
   }
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
     super.onLayout(changed, left, top, right, bottom)
     notifyContentSizeChange()
+    if (changed) post { scrollCaretIntoView() }
+  }
+
+  override fun onSelectionChanged(selStart: Int, selEnd: Int) {
+    super.onSelectionChanged(selStart, selEnd)
+    post { scrollCaretIntoView() }
+  }
+
+  private fun scrollCaretIntoView() {
+    if (!hasFocus() || height <= 0) return
+    val textLayout = layout ?: return
+    val caretLine = textLayout.getLineForOffset(selectionEnd.coerceIn(0, text?.length ?: 0))
+    val visibleHeight = height - compoundPaddingTop - compoundPaddingBottom
+    if (visibleHeight <= 0) return
+    val lineBottom = textLayout.getLineBottom(caretLine)
+    val lineTop = textLayout.getLineTop(caretLine)
+    val target = when {
+      lineBottom > scrollY + visibleHeight -> lineBottom - visibleHeight
+      lineTop < scrollY -> lineTop
+      else -> return
+    }
+    scrollTo(scrollX, target.coerceIn(0, (textLayout.height - visibleHeight).coerceAtLeast(0)))
   }
 
   override fun onDetachedFromWindow() {

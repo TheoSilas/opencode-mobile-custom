@@ -59,6 +59,11 @@ the Editor group in Advanced Settings, alongside chat text size and flat
 conversation. The General group contains slim interface, language and Reset
 onboarding, which reopens the existing setup review without clearing settings.
 
+The composer shows its full-screen draft button in the upper-right of the text
+area only when measured text exceeds the inline height cap. Android's native
+multiline input scrolls the caret into view after selection and layout updates,
+including trailing newline insertion at the height cap.
+
 ## Purpose
 
 This document inventories the current UI and support components, their responsibilities, and their prop contracts where relevant to parity.

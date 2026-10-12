@@ -50,8 +50,13 @@ Changes to fake-server and E2E need explicit human validation.
 Session-model selection tests normalize the server model shapes used by both
 contracts. Provider capability actions restore a valid catalog model once per actual chat
 transition rather than treating the global default as every chat's model. The
-regression also covers two chats with unsent model choices and a fresh chat with
-no server model; the earlier server-only restore missed these cases. The
+regression also covers two chats with unsent model choices across relaunch
+and connection scopes, and a fresh chat with
+no server model, including switching before it appears in the session list;
+the earlier server-only restore missed these cases. The
+browser flow switches two chats with different unsent model choices and reloads
+each, confirming the local per-chat choices survive without changing server
+models merely by opening a chat. The
 same suite checks that an unsent Plan selection in one chat does not replace
 Build in another, including across connection scopes. The
 local OpenCode 2.0.12 session list was inspected read-only and confirmed that
@@ -204,6 +209,13 @@ altering password values. These checks do not reproduce UIKit rendering.
 selections survive chat switches without leaking across server or project
 boundaries. Device acceptance must also switch chats while composing, then
 return to each draft and confirm its original contents.
+
+The inline composer shows its full-screen button only when measured draft
+height exceeds the inline limit. Android's native editor follows the caret
+after newline insertion, selection changes and size/layout updates. Native
+acceptance must check repeated Enter presses at the height cap, wrapped text,
+middle-of-draft edits and moving the caret to earlier lines; web and hook
+tests cannot establish Android IME scroll behavior.
 
 For native input changes, verify iOS typed newlines, automatic wrapping, long
 pasted prompts, scrolling at the cap, deletion, clearing, regular/slim layouts,

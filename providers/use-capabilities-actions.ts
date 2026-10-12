@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import type { Config, Session } from '@/lib/opencode/types';
 import type { ScopedOpencodeClient } from '@/lib/opencode/client';
@@ -17,6 +17,7 @@ import {
 import type { ChatPreferences } from '@/providers/opencode-preferences';
 import type { AgentOption, ModelOption } from '@/providers/opencode-model-selection';
 import type { ProviderAuthMethod, ProviderAuthValues, ProviderOption } from '@/providers/opencode-provider-types';
+import { readSessionModelSelection, saveSessionModelSelection } from '@/providers/use-opencode-persistence';
 
 type CapabilitiesActionsInput = {
   client: ScopedOpencodeClient;
@@ -58,11 +59,51 @@ export function useCapabilitiesActions({
   setChatPreferences,
 }: CapabilitiesActionsInput) {
   const selectedBySessionRef = useRef(new Map<string, string>());
+  const explicitModelSelectionsRef = useRef(new Set<string>());
+  const loadedModelSelectionsRef = useRef(new Set<string>());
+  const [modelSelectionRevision, setModelSelectionRevision] = useState(0);
   const agentBySessionRef = useRef(new Map<string, string>());
   const previousAgentSessionRef = useRef<{ key: string; mode: string } | undefined>(undefined);
+  const previousModelSessionRef = useRef<{ key: string; modelId?: string } | undefined>(undefined);
   const restoredSessionRef = useRef<string | undefined>(undefined);
   const sessionKey = currentSessionId && activeProjectPath
     ? `${connectionScope}\n${activeProjectPath}\n${currentSessionId}` : undefined;
+
+  useEffect(() => {
+    const previous = previousModelSessionRef.current;
+    if (previous && previous.key === sessionKey) {
+      previous.modelId = chatPreferences.modelId;
+      return;
+    }
+    // A just-created chat may not be in the list yet. Remember its visible
+    // choice before the next chat changes the shared preferences object.
+    if (previous?.modelId && !selectedBySessionRef.current.has(previous.key)) {
+      selectedBySessionRef.current.set(previous.key, previous.modelId);
+      const [server, project, session] = previous.key.split('\n');
+      if (loadedModelSelectionsRef.current.has(previous.key)) {
+        void saveSessionModelSelection(server, project, session, previous.modelId).catch(() => undefined);
+      }
+    }
+    previousModelSessionRef.current = sessionKey ? { key: sessionKey, modelId: chatPreferences.modelId } : undefined;
+  }, [sessionKey, chatPreferences.modelId]);
+
+  useEffect(() => {
+    if (!sessionKey || !currentSessionId || !activeProjectPath || loadedModelSelectionsRef.current.has(sessionKey)) return;
+    let active = true;
+    void readSessionModelSelection(connectionScope, activeProjectPath, currentSessionId).then((saved) => {
+      loadedModelSelectionsRef.current.add(sessionKey);
+      if (saved && !explicitModelSelectionsRef.current.has(sessionKey)) {
+        selectedBySessionRef.current.set(sessionKey, saved);
+        if (active) {
+          restoredSessionRef.current = undefined;
+          setModelSelectionRevision((current) => current + 1);
+        }
+      } else if (!saved && selectedBySessionRef.current.has(sessionKey)) {
+        void saveSessionModelSelection(connectionScope, activeProjectPath, currentSessionId, selectedBySessionRef.current.get(sessionKey)!).catch(() => undefined);
+      }
+    }).catch(() => { loadedModelSelectionsRef.current.add(sessionKey); });
+    return () => { active = false; };
+  }, [sessionKey, currentSessionId, activeProjectPath, connectionScope]);
 
   useEffect(() => {
     const previous = previousAgentSessionRef.current;
@@ -95,14 +136,14 @@ export function useCapabilitiesActions({
     const session = sessions.find((item) => item.id === currentSessionId);
     // Wait for a real session and catalog before restoring. New sessions have
     // no server model yet and inherit the last selected model.
-    if (!session || !availableModels.length) return;
+    if ((!session && !selectedBySessionRef.current.has(sessionKey)) || !availableModels.length) return;
     const selectedId = getSessionSelection(selectedBySessionRef.current, sessionKey, session, availableModels, chatPreferences.modelId);
     if (selectedId && !availableModels.some((item) => item.id === selectedId)) return;
     restoredSessionRef.current = sessionKey;
     if (selectedId) {
       setChatPreferences((current) => restoreSessionModelPreference(current, { model: selectedId }, availableModels));
     }
-  }, [sessionKey, currentSessionId, sessions, availableModels, chatPreferences.modelId, setChatPreferences]);
+  }, [sessionKey, currentSessionId, sessions, availableModels, chatPreferences.modelId, modelSelectionRevision, setChatPreferences]);
   const refreshChatCapabilities = useCallback(async () => {
     const result = await import('@/providers/services/capabilities-service').then((m) => m.discoverChatCapabilities(client, activeProjectPath));
     if (!isCurrentClient(client)) {
@@ -298,7 +339,11 @@ export function useCapabilitiesActions({
   }, [client, refreshChatCapabilities]);
 
   const updateChatPreferences = useCallback((patch: Partial<ChatPreferences>) => {
-    if (patch.modelId && sessionKey) selectedBySessionRef.current.set(sessionKey, patch.modelId);
+    if (patch.modelId && sessionKey && activeProjectPath && currentSessionId) {
+      selectedBySessionRef.current.set(sessionKey, patch.modelId);
+      explicitModelSelectionsRef.current.add(sessionKey);
+      void saveSessionModelSelection(connectionScope, activeProjectPath, currentSessionId, patch.modelId).catch(() => undefined);
+    }
     if (patch.mode && sessionKey) agentBySessionRef.current.set(sessionKey, patch.mode);
     setChatPreferences((current) => {
       const configuredProviderIds = new Set(availableProviders.filter((provider) => provider.configured).map((provider) => provider.id));
@@ -339,7 +384,7 @@ export function useCapabilitiesActions({
             : nextProviderModelSelections,
       };
     });
-  }, [availableModels, availableProviders, sessionKey, setChatPreferences]);
+  }, [activeProjectPath, availableModels, availableProviders, connectionScope, currentSessionId, sessionKey, setChatPreferences]);
 
   const setAutoApprove = useCallback(
     async (enabled: boolean) => {

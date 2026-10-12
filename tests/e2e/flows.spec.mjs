@@ -1058,6 +1058,45 @@ test('chat model picker searches and groups models by provider', async ({ page, 
   await page.getByLabel('Close model picker').click();
 });
 
+test('chat model choices remain separate after switching chats and reloading', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  await openReadyChat(page);
+  await goToTab(page, 'Settings');
+  await ensureAiSection(page);
+  await page.getByTestId('settings-add-provider-button').click();
+  await page.getByRole('button', { name: 'OpenRouter', exact: true }).click();
+  await page.getByPlaceholder('Paste your API key').fill('sk-test-openrouter');
+  await page.getByTestId('settings-provider-save-button').click();
+  await expect(page.getByText('Configure OpenRouter')).not.toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'OpenRouter 0 of 1 selected' }).click();
+  await page.getByText('Auto', { exact: true }).click();
+  await goToTab(page, 'Chat');
+
+  await sendPrompt(page, 'Model isolation chat A');
+  await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('chat-model-picker-trigger').click();
+  await page.getByTestId('chat-model-picker').getByRole('button', { name: /^Auto / }).click();
+  await expect(page.getByTestId('chat-model-picker-trigger')).toHaveAccessibleName('Auto · OpenRouter · Default');
+
+  await page.getByRole('button', { name: 'New chat', exact: true }).click();
+  await sendPrompt(page, 'Model isolation chat B');
+  await expect(page.getByText(/Finished:/).first()).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('chat-model-picker-trigger').click();
+  await page.getByTestId('chat-model-picker').getByRole('button', { name: /^GPT-4\.1 mini / }).click();
+  await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('GPT-4.1 mini');
+
+  await openChatLibrary(page);
+  await page.getByTestId('chat-library').getByRole('button', { name: 'Open Model isolation chat A' }).first().click();
+  await expect(page.getByTestId('chat-model-picker-trigger')).toHaveAccessibleName('Auto · OpenRouter · Default');
+  await page.reload();
+  await expect(page.getByTestId('chat-model-picker-trigger')).toHaveAccessibleName('Auto · OpenRouter · Default');
+  await openChatLibrary(page);
+  await page.getByTestId('chat-library').getByRole('button', { name: 'Open Model isolation chat B' }).first().click();
+  await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('GPT-4.1 mini');
+  await page.reload();
+  await expect(page.getByTestId('chat-model-picker-trigger')).toContainText('GPT-4.1 mini');
+});
+
 test('polling fallback still finishes the flow when SSE is unavailable', async ({ page, request }) => {
   await resetScenario(request, 'stream-disconnect');
   await openReadyChat(page);

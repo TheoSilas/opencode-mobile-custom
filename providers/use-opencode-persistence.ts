@@ -12,6 +12,7 @@ import {
   LAST_SESSION_BY_PROJECT_STORAGE_KEY,
   ONBOARDING_VERSION_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
+  sessionModelSelectionKey,
 } from '@/lib/storage-keys';
 import type { ChatPreferences } from '@/providers/opencode-preferences';
 import type { FavoriteSession } from '@/providers/opencode-provider-types';
@@ -29,6 +30,15 @@ import { parseChatPreferences, parseConnectionSettings } from '@/providers/persi
 import { createPersistenceWriter, loadPersistedValue } from '@/providers/persistence-hydration';
 
 export type { LastSessionByConnection } from '@/providers/last-session-storage';
+
+export async function readSessionModelSelection(connectionScope: string, projectPath: string, sessionId: string) {
+  const value = await AsyncStorage.getItem(sessionModelSelectionKey(connectionScope, projectPath, sessionId));
+  return value && /^[^/\s]+\/[^\s]+$/.test(value) ? value : undefined;
+}
+
+export async function saveSessionModelSelection(connectionScope: string, projectPath: string, sessionId: string, modelId: string) {
+  await AsyncStorage.setItem(sessionModelSelectionKey(connectionScope, projectPath, sessionId), modelId);
+}
 
 export function useOpencodePersistence({
   defaultChatPreferences,
