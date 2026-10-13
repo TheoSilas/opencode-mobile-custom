@@ -180,8 +180,10 @@ export function usePromptLifecycle({
         }
         parts.push(...preparedFileParts);
 
+        const credentialID = (sessions.find((session) => session.id === sessionId) as (Session & { credentialID?: string }) | undefined)?.credentialID;
         await submitPrompt({
           sessionID: sessionId,
+          ...(credentialID ? { credentialID } : {}),
           agent: chatPreferences.mode,
           model: getSelectedModelParts(chatPreferences.modelId),
           system: [buildSystemPrompt(chatPreferences), personal].filter(Boolean).join('\n\n') || undefined,

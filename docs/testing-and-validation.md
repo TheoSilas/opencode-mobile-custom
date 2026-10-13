@@ -82,6 +82,10 @@ server-confirmed activation, and rejected/malformed reads. Read-only inspection
 of the local 2.0.12 server confirmed the missing route and existing labeled
 OpenAI/DeepSeek connections; its CLI marks the first credential active. This
 does not replace acceptance of switching/renaming through the installed APK.
+Device acceptance must select different provider accounts in two chats,
+switch between those chats, relaunch the app, and verify that each chat
+retains its server-side binding before sending (also when another client
+changes the provider's globally active account).
 The account E2E also selects credentials by their distinct label and short ID
 and accepts the explicit deletion confirmation before checking removal.
 
@@ -100,6 +104,8 @@ handoff inclusion, disabled-record retention, and switching servers/projects.
 the composer attachment list and reject oversized gallery selections.
 Provider-account Vitest checks server activation/rename requests and refuses to
 report success without authoritative account-list confirmation.
+The session-list equality regression verifies that a binding changed by another
+client is applied by the next refresh even if its title and timestamp are unchanged.
 Static checks and fake-server self-tests cannot verify the native photo picker,
 an authenticated server's credential label/update support, or actual provider
 image acceptance; those require device/server validation. The local V2 server

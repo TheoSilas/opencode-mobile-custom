@@ -24,6 +24,7 @@ type ModelPickerProps = {
   providers?: ProviderOption[];
   accountActions?: CapabilitiesContextValue['providerAccounts'];
   supportsAccounts?: boolean;
+  sessionCredentialID?: string;
   onSelect: (model: ModelOption) => void;
   recentModelIds?: string[];
   selectedModelId?: string;
@@ -35,7 +36,7 @@ function getSelectedModelLabel(models: ModelOption[], selectedModelId: string | 
   return selected ? `${selected.label} · ${selected.providerLabel}` : fallback;
 }
 
-export function ModelPicker({ disabled = false, models, providers, accountActions, supportsAccounts = false, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
+export function ModelPicker({ disabled = false, models, providers, accountActions, supportsAccounts = false, sessionCredentialID, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
@@ -103,7 +104,7 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
   const selected = models.find((model) => model.id === selectedModelId);
   const selectedProvider = providers?.find((provider) => provider.id === selected?.providerID);
   const accounts = (selectedProvider?.accounts ?? []).filter((account) => !account.integrationId || account.integrationId === selectedProvider?.requestIntegrationId);
-  const activeAccount = accountStatus === 'error' ? undefined : accounts.find((account) => account.active);
+  const activeAccount = accountStatus === 'error' ? undefined : accounts.find((account) => account.id === sessionCredentialID);
   async function changeAccount(id: string, action: () => Promise<void>, success: string) {
     setBusyAccount(id);
     setAccountFeedback('');
@@ -207,13 +208,13 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
                    {accounts.length > 0 ? (
                      <>
                        <Text style={{ color: palette.text }}>{t('chat:accounts.current')}: {busyAccount === 'refresh' ? t('chat:accounts.switching') : activeAccount?.label || t('chat:accounts.unknown')}</Text>
-                       <Text style={{ color: palette.muted, fontSize: 12 }}>{t('chat:accounts.globalHint')}</Text>
+                        <Text style={{ color: palette.muted, fontSize: 12 }}>{t('chat:accounts.sessionHint')}</Text>
                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                          {accounts.map((account, index) => <View key={account.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                           <Pressable disabled={!!busyAccount || account.active} accessibilityRole="button"
-                             onPress={() => void changeAccount(account.id, () => accountActions.activate(account.id), t('chat:accounts.switched'))}
-                             style={[styles.option, { marginBottom: 0, minHeight: 44, borderColor: account.active ? palette.tint : palette.border, backgroundColor: palette.surface }]}>
-                             <Text style={{ color: palette.text }}>{account.label}{accounts.filter((item) => item.label === account.label).length > 1 ? ` (${index + 1})` : ''}{account.active ? ' ✓' : ''}</Text>
+                            <Pressable disabled={!!busyAccount || account.id === sessionCredentialID} accessibilityRole="button"
+                              onPress={() => void changeAccount(account.id, () => accountActions.bindSession(account.id), t('chat:accounts.switched'))}
+                              style={[styles.option, { marginBottom: 0, minHeight: 44, borderColor: account.id === sessionCredentialID ? palette.tint : palette.border, backgroundColor: palette.surface }]}>
+                              <Text style={{ color: palette.text }}>{account.label}{accounts.filter((item) => item.label === account.label).length > 1 ? ` (${index + 1})` : ''}{account.id === sessionCredentialID ? ' ✓' : ''}</Text>
                            </Pressable>
                            <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat:accounts.name')}: ${account.label}`} onPress={() => { setRenaming(account.id); setNewLabel(account.label); }} style={{ padding: 10 }}>
                              <MaterialCommunityIcons name="pencil" size={18} color={palette.tint} />

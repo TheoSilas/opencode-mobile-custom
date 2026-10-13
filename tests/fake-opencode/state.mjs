@@ -58,6 +58,7 @@ export function createState(scenario) {
     messagesBySession: {},
     inboxBySession: {},
     activePromptBySession: {},
+    credentialUses: [],
     sessionInitializations: {},
     sessionStatuses: {},
     instructionsBySession: {},

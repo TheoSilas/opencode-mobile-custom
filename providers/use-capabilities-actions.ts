@@ -25,6 +25,7 @@ type CapabilitiesActionsInput = {
   connectionScope: string;
   currentSessionId?: string;
   sessions: Session[];
+  setSessions: Dispatch<SetStateAction<Session[]>>;
   chatPreferences: ChatPreferences;
   isCurrentClient: (candidate: object) => boolean;
   currentConfig?: Config;
@@ -45,6 +46,7 @@ export function useCapabilitiesActions({
   connectionScope,
   currentSessionId,
   sessions,
+  setSessions,
   chatPreferences,
   isCurrentClient,
   currentConfig,
@@ -321,6 +323,18 @@ export function useCapabilitiesActions({
     await refreshChatCapabilities();
   }, [client, refreshChatCapabilities]);
 
+  const bindSessionAccount = useCallback(async (credentialId: string) => {
+    if (!activeProjectPath || !currentSessionId || !client.accounts) throw new Error('Select a chat on an OpenCode 2 server first.');
+    const accounts = await client.accounts.list();
+    if (!accounts.some((account) => account.id === credentialId)) throw new Error('Selected account is unavailable.');
+    const response = await client.session.update({ sessionID: currentSessionId, credentialID: credentialId } as Parameters<typeof client.session.update>[0]);
+    const confirmed = response.data as Session & { credentialID?: string };
+    if (confirmed.credentialID !== credentialId) throw new Error('OpenCode did not confirm the selected session account.');
+    if (!isCurrentClient(client)) return;
+    setSessions((current) => current.map((item) => item.id === currentSessionId ? confirmed : item));
+    await refreshChatCapabilities();
+  }, [activeProjectPath, client, currentSessionId, isCurrentClient, refreshChatCapabilities, setSessions]);
+
   const refreshProviderAccounts = useCallback(async () => {
     if (!client.accounts) return;
     await client.accounts.list();
@@ -415,6 +429,7 @@ export function useCapabilitiesActions({
     cancelProviderOAuth,
     addProviderAccount,
     activateProviderAccount,
+    bindSessionAccount,
     refreshProviderAccounts,
     renameProviderAccount,
     removeProviderAccount,

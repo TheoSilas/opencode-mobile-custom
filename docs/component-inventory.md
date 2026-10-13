@@ -19,11 +19,13 @@ valid, enforces the 10 MB byte limit during copying, and releases IME permission
 after the copy. Copy failures surface through attachment feedback. Native input
 height events use density-independent units, and the input clears Android's
 default minimum size/background/padding so the 36 px slim field can fit.
-The model sheet displays the server's active account for its selected provider,
-re-reads it on opening, supports server-confirmed account activation and renaming, and explains that
-activation affects later server requests across chats/clients. When the server
-exposes accounts (OpenCode 2) but none are stored, the sheet shows an explicit
-empty state instead of silently hiding the account entry.
+The model sheet displays the current chat's bound account for its selected
+provider, re-reads the account catalog on opening, and supports server-confirmed
+session binding and account renaming. The server persists each chat's binding,
+including across reconnects, while the integration's global active credential
+is controlled separately in Settings. When the server exposes accounts (OpenCode 2) but none are
+stored, the sheet shows an explicit empty state instead of silently hiding the
+account entry.
 Settings → AI & providers displays each stored credential with a short ID
 suffix to distinguish repeated labels. Its close action confirms individual
 credential removal; provider-wide removal remains separate. The server does not

@@ -143,6 +143,9 @@ const helpers = createSessionHelpers({ emitEvent, getNow, getState: () => state 
 
 
 function deliverInboxItem(item) {
+  const session = helpers.getSession(item.sessionID);
+  session.taskCredentialID = item.payload.credentialID;
+  state.credentialUses.push({ sessionID: item.sessionID, messageID: item.id, credentialID: session.taskCredentialID });
   state.inboxBySession[item.sessionID] = (state.inboxBySession[item.sessionID] || []).filter((entry) => entry.id !== item.id);
   state.activePromptBySession[item.sessionID] = item.payload.text;
   helpers.handlePromptSubmission(item.sessionID, {
@@ -185,6 +188,8 @@ function sessionToV2(session) {
     time: { created: session.time.created, updated: session.time.updated },
     location: { directory: session.directory || state.project.worktree },
     model: session.model || FAKE_MODEL,
+    ...(session.credentialID ? { credentialID: session.credentialID } : {}),
+    ...(session.taskCredentialID ? { taskCredentialID: session.taskCredentialID } : {}),
     ...(session.agent ? { agent: session.agent } : {}),
     cost: usage.cost,
     tokens: { input: usage.input, output: usage.output, reasoning: usage.reasoning, cache: usage.cache },
@@ -351,6 +356,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/__control/instructions') {
       sendJson(res, 200, { data: state.instructionsBySession });
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/__control/credential-uses') {
+      sendJson(res, 200, { data: state.credentialUses });
       return;
     }
 
@@ -552,6 +562,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const directory = body?.location?.directory;
       const session = helpers.createSession(body?.title || '', directory);
+      if (body?.credentialID) session.credentialID = body.credentialID;
       sendJson(res, 200, { data: sessionToV2(session) });
       return;
     }
@@ -578,6 +589,12 @@ const server = http.createServer(async (req, res) => {
       const session = helpers.getSession(sessionID);
       if (!session) return notFound(res);
       if (typeof body?.title === 'string') session.title = body.title;
+      if (body?.credentialID !== undefined) {
+        const credential = state.credentials.find((entry) => entry.id === body.credentialID);
+        if (!credential) return sendJson(res, 400, { error: 'credential not found' });
+        if (credential.integrationID !== (session.model || FAKE_MODEL).providerID) return sendJson(res, 400, { error: 'credential belongs to another provider' });
+        session.credentialID = credential.id;
+      }
       res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
       res.end();
       return;
@@ -647,15 +664,22 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/session\/[^/]+\/prompt$/.test(pathname)) {
       const sessionID = pathname.split('/')[3];
-      if (!helpers.getSession(sessionID)) return notFound(res);
+      const session = helpers.getSession(sessionID);
+      if (!session) return notFound(res);
       const body = await readJson(req);
+      const credentialID = body?.credentialID || session.credentialID;
+      if (credentialID) {
+        const credential = state.credentials.find((entry) => entry.id === credentialID);
+        if (!credential) return sendJson(res, 400, { error: 'credential not found' });
+        if (credential.integrationID !== (session.model || FAKE_MODEL).providerID) return sendJson(res, 400, { error: 'credential belongs to another provider' });
+      }
       const files = (body?.files || []).map((file) => {
         const match = file.uri?.match(/^data:([^;,]+);base64,([\s\S]*)$/);
         return { name: file.name, mime: match?.[1] || 'application/octet-stream', data: match?.[2] || '', source: { type: 'inline' } };
       });
       const item = {
         id: `message-${state.nextMessageId++}`, sessionID, type: 'user',
-        payload: { text: body?.text || '', files }, delivery: body?.delivery || 'steer', time: { created: getNow() },
+        payload: { text: body?.text || '', files, ...(credentialID ? { credentialID } : {}) }, delivery: body?.delivery || 'steer', time: { created: getNow() },
       };
       state.inboxBySession[sessionID] = [...(state.inboxBySession[sessionID] || []), item];
       emitV2Event(event('session.inbox.enqueued', { sessionID, inboxID: item.id, item: { type: 'user', payload: item.payload, delivery: item.delivery } }));

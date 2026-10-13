@@ -3,7 +3,18 @@ import { fileToV1, messageToV1 } from './mappers';
 import type { PendingPrompt, PromptDelivery } from '../prompt-inbox';
 import { stringField, syncSessionInstructions, type V2Adapter, type V2Diff } from './shared';
 
-export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapter): Record<string, unknown> {
+export function buildSessionApi({ api, directory, request, listSessionPage, ok }: V2Adapter): Record<string, unknown> {
+  // The published client predates session credential fields and drops them while
+  // serializing. Send these two operations through the same scoped fetch instead.
+  const accountRequest = async (sessionID: string, method: 'PATCH' | 'POST', body: Record<string, unknown>) => {
+    const response = await request(`/api/session/${encodeURIComponent(sessionID)}${method === 'POST' ? '/prompt' : ''}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(`OpenCode rejected the session account (${response.status}).`);
+    return response;
+  };
   const inboxToPrompt = (item: Extract<Awaited<ReturnType<typeof api.session.inbox.list>>[number], { type: 'user' }>): PendingPrompt => ({
     id: item.id, sessionId: item.sessionID, createdAt: item.time.created,
     text: item.payload.text, delivery: item.delivery, state: 'waiting',
@@ -16,6 +27,7 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
     const sessionID = stringField(parameters.sessionID);
     const agent = typeof parameters.agent === 'string' ? parameters.agent : undefined;
     const model = parameters.model as { providerID?: string; modelID?: string } | undefined;
+    const credentialID = typeof parameters.credentialID === 'string' ? parameters.credentialID : undefined;
     if (agent) await api.session.switchAgent({ sessionID, agent });
     if (model?.providerID && model.modelID) {
       await api.session.switchModel({ sessionID, model: { id: model.modelID, providerID: model.providerID } });
@@ -32,7 +44,15 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
         return { uri: stringField(record.url), name: stringField(record.filename, 'Attachment') };
       });
     await syncSessionInstructions(api, sessionID, parameters.system);
-    const admitted = await api.session.prompt({ sessionID, text, delivery, ...(files.length > 0 ? { files } : {}) });
+    const prompt = {
+      text,
+      delivery,
+      ...(files.length > 0 ? { files } : {}),
+    };
+    const admitted = credentialID
+      ? ((await (await accountRequest(sessionID, 'POST', { ...prompt, credentialID })).json()) as { data: Awaited<ReturnType<typeof api.session.prompt>> }).data
+      : await api.session.prompt({ sessionID, ...prompt });
+    if (!admitted || admitted.type !== 'user' || admitted.sessionID !== sessionID) throw new Error('OpenCode returned an invalid prompt admission.');
     return inboxToPrompt(admitted);
   };
   return {
@@ -89,15 +109,22 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
         await api.session.remove({ sessionID: parameters.sessionID });
         return ok(undefined);
       },
-      update: async (parameters: { sessionID: string; title?: string; permission?: unknown }) => {
+      update: async (parameters: { sessionID: string; title?: string; permission?: unknown; credentialID?: string }) => {
         if (parameters.title !== undefined || parameters.permission !== undefined) {
-          await api.session.update({
+          const update = {
             sessionID: parameters.sessionID,
             ...(parameters.title !== undefined ? { title: parameters.title } : {}),
             ...(parameters.permission !== undefined ? { permissions: parameters.permission as never } : {}),
-          });
+          };
+          await api.session.update(update);
+        }
+        if (parameters.credentialID !== undefined) {
+          await accountRequest(parameters.sessionID, 'PATCH', { credentialID: parameters.credentialID });
         }
         const session = await api.session.get({ sessionID: parameters.sessionID });
+        if (parameters.credentialID !== undefined && (session as typeof session & { credentialID?: string }).credentialID !== parameters.credentialID) {
+          throw new Error('OpenCode did not confirm the selected session account.');
+        }
         return ok(sessionToV1(session));
       },
       children: async (parameters: { sessionID: string }) => {

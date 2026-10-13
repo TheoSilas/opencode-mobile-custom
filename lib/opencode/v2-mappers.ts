@@ -27,6 +27,7 @@ export function sessionToV1(session: SessionInfo): Record<string, unknown> {
     tokens: session.tokens,
     cost: session.cost,
     agent: session.agent,
+    credentialID: (session as SessionInfo & { credentialID?: string }).credentialID,
   };
 }
 

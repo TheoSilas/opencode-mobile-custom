@@ -87,10 +87,13 @@ Important behavior:
 
 ## Capabilities And Preferences State
 
-The chat model picker reads the server's active V2 credential label for the
-selected provider. Switching a credential activates it for its server
-integration, not for an individual session; the provider re-reads the
-credential list and confirms the target is active before reporting success.
+The chat model picker reads each V2 session's server-persisted credential ID and
+shows its matching account label for the selected provider. Selecting an account
+updates that session's binding and confirms it with the server; admitted prompts
+carry the bound ID. Other sessions do not change when an account is selected or
+the provider's global active credential changes. Session lists restore the
+binding after reconnect and across devices. Settings activates the integration's
+global default independently of the chat binding.
 The chat picker associates an account with the provider's current request
 integration; credentials of a linked login integration are still available in
 Settings but are not mislabeled as the active account for another route.

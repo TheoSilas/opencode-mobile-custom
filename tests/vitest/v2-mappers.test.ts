@@ -4,15 +4,37 @@ import { modelToV1, projectToV1, sessionToV1 } from '@/lib/opencode/v2-mappers';
 import { mapSavedPermission, messageToV1 } from '@/lib/opencode/v2/mappers';
 import { buildV2Client } from '@/lib/opencode/v2-client';
 
-const h = vi.hoisted(() => ({ api: undefined as unknown }));
+const h = vi.hoisted(() => ({ api: undefined as unknown, request: vi.fn() }));
 vi.mock('@opencode/client', () => ({ OpenCode: { make: () => h.api } }));
 vi.mock('@/lib/opencode/client', () => ({
   getServerBase: () => ({ origin: 'http://test', pathPrefix: '' }),
   getRequestHeaders: () => ({}),
-  createPrefixFetch: () => () => {},
+  createPrefixFetch: () => h.request,
 }));
 
 describe('v2 response mappers', () => {
+  it('sends the bound credential in actual scoped HTTP requests and verifies the server response', async () => {
+    const session = { id: 'ses_bound', title: 'Bound', credentialID: 'cred_work', time: { created: 1, updated: 2 } };
+    const admitted = { id: 'msg_bound', sessionID: session.id, type: 'user', time: { created: 3 }, payload: { text: 'Hello' }, delivery: 'steer' };
+    h.api = { session: {
+      update: vi.fn(() => { throw new Error('Old SDK cannot send credentialID'); }),
+      prompt: vi.fn(() => { throw new Error('Old SDK cannot send credentialID'); }),
+      get: vi.fn(async () => session),
+    } };
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: admitted }), { status: 200 }));
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_work' } as never)).resolves.toMatchObject({ data: { credentialID: 'cred_work' } });
+    await expect(client.promptInbox!.submit({ sessionID: session.id, credentialID: 'cred_work', parts: [{ type: 'text', text: 'Hello' }] } as never)).resolves.toMatchObject({ id: 'msg_bound' });
+    expect(h.request.mock.calls.map(([url, init]) => ({
+      url: new URL(url).pathname + new URL(url).search,
+      method: init.method,
+      credentialID: JSON.parse(init.body).credentialID,
+    }))).toEqual([
+      { url: '/api/session/ses_bound?location%5Bdirectory%5D=%2Frepo', method: 'PATCH', credentialID: 'cred_work' },
+      { url: '/api/session/ses_bound/prompt?location%5Bdirectory%5D=%2Frepo', method: 'POST', credentialID: 'cred_work' },
+    ]);
+  });
   it('preserves session usage fields', () => {
     const session = sessionToV1({
       id: 'ses_1',

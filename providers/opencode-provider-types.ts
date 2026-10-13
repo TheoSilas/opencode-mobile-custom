@@ -204,6 +204,7 @@ export type CapabilitiesContextValue = {
     cancel: (providerId: string) => Promise<void>;
   };
   providerAccounts: {
+    bindSession: (credentialId: string) => Promise<void>;
     refresh: () => Promise<void>;
     add: (providerId: string, values: ProviderAuthValues, label?: string) => Promise<void>;
     activate: (credentialId: string) => Promise<void>;

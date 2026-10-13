@@ -215,6 +215,7 @@ export function ChatView() {
           configuredProviders={configuredProviders}
           providerAccounts={providerAccounts}
           supportsAccounts={serverCapabilities.contract === 'v2'}
+          sessionCredentialID={(selectedSession as (typeof selectedSession & { credentialID?: string }) | undefined)?.credentialID}
           autoApproveAvailable={serverCapabilities.configWrite}
           availableAgents={availableAgents}
           chatPreferences={chatPreferences}

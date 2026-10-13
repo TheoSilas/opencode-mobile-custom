@@ -366,6 +366,23 @@ try {
   assert(missingInstruction.status === 404, `V2 instruction put for a missing session returned ${missingInstruction.status}`);
 
   await fetch(`${v2Origin}/__control/reset`, json('POST', { scenario: 'inbox' }));
+  const work = await v2Api.session.create({ title: 'Work account' });
+  const personal = await v2Api.session.create({ title: 'Personal account' });
+  await v2request(`/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai' }));
+  await v2request(`/api/session/${personal.id}`, json('PATCH', { credentialID: 'credential-openai-2' }));
+  assert((await v2request(`/api/session/${work.id}`)).data.credentialID === 'credential-openai', 'Work binding must be server-confirmed');
+  assert((await v2request(`/api/session/${personal.id}`)).data.credentialID === 'credential-openai-2', 'Personal binding must be server-confirmed');
+  const workPrompt = await v2Api.session.prompt({ sessionID: work.id, text: 'Work task' });
+  const personalPrompt = await v2Api.session.prompt({ sessionID: personal.id, text: 'Personal task' });
+  await v2request('/api/credential/credential-openai-2/activate', { method: 'POST' });
+  await v2request(`/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }));
+  const uses = (await v2request('/__control/credential-uses')).data;
+  assert(uses.find((item) => item.messageID === workPrompt.id)?.credentialID === 'credential-openai', 'Global active and default changes must not rewrite the work task');
+  assert(uses.find((item) => item.messageID === personalPrompt.id)?.credentialID === 'credential-openai-2', 'Personal task must keep its own credential');
+  const invalid = await fetch(`${v2Origin}/api/session/${work.id}/prompt`, json('POST', { text: 'Invalid task', credentialID: 'credential-removed' }));
+  assert(invalid.status === 400, 'Missing bound credential must fail without fallback');
+
+  await fetch(`${v2Origin}/__control/reset`, json('POST', { scenario: 'inbox' }));
   const inboxSession = await v2Api.session.create({ title: 'Inbox contract' });
   await v2Api.session.prompt({ sessionID: inboxSession.id, text: 'Initial response' });
   const steered = await v2Api.session.prompt({ sessionID: inboxSession.id, text: 'Steering hint', delivery: 'steer' });
