@@ -62,6 +62,10 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
         .filter((item): item is Extract<typeof item, { type: 'user' }> => item.type === 'user').map(inboxToPrompt),
     },
     session: {
+      get: async (parameters: { sessionID: string }) => {
+        const session = await api.session.get({ sessionID: parameters.sessionID });
+        return ok(sessionToV1(session));
+      },
       list: async () => {
         const response = await listSessionPage();
         const headers = new Headers();
