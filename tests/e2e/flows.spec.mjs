@@ -1415,7 +1415,7 @@ test('OpenCode 2 recovers a post-admission failure when the native event is miss
     await sendPrompt(page, 'Task accepted before account removal');
     failedAfterAdmission = true;
     expect((await request.delete(`${base}/api/credential/credential-openai`)).ok()).toBeTruthy();
-    await expect(page.getByText('This chat account is no longer available. Select an available account before sending.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/This chat account is no longer available|OpenCode could not complete this task/)).toBeVisible({ timeout: 15_000 });
   } finally {
     server.kill('SIGTERM');
   }

@@ -210,10 +210,6 @@ export function usePromptLifecycle({
               try {
                 const response = await client.session.get({ sessionID: sessionId });
                 const settled = response.data as Session & { outcome?: string; time?: { idle?: number } };
-                if (settled && !settled.outcome) {
-                  latestPromptBySession.current.delete(sessionId);
-                  return;
-                }
                 if (!settled || !settled.time?.idle || settled.time.idle < requestedAt) continue;
                 if (settled.outcome === 'failed') {
                   const stillAvailable = credentialID && await accountsClient.list()
