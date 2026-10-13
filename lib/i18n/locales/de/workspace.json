@@ -67,6 +67,8 @@
     "hideTitle": "Arbeitsbereich ausblenden",
     "hideConfirm": "Nur in dieser App ausblenden? Dateien, Serverprojekt und Chats bleiben erhalten. Hier kannst du ihn wieder einblenden.",
     "hidden": "In dieser App ausgeblendet",
+    "hiddenHint": "Ausgeblendete Arbeitsbereiche werden hier gesammelt.",
+    "show": "Anzeigen",
     "showNamed": "{{name}} wieder einblenden"
   },
   "errors": {

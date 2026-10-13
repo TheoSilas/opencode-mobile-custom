@@ -67,6 +67,8 @@
     "hideTitle": "隐藏工作区",
     "hideConfirm": "只在本应用隐藏此工作区？源码、服务器项目记录和聊天均保留，可在这里重新显示。",
     "hidden": "在本应用隐藏",
+    "hiddenHint": "隐藏的工作区收纳在这里，不占用主列表。",
+    "show": "显示",
     "showNamed": "重新显示 {{name}}"
   },
   "errors": {

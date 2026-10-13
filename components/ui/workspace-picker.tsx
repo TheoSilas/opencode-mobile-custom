@@ -39,6 +39,7 @@ export function WorkspacePicker({ visible, onClose, projects, activePath, onSele
   const [directory, setDirectory] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const [hiddenExpanded, setHiddenExpanded] = useState(false);
   const close = () => { setAdding(false); setDirectory(''); setError(undefined); onClose(); };
   const hide = (path: string) => {
     const action = () => void projectVisibility.hide(path).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.refreshWorkspace')));
@@ -68,12 +69,23 @@ export function WorkspacePicker({ visible, onClose, projects, activePath, onSele
     {projects.length === 0 ? <Text style={{ color: palette.muted }}>{t('workspace:picker.empty')}</Text> : null}
     <ProjectOptions activePath={activePath} onHide={hide} onSelect={(path) => { onSelect(path); close(); }} projects={projects.filter((project) => project.path === worktrees.project?.root || !worktrees.entries.some((entry) => entry.directory === project.path))} />
     {error ? <Text style={{ color: palette.danger }}>{error}</Text> : null}
-    {projectVisibility.paths.length > 0 ? <View style={styles.addForm}>
-      <Text style={{ color: palette.muted }}>{t('workspace:picker.hidden')}</Text>
-      {projectVisibility.paths.map((path) => <Button key={path} icon="eye-outline" onPress={() => void projectVisibility.show(path).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.refreshWorkspace')))}>
-        {t('workspace:picker.showNamed', { name: path.split('/').filter(Boolean).pop() || path })}
-      </Button>)}
-    </View> : null}
+     {projectVisibility.paths.length > 0 ? <View style={styles.hiddenSection}>
+       <Pressable accessibilityRole="button" accessibilityState={{ expanded: hiddenExpanded }} onPress={() => setHiddenExpanded((current) => !current)} style={[styles.hiddenHeader, { borderColor: palette.border }]}>
+         <View style={{ flex: 1 }}>
+           <Text style={{ color: palette.text }}>{t('workspace:picker.hidden')} · {projectVisibility.paths.length}</Text>
+           <Text variant="bodySmall" style={{ color: palette.muted }}>{t('workspace:picker.hiddenHint')}</Text>
+         </View>
+         <MaterialCommunityIcons name={hiddenExpanded ? 'chevron-up' : 'chevron-down'} size={24} color={palette.muted} />
+       </Pressable>
+       {hiddenExpanded ? <View style={[styles.hiddenList, { borderColor: palette.border }]}>
+         {projectVisibility.paths.map((path) => <View key={path} style={styles.hiddenRow}>
+           <Text numberOfLines={1} style={{ color: palette.text, flex: 1 }}>{path.split('/').filter(Boolean).pop() || path}</Text>
+           <Button compact icon="eye-outline" onPress={() => void projectVisibility.show(path).catch((reason) => setError(reason instanceof Error ? reason.message : t('workspace:errors.refreshWorkspace')))}>
+             {t('workspace:picker.show')}
+           </Button>
+         </View>)}
+       </View> : null}
+     </View> : null}
     {visible ? <WorktreePicker key={activePath} visible onSelect={(path) => { onSelect(path); close(); }} /> : null}
     <Button testID="workspace-add-button" icon="plus" onPress={() => setAdding(true)}>{t('workspace:picker.add')}</Button>
     </>}
@@ -83,5 +95,9 @@ export function WorkspacePicker({ visible, onClose, projects, activePath, onSele
 const styles = StyleSheet.create({
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingHorizontal: 6 },
   addForm: { gap: 12 },
+  hiddenSection: { gap: 8, marginTop: 12 },
+  hiddenHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 },
+  hiddenList: { borderWidth: 1, borderRadius: 14, padding: 8, gap: 4 },
+  hiddenRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingLeft: 8 },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 },
 });
