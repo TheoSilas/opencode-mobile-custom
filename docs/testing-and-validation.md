@@ -88,6 +88,11 @@ retains its server-side binding before sending (also when another client
 changes the provider's globally active account).
 The account E2E also selects credentials by their distinct label and short ID
 and accepts the explicit deletion confirmation before checking removal.
+For V2 execution failures before a model stream begins (including removed
+session-bound credentials), `session.execution.failed` must display the server's
+error in the affected chat and clear the busy indicator; mapping it only to
+idle hides the cause. The isolated candidate's local mock-model trace checks
+the actual authorization identity at every provider request without paid calls.
 
 Android 1.0.61 device crash logs identified Expo's reflective view creation
 failure (`Didn't find a correct constructor`). Inspection of the shipped APK

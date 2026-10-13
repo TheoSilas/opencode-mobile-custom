@@ -65,6 +65,9 @@ export function handleProviderEvent(event: GlobalEvent['payload'], actions: Prov
     }
     case 'session.error': {
       const sessionId = event.properties.sessionID;
+      if (sessionId) {
+        actions.setSessionStatuses((current) => ({ ...current, [sessionId]: { type: 'idle' } }));
+      }
       const error = event.properties.error;
       const message = error && 'data' in error && error.data && 'message' in error.data
         ? error.data.message
