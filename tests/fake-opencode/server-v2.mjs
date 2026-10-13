@@ -185,12 +185,13 @@ function sessionToV2(session) {
     id: session.id,
     projectID: session.projectID || state.project.id,
     title: session.title || '',
-    time: { created: session.time.created, updated: session.time.updated },
+     time: { created: session.time.created, updated: session.time.updated, ...(session.time.idle !== undefined ? { idle: session.time.idle } : {}) },
     location: { directory: session.directory || state.project.worktree },
     model: session.model || FAKE_MODEL,
     ...(session.credentialID ? { credentialID: session.credentialID } : {}),
     ...(session.taskCredentialID ? { taskCredentialID: session.taskCredentialID } : {}),
-    ...(session.agent ? { agent: session.agent } : {}),
+     ...(session.agent ? { agent: session.agent } : {}),
+     ...(session.outcome ? { outcome: session.outcome } : {}),
     cost: usage.cost,
     tokens: { input: usage.input, output: usage.output, reasoning: usage.reasoning, cache: usage.cache },
   };
@@ -529,6 +530,15 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'DELETE' && credentialMatch) {
       const credentialID = decodeURIComponent(credentialMatch[1]);
       state.credentials = state.credentials.filter((credential) => credential.id !== credentialID);
+      // A prompt already admitted with this credential fails durably. Suppress
+      // the event in the post-admission test so the client must use its status
+      // fallback, while still exposing the same terminal state as V2.
+      for (const session of state.sessions) {
+        if (session.taskCredentialID !== credentialID || state.sessionStatuses[session.id]?.type !== 'busy') continue;
+        session.outcome = 'failed';
+        session.time.idle = getNow();
+        state.sessionStatuses[session.id] = { type: 'idle' };
+      }
       res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
       res.end();
       return;
@@ -668,6 +678,10 @@ const server = http.createServer(async (req, res) => {
       if (!session) return notFound(res);
       const body = await readJson(req);
       const credentialID = body?.credentialID || session.credentialID;
+      // A new admitted task supersedes a previous terminal outcome. The
+      // client's bounded poll is keyed to this prompt's admission time.
+      delete session.outcome;
+      delete session.time.idle;
       if (credentialID) {
         const credential = state.credentials.find((entry) => entry.id === credentialID);
         if (!credential) return sendJson(res, 400, { error: 'credential not found' });
