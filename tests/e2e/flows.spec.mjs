@@ -1403,7 +1403,9 @@ test('OpenCode 2 recovers a post-admission failure when the native event is miss
     await expect(page.getByTestId('chat-library')).not.toBeVisible();
 
     await sendPrompt(page, 'Task accepted before account removal');
-    await expect.poll(async () => (await (await request.get(`${base}/api/session/${created.data.id}`)).json()).data.time?.idle).toBeTruthy();
+    // The prompt endpoint has synchronously admitted the task and recorded its
+    // credential before returning; delete immediately to exercise the
+    // post-admission terminal failure path.
     expect((await request.delete(`${base}/api/credential/credential-openai`)).ok()).toBeTruthy();
     await expect(page.getByText(/This chat account is no longer available|OpenCode could not complete this task/)).toBeVisible({ timeout: 15_000 });
   } finally {
