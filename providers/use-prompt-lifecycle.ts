@@ -202,7 +202,7 @@ export function usePromptLifecycle({
         // Native SSE may miss a failure emitted after the HTTP admission succeeds.
         // Observe the durable V2 terminal outcome as a bounded safety fallback.
         const accountsClient = client.accounts;
-        if (accountsClient) {
+        if (client.session.get) {
           void (async () => {
             for (let attempt = 0; attempt < 40; attempt += 1) {
               await new Promise((resolve) => setTimeout(resolve, 3_000));
@@ -212,9 +212,11 @@ export function usePromptLifecycle({
                 const settled = response.data as Session & { outcome?: string; time?: { idle?: number } };
                 if (!settled || !settled.time?.idle || settled.time.idle < requestedAt) continue;
                 if (settled.outcome === 'failed') {
-                  const stillAvailable = credentialID && await accountsClient.list()
-                    .then((accounts) => accounts.some((account) => account.id === credentialID))
-                    .catch(() => true);
+                  const stillAvailable = credentialID && accountsClient
+                    ? await accountsClient.list()
+                      .then((accounts) => accounts.some((account) => account.id === credentialID))
+                      .catch(() => true)
+                    : undefined;
                   if (!isCurrentClient(client) || latestPromptBySession.current.get(sessionId) !== requestedAt) return;
                   setPromptError((current) => current?.sessionId === sessionId ? current : {
                     message: stillAvailable === false

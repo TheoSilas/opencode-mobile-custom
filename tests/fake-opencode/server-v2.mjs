@@ -534,7 +534,7 @@ const server = http.createServer(async (req, res) => {
       // the event in the post-admission test so the client must use its status
       // fallback, while still exposing the same terminal state as V2.
       for (const session of state.sessions) {
-        if (session.taskCredentialID !== credentialID) continue;
+        if (session.taskCredentialID !== credentialID && session.credentialID !== credentialID) continue;
         session.outcome = 'failed';
         session.time.idle = getNow();
         state.sessionStatuses[session.id] = { type: 'idle' };
