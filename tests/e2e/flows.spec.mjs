@@ -1360,6 +1360,32 @@ test('OpenCode 2 lists provider accounts and switches the active one', async ({ 
   }
 });
 
+test('OpenCode 2 shows an error when a bound chat account was removed elsewhere', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port);
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    await waitForServer(request, `${base}/api/info`);
+    const created = await (await request.post(`${base}/api/session`, {
+      data: { title: 'Removed account chat', credentialID: 'credential-openai' },
+    })).json();
+    await openReadyChat(page);
+    await connectToServer(page, base);
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Open Removed account chat', exact: true }).click();
+    await expect(page.getByTestId('chat-library')).not.toBeVisible();
+    expect((await request.delete(`${base}/api/credential/credential-openai`)).ok()).toBeTruthy();
+
+    await sendPrompt(page, 'Do not submit with removed account');
+    await expect(page.getByText('This chat account is no longer available. Select an available account before sending.')).toBeVisible();
+    const messages = await (await request.get(`${base}/api/session/${created.data.id}/message`)).json();
+    expect(messages.data.some((message) => message.type === 'user')).toBe(false);
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
 test('OpenCode 2 learns a personal preference and uses it in another project', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   const port = await getFreePort();

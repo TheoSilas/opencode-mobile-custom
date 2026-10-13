@@ -93,6 +93,13 @@ session-bound credentials), `session.execution.failed` must display the server's
 error in the affected chat and clear the busy indicator; mapping it only to
 idle hides the cause. The isolated candidate's local mock-model trace checks
 the actual authorization identity at every provider request without paid calls.
+On Android, SSE failure delivery can be absent even though the server has set
+the session outcome to `failed`. When a chat has an explicitly bound credential,
+the provider verifies that the credential is still listed before submitting a
+new prompt, so removing it in another client produces a visible chat error and
+never falls back to the active global account. Recheck this on the installed APK
+with the isolated backend and two offline accounts; a unit event mapping alone
+does not constitute device acceptance.
 
 Android 1.0.61 device crash logs identified Expo's reflective view creation
 failure (`Didn't find a correct constructor`). Inspection of the shipped APK

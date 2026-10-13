@@ -181,6 +181,13 @@ export function usePromptLifecycle({
         parts.push(...preparedFileParts);
 
         const credentialID = (sessions.find((session) => session.id === sessionId) as (Session & { credentialID?: string }) | undefined)?.credentialID;
+        if (credentialID && client.accounts) {
+          const accounts = await client.accounts.list();
+          if (!isCurrentClient(client)) return false;
+          if (!accounts.some((account) => account.id === credentialID)) {
+            throw new Error('This chat account is no longer available. Select an available account before sending.');
+          }
+        }
         await submitPrompt({
           sessionID: sessionId,
           ...(credentialID ? { credentialID } : {}),
