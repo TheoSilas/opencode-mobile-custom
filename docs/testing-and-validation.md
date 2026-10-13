@@ -100,6 +100,13 @@ new prompt, so removing it in another client produces a visible chat error and
 never falls back to the active global account. Recheck this on the installed APK
 with the isolated backend and two offline accounts; a unit event mapping alone
 does not constitute device acceptance.
+For failures that occur after the server admits a prompt, the provider also
+checks the durable V2 session outcome at a bounded interval. Only an idle
+timestamp later than this prompt may produce a fallback error; a subsequent
+prompt or connection change supersedes the check. A successful SSE error keeps
+its more specific message. Both pre-admission and post-admission failures must
+be verified on the device, along with the absence of another account's model
+request in the isolated gateway log.
 
 Android 1.0.61 device crash logs identified Expo's reflective view creation
 failure (`Didn't find a correct constructor`). Inspection of the shipped APK

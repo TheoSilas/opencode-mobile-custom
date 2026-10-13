@@ -53,6 +53,10 @@ describe('v2 response mappers', () => {
     expect(session.title).toBe('Chat');
     expect(session.time).toEqual({ created: 1, updated: 2 });
 
+    const failed = sessionToV1({ id: 'ses_failed', time: { created: 1, updated: 4, idle: 4 }, outcome: 'failed' } as never);
+    expect(failed.outcome).toBe('failed');
+    expect(failed.time).toMatchObject({ updated: 4, idle: 4 });
+
     const minimalSession = sessionToV1({ id: 'ses_2', projectID: 'project-1', cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: 0, updated: 0 } } as never);
     expect(minimalSession.title).toBe('');
     expect(minimalSession.model).toBeUndefined();

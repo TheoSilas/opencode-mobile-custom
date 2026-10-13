@@ -1,5 +1,5 @@
 import type { FilePartInput, TextPartInput } from '@opencode-ai/sdk/v2/client';
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import type { OpencodeConnectionSettings, ScopedOpencodeClient } from '@/lib/opencode/client';
 import type { SessionMessageRecord } from '@/lib/opencode/format';
@@ -80,6 +80,7 @@ export function usePromptLifecycle({
 }: PromptLifecycleInput) {
   const [sendingState, setSendingState] = useState<{ sessionId?: string; active: boolean }>({ active: false });
   const [promptError, setPromptError] = useState<{ message: string; occurredAt: number; sessionId?: string }>();
+  const latestPromptBySession = useRef(new Map<string, number>());
 
   const sendPrompt = useCallback(
     async (
@@ -197,6 +198,46 @@ export function usePromptLifecycle({
           parts,
         }, chatPreferences.promptDelivery ?? 'steer');
         promptAccepted = true;
+        latestPromptBySession.current.set(sessionId, requestedAt);
+        // Native SSE may miss a failure emitted after the HTTP admission succeeds.
+        // Observe the durable V2 terminal outcome as a bounded safety fallback.
+        const accountsClient = client.accounts;
+        if (accountsClient) {
+          void (async () => {
+            for (let attempt = 0; attempt < 40; attempt += 1) {
+              await new Promise((resolve) => setTimeout(resolve, 3_000));
+              if (!isCurrentClient(client) || latestPromptBySession.current.get(sessionId) !== requestedAt) return;
+              try {
+                const response = await client.session.get({ sessionID: sessionId });
+                const settled = response.data as Session & { outcome?: string; time?: { idle?: number } };
+                if (settled && !settled.outcome) {
+                  latestPromptBySession.current.delete(sessionId);
+                  return;
+                }
+                if (!settled || !settled.time?.idle || settled.time.idle < requestedAt) continue;
+                if (settled.outcome === 'failed') {
+                  const stillAvailable = credentialID && await accountsClient.list()
+                    .then((accounts) => accounts.some((account) => account.id === credentialID))
+                    .catch(() => true);
+                  if (!isCurrentClient(client) || latestPromptBySession.current.get(sessionId) !== requestedAt) return;
+                  setPromptError((current) => current?.sessionId === sessionId ? current : {
+                    message: stillAvailable === false
+                      ? 'This chat account is no longer available. Select an available account before sending.'
+                      : 'OpenCode could not complete this task. Check the account and try again.',
+                    occurredAt: Date.now(), sessionId,
+                  });
+                }
+                if (settled.outcome) {
+                  latestPromptBySession.current.delete(sessionId);
+                  return;
+                }
+              } catch {
+                // Transient status reads do not replace the existing SSE path.
+              }
+            }
+            latestPromptBySession.current.delete(sessionId);
+          })();
+        }
         if (handoff) projectMemory.markSent(sessionId);
         if (isCurrentClient(client) && trimmedPrompt) {
           void personalMemory.learn(client, trimmedPrompt, chatPreferences.modelId).catch(() => undefined);

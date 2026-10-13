@@ -1386,6 +1386,41 @@ test('OpenCode 2 shows an error when a bound chat account was removed elsewhere'
   }
 });
 
+test('OpenCode 2 recovers a post-admission failure when the native event is missed', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port);
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    await waitForServer(request, `${base}/api/info`);
+    const created = await (await request.post(`${base}/api/session`, {
+      data: { title: 'Late account failure', credentialID: 'credential-openai' },
+    })).json();
+    await openReadyChat(page);
+    await connectToServer(page, base);
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Open Late account failure', exact: true }).click();
+    await expect(page.getByTestId('chat-library')).not.toBeVisible();
+
+    let failedAfterAdmission = false;
+    await page.route(`**/api/session/${created.data.id}*`, async (route) => {
+      if (!failedAfterAdmission || route.request().method() !== 'GET'
+        || new URL(route.request().url()).pathname !== `/api/session/${created.data.id}`) return route.continue();
+      const upstream = await route.fetch();
+      const body = await upstream.json();
+      await route.fulfill({ response: upstream, json: {
+        ...body, data: { ...body.data, outcome: 'failed', time: { ...body.data.time, idle: Date.now() } },
+      } });
+    });
+    await sendPrompt(page, 'Task accepted before account removal');
+    failedAfterAdmission = true;
+    expect((await request.delete(`${base}/api/credential/credential-openai`)).ok()).toBeTruthy();
+    await expect(page.getByText('This chat account is no longer available. Select an available account before sending.')).toBeVisible({ timeout: 15_000 });
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
 test('OpenCode 2 learns a personal preference and uses it in another project', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   const port = await getFreePort();
