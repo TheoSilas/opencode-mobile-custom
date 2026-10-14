@@ -14,6 +14,7 @@ import { useChatViewController } from '@/components/chat/use-chat-view-controlle
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { normalizeTranscriptFontSize } from '@/providers/opencode-preferences';
+import { getAccountBindingCapability } from '@/lib/opencode/account-binding-status';
 
 export function ChatView() {
   const { t } = useTranslation();
@@ -215,7 +216,7 @@ export function ChatView() {
           attachments={attachments}
           configuredProviders={configuredProviders}
           providerAccounts={providerAccounts}
-          supportsAccounts={serverCapabilities.contract === 'v2'}
+          supportsAccounts={getAccountBindingCapability(connection.status, serverCapabilities.contract)}
           sessionId={currentSessionId}
           sessionCredentialID={(selectedSession as (typeof selectedSession & { credentialID?: string }) | undefined)?.credentialID}
           taskSelection={taskSelection}

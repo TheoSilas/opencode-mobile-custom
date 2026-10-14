@@ -19,6 +19,22 @@ is pending, never passed. The manual fork workflow has separate `validate` and
 
 `tests/vitest/v2-mappers.test.ts` 校验绑定 PATCH 后的 GET 确认及拒绝/缺失字段；fake V2 自检校验拒绝、读取失败、无确认和不支持响应。`tests/e2e/flows.spec.mjs` 增加同聊天切换账号与模型、任务仍运行时的本次/下次选择区分，以及失败时保留原绑定。Android/Termux 无法本地运行 Playwright，云端验证及 fake/E2E 独立人工代码审查仍待完成，见 [fake-e2e-human-review.md](fake-e2e-human-review.md) 和 [session-account-binding-task.md](session-account-binding-task.md)。
 
+`tests/vitest/account-binding-status.test.ts` 与 V2 adapter regression distinguish
+401/403 authentication failure, other read failures (including missing-session
+404), and explicit method-specific unsupported evidence (405). A successful
+session payload without the optional `credentialID` is interpreted as unbound,
+not unsupported. An auth or read failure must never render the upgrade /
+protocol-unsupported message. The Chat picker renders that message when its
+provider contract is V1; investigate contract detection separately before using
+that label as evidence about an OpenCode 2 server.
+
+Runtime identity remains provider-owned: connection settings, detected contract,
+and the capability selector are shared by Settings and Chat; account actions use
+the same scoped client and active project directory. Account request errors
+surface method/path/status in the UI without logging credentials, headers, query
+parameters, or response bodies. A `405` on another endpoint/method is not treated
+as evidence that session binding is unsupported.
+
 ## Feed attachments and OpenCode 2 inbox
 
 `tests/vitest/feed.test.ts` covers picker data normalization, preview decoding

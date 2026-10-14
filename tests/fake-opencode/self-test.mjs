@@ -376,7 +376,7 @@ try {
   assert((await fetch(`${v2Origin}/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }))).status === 503, 'Failed bind must reject the write');
   assert((await v2request(`/api/session/${work.id}`)).data.credentialID === 'credential-openai', 'Failed bind must retain the previous account');
   await v2request('/__control/account-binding', json('POST', { bindFailure: false, unsupported: true }));
-  assert((await fetch(`${v2Origin}/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }))).status === 404, 'Unsupported bind must be distinguishable from read failure');
+  assert((await fetch(`${v2Origin}/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }))).status === 405, 'Unsupported bind must use an explicit unsupported-method response');
   await v2request('/__control/account-binding', json('POST', { unsupported: false, readFailure: true }));
   assert((await fetch(`${v2Origin}/api/session/${work.id}`)).status === 503, 'Binding read failure must be surfaced');
   await v2request('/__control/account-binding', json('POST', { readFailure: false, omitConfirmation: true }));

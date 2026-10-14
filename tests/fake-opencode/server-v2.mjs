@@ -642,7 +642,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'PATCH' && /^\/api\/session\/[^/]+$/.test(pathname)) {
-      if (state.accountBinding.unsupported) return notFound(res);
+      if (state.accountBinding.unsupported) return sendJson(res, 405, { error: 'session account binding is not supported' });
       const sessionID = pathname.split('/')[3];
       const body = await readJson(req);
       if (state.accountBinding.bindFailure) return sendJson(res, 503, { error: 'session account binding rejected' });

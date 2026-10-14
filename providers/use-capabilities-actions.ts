@@ -325,8 +325,8 @@ export function useCapabilitiesActions({
 
   const readSessionBinding = useCallback(async (sessionId = currentSessionId) => {
     if (!activeProjectPath || !sessionId || !client.accounts) throw new Error('Select a chat on an OpenCode 2 server first.');
-    const accountBinding = (client.session as typeof client.session & { accountBinding?: { read: (parameters: { sessionID: string }) => Promise<{ credentialID?: string }> } }).accountBinding;
-    if (!accountBinding) throw new Error('SESSION_ACCOUNT_BINDING_UNSUPPORTED');
+    const accountBinding = (client.session as typeof client.session & { accountBinding?: { read: (parameters: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
+    if (!accountBinding) throw new Error('SESSION_ACCOUNT_BINDING_CLIENT_UNAVAILABLE');
     const binding = await accountBinding.read({ sessionID: sessionId });
     if (!isCurrentClient(client)) throw new Error('The server connection changed while reading this chat account.');
     setSessions((current) => current.map((item) => item.id === sessionId ? { ...item, credentialID: binding.credentialID } as Session : item));
@@ -338,8 +338,8 @@ export function useCapabilitiesActions({
     const accounts = await client.accounts.list();
     if (!accounts.some((account) => account.id === credentialId)) throw new Error('Selected account is unavailable.');
     const readBinding = async () => {
-      const bindingApi = (client.session as typeof client.session & { accountBinding?: { read: (parameters: { sessionID: string }) => Promise<{ credentialID?: string }> } }).accountBinding;
-      if (!bindingApi) throw new Error('SESSION_ACCOUNT_BINDING_UNSUPPORTED');
+      const bindingApi = (client.session as typeof client.session & { accountBinding?: { read: (parameters: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
+      if (!bindingApi) throw new Error('SESSION_ACCOUNT_BINDING_CLIENT_UNAVAILABLE');
       return bindingApi.read({ sessionID: sessionId });
     };
     const before = await readBinding();
@@ -351,7 +351,7 @@ export function useCapabilitiesActions({
       confirmed = response.data as Session & { credentialID?: string };
       if (confirmed.credentialID !== credentialId) throw new Error('OpenCode did not confirm the selected session account.');
       const binding = await readBinding();
-      if (binding.credentialID !== credentialId) throw new Error('OpenCode did not confirm the selected session account.');
+      if (binding.unbound || binding.credentialID !== credentialId) throw new Error('OpenCode did not confirm the selected session account.');
       confirmed.credentialID = binding.credentialID;
     } catch (error) {
       // PATCH and the follow-up GET are separate requests. If the write landed

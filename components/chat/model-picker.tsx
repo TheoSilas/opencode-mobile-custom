@@ -13,20 +13,22 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ModelOption, ProviderOption, ReasoningLevel } from '@/providers/opencode-provider';
 import type { CapabilitiesContextValue } from '@/providers/opencode-provider-types';
+import { getAccountBindingRequestDiagnostic } from '@/lib/opencode/account-binding-status';
 
 function isUnsupportedAccountError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? '');
-  return /SESSION_ACCOUNT_BINDING_UNSUPPORTED|\b405\b/.test(message);
+  return /SESSION_ACCOUNT_BINDING_UNSUPPORTED/.test(message);
 }
 
 function formatAccountError(error: unknown, t: (key: string) => string, action: 'read' | 'bind') {
   const message = error instanceof Error ? error.message : String(error ?? '');
-  if (/SESSION_ACCOUNT_BINDING_UNSUPPORTED/.test(message)) return t('chat:accounts.protocolUnsupported');
+  const requestDiagnostic = getAccountBindingRequestDiagnostic(message);
+  if (/SESSION_ACCOUNT_BINDING_UNSUPPORTED/.test(message)) return `${t('chat:accounts.protocolUnsupported')}${requestDiagnostic ? ` · ${requestDiagnostic}` : ''}`;
   if (/SESSION_ACCOUNT_BINDING_UNKNOWN/.test(message)) return t('chat:accounts.bindingUnknown');
   const status = message.match(/\b(401|403|404|405|409|422|500|501|502|503)\b/)?.[1];
   if (isUnsupportedAccountError(error)) return t('chat:accounts.protocolUnsupported');
-  if (status === '401' || status === '403') return t(action === 'read' ? 'chat:accounts.readAuthFailed' : 'chat:accounts.bindingAuthFailed');
-  if (action === 'read') return `${t('chat:accounts.readFailed')}${status ? `（HTTP ${status}）` : message ? `：${message}` : ''}`;
+  if (status === '401' || status === '403') return `${t(action === 'read' ? 'chat:accounts.readAuthFailed' : 'chat:accounts.bindingAuthFailed')}${requestDiagnostic ? ` · ${requestDiagnostic}` : ''}`;
+  if (action === 'read') return `${t('chat:accounts.readFailed')}${requestDiagnostic ? ` · ${requestDiagnostic}` : status ? `（HTTP ${status}）` : message ? `：${message}` : ''}`;
   if (/did not confirm/i.test(message)) return t('chat:accounts.bindingNotConfirmed');
   if (/unavailable|not found/i.test(message)) return t('chat:accounts.bindingAccountUnavailable');
   return `${t('chat:accounts.bindingFailed')}${status ? `（HTTP ${status}）` : message ? `：${message}` : ''}`;
@@ -56,7 +58,7 @@ function getSelectedModelLabel(models: ModelOption[], selectedModelId: string | 
   return selected ? `${selected.label} · ${selected.providerLabel}` : fallback;
 }
 
-export function ModelPicker({ disabled = false, models, providers, accountActions, supportsAccounts = false, sessionId, sessionCredentialID, taskSelection, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
+export function ModelPicker({ disabled = false, models, providers, accountActions, supportsAccounts, sessionId, sessionCredentialID, taskSelection, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
@@ -64,7 +66,7 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
   const [query, setQuery] = useState('');
   const [busyAccount, setBusyAccount] = useState<string>();
   const [accountStatus, setAccountStatus] = useState<'ready' | 'checking' | 'error'>('ready');
-  const [bindingStatus, setBindingStatus] = useState<'not-read' | 'checking' | 'bound' | 'unbound' | 'error' | 'unsupported' | 'no-session'>(supportsAccounts ? 'not-read' : 'unsupported');
+  const [bindingStatus, setBindingStatus] = useState<'not-read' | 'checking' | 'bound' | 'unbound' | 'error' | 'unsupported' | 'no-session'>(supportsAccounts === false ? 'unsupported' : 'not-read');
   const [bindingRefresh, setBindingRefresh] = useState(0);
   const [confirmedCredentialID, setConfirmedCredentialID] = useState(sessionCredentialID);
   const [bindingError, setBindingError] = useState('');
@@ -107,9 +109,21 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
   }, [visible]);
 
   useEffect(() => {
-    if (!supportsAccounts || !accountActions) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- server capability changed, invalidating the old confirmed binding.
+    if (supportsAccounts === false) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- contract resolution invalidates prior state.
       setBindingStatus('unsupported');
+      setBindingError('');
+      return;
+    }
+    if (supportsAccounts === undefined) {
+      // Protocol has not been established yet; unknown must never claim unsupported.
+      setBindingStatus('not-read');
+      setBindingError('');
+      return;
+    }
+    if (!accountActions) {
+      setBindingStatus('error');
+      setBindingError(t('chat:accounts.notChecked'));
       return;
     }
     if (!sessionId) {
@@ -300,8 +314,10 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
                ) : null}
                 {selectedProvider ? (
                   <View testID="chat-account-panel" style={{ paddingHorizontal: 16, paddingVertical: 8, gap: 6 }}>
-                    {!supportsAccounts || !accountActions ? (
-                      <Text accessibilityRole="alert" style={{ color: palette.warning }}>{t('chat:accounts.upgradeRequired')}</Text>
+                    {supportsAccounts !== true || !accountActions ? (
+                      <Text accessibilityRole="alert" style={{ color: supportsAccounts === false ? palette.warning : palette.muted }}>
+                        {supportsAccounts === false ? t('chat:accounts.upgradeRequired') : t('chat:accounts.notChecked')}
+                      </Text>
                     ) : <>
                       <Text testID="chat-account-binding-status" style={{ color: bindingStatus === 'error' || bindingStatus === 'unsupported' ? palette.danger : palette.text }}>
                         {bindingStatus === 'checking' ? t('chat:accounts.reading')

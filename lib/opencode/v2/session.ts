@@ -1,4 +1,5 @@
 import { sessionToV1 } from '../v2-mappers';
+import { classifyAccountBindingRead } from '../account-binding-status';
 import { fileToV1, messageToV1 } from './mappers';
 import type { PendingPrompt, PromptDelivery } from '../prompt-inbox';
 import { stringField, syncSessionInstructions, type V2Adapter, type V2Diff } from './shared';
@@ -12,36 +13,36 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (method === 'PATCH' && (response.status === 404 || response.status === 405)) {
-      throw new Error(`SESSION_ACCOUNT_BINDING_UNSUPPORTED (${response.status})`);
+    if (method === 'PATCH' && response.status === 405) {
+      throw new Error(`SESSION_ACCOUNT_BINDING_UNSUPPORTED (${method} /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status})`);
     }
-    if (!response.ok) throw new Error(`OpenCode rejected the session account (${response.status}).`);
+    if (!response.ok) throw new Error(`OpenCode rejected the session account (${method} /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}).`);
     return response;
   };
   const readAccountBinding = async (sessionID: string) => {
     const response = await request(`/api/session/${encodeURIComponent(sessionID)}`, { method: 'GET' });
-    if (response.status === 405) {
-      throw new Error(`SESSION_ACCOUNT_BINDING_UNSUPPORTED (${response.status})`);
-    }
-    if (!response.ok) throw new Error(`Could not read the chat account binding (${response.status}).`);
+    const result = classifyAccountBindingRead(response.status);
+    if (result === 'unsupported') throw new Error(`SESSION_ACCOUNT_BINDING_UNSUPPORTED (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status})`);
+    if (result !== 'confirmed') throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}).`);
     let body: unknown;
     try {
       body = await response.json();
     } catch {
-      throw new Error('Could not read the chat account binding: unexpected response format.');
+      throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}; unexpected response format).`);
     }
     const data = body && typeof body === 'object' ? (body as Record<string, unknown>).data : undefined;
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      throw new Error('Could not read the chat account binding: unexpected response format.');
+      throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}; unexpected response format).`);
     }
     const record = data as Record<string, unknown>;
-    if (!Object.prototype.hasOwnProperty.call(record, 'credentialID')) {
-      throw new Error('SESSION_ACCOUNT_BINDING_UNSUPPORTED: the server did not return a binding field.');
-    }
+    const fieldStatus = classifyAccountBindingRead(response.status, Object.prototype.hasOwnProperty.call(record, 'credentialID'));
     if (record.credentialID !== null && record.credentialID !== undefined && typeof record.credentialID !== 'string') {
-      throw new Error('Could not read the chat account binding: invalid account field.');
+      throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}; invalid account field).`);
     }
-    return { credentialID: typeof record.credentialID === 'string' ? record.credentialID : undefined };
+    return {
+      credentialID: fieldStatus === 'unbound' ? undefined : typeof record.credentialID === 'string' ? record.credentialID : undefined,
+      unbound: fieldStatus === 'unbound',
+    };
   };
   const inboxToPrompt = (item: Extract<Awaited<ReturnType<typeof api.session.inbox.list>>[number], { type: 'user' }>): PendingPrompt => ({
     id: item.id, sessionId: item.sessionID, createdAt: item.time.created,
@@ -154,7 +155,7 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
           await accountRequest(parameters.sessionID, 'PATCH', { credentialID: parameters.credentialID });
           const binding = await readAccountBinding(parameters.sessionID);
           const expected = typeof parameters.credentialID === 'string' ? parameters.credentialID : undefined;
-          if (binding.credentialID !== expected) throw new Error('OpenCode did not confirm the selected session account.');
+          if (binding.unbound || binding.credentialID !== expected) throw new Error('OpenCode did not confirm the selected session account.');
           const session = await api.session.get({ sessionID: parameters.sessionID });
           return ok({ ...sessionToV1(session), credentialID: expected });
         }
