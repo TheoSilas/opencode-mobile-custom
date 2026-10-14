@@ -321,6 +321,7 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                           {accounts.map((account, index) => <View key={account.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                               <Pressable testID={`chat-account-option-${account.id}`} disabled={!!busyAccount || (bindingStatus !== 'bound' && bindingStatus !== 'unbound') || account.id === confirmedCredentialID} accessibilityRole="radio"
+                                aria-checked={account.id === confirmedCredentialID}
                                 accessibilityState={{ checked: account.id === confirmedCredentialID, disabled: !!busyAccount || (bindingStatus !== 'bound' && bindingStatus !== 'unbound') || account.id === confirmedCredentialID }}
                                accessibilityLabel={`${account.label}${account.id === confirmedCredentialID ? `, ${t('chat:accounts.confirmed')}` : ''}`}
                                 onPress={() => void changeAccount(account.id, () => accountActions.bindSession(account.id, sessionId), t('chat:accounts.switched'), true)}
