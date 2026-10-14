@@ -57,6 +57,14 @@ describe('v2 response mappers', () => {
     await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
       .rejects.toThrow('SESSION_ACCOUNT_BINDING_UNSUPPORTED');
   });
+  it('reads the requested session ID through the scoped V2 account-binding endpoint', async () => {
+    h.api = { session: {} };
+    h.request.mockReset().mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_bound', credentialID: 'cred_work' } }), { status: 200 }));
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    const binding = (client.session as typeof client.session & { accountBinding: { read: (input: { sessionID: string }) => Promise<{ credentialID?: string }> } }).accountBinding;
+    await expect(binding.read({ sessionID: 'ses_bound' })).resolves.toEqual({ credentialID: 'cred_work' });
+    expect(new URL(h.request.mock.calls[0][0]).pathname).toBe('/api/session/ses_bound');
+  });
   it('preserves session usage fields', () => {
     const session = sessionToV1({
       id: 'ses_1',

@@ -161,7 +161,7 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
         const session = await api.session.get({ sessionID: parameters.sessionID });
         return ok(sessionToV1(session));
       },
-      accountBinding: { read: readAccountBinding },
+      accountBinding: { read: (parameters: { sessionID: string }) => readAccountBinding(parameters.sessionID) },
       children: async (parameters: { sessionID: string }) => {
         const response = await api.session.list({ parentID: parameters.sessionID });
         return ok((response.data ?? []).map(sessionToV1));

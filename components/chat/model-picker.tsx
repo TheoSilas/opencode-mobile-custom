@@ -253,13 +253,13 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
         <Pressable
           testID="chat-model-picker-trigger"
           accessibilityRole="button"
-            accessibilityLabel={`${taskSelection ? `${taskSummaryLabel} · ` : ''}${nextSummaryLabel}${reasoningLabel ? ` · ${reasoningLabel}` : ''}`}
+            accessibilityLabel={`${supportsAccounts ? `${taskSelection ? `${taskSummaryLabel} · ` : ''}${nextSummaryLabel}` : selectedModelLabel}${reasoningLabel ? ` · ${reasoningLabel}` : ''}`}
           accessibilityState={{ disabled: disabled || models.length === 0 }}
           disabled={disabled || models.length === 0}
            onPress={open}
           style={({ pressed }) => [styles.summary, { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 }]}>
-            {taskSelection ? <Text testID="chat-current-task-account" maxFontSizeMultiplier={1.3} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.muted }]}>{taskSummaryLabel}</Text> : null}
-            <Text testID="chat-next-send-account-model" maxFontSizeMultiplier={1.3} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.text }]}>{taskSelection ? nextSummaryLabel : `${selectedModelLabel} · ${accountSummaryLabel}`}</Text>
+            {supportsAccounts && taskSelection ? <Text testID="chat-current-task-account" maxFontSizeMultiplier={1.3} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.muted }]}>{taskSummaryLabel}</Text> : null}
+            <Text testID="chat-next-send-account-model" maxFontSizeMultiplier={1.3} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.text }]}>{supportsAccounts ? (taskSelection ? nextSummaryLabel : `${selectedModelLabel} · ${accountSummaryLabel}`) : selectedModelLabel}</Text>
            {reasoningLabel ? <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.text }]}>{reasoningLabel}</Text> : null}
         </Pressable>
       ) : (
