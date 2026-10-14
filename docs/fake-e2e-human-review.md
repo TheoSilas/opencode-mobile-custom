@@ -5,7 +5,7 @@
 - PR：https://github.com/TheoSilas/opencode-mobile-custom/pull/1
 - 已完成隔离账号／标准 PTY 真机验收的**最终基线提交**：`96dedafc089e269cf71f744bf2e43e17bc032f3d`。
 - 该提交的 PR validate `38496376606`，APK workflow `38497340289`（同 SHA 的 validate 与 apk）均成功；详见本机 `DEVICE-ACCEPTANCE.md`。自动测试和真机 UI 验收**不等同于** fake-server／E2E 的人工代码审查。
-- 本轮推理／执行／取消改动在工作区开发中，**尚无新最终提交 SHA 或对应云端结论**。审查本轮时必须对照后续实际提交的 `git diff <base>..<sha> -- tests/fake-opencode tests/e2e`，不能把上面的 `96dedaf` 当成新功能的验证。
+- 本轮推理／执行／取消的实现快照：`a29e926b9988801da36abe76949b8890e9aa67ca`；本轮新增的单条格式测试位于其后的审查材料提交。新功能必须以 PR 最终 head SHA 的云端结论为准；审查时执行 `git diff 96dedaf..HEAD -- tests/fake-opencode tests/e2e`，不能把旧 APK 的 `96dedaf` 当成新功能的验证。
 
 ## 基线关键差异（`origin/main...96dedaf`）
 

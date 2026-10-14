@@ -28,6 +28,11 @@ describe('format', () => {
     expect(getTranscriptActivityLabel(full)).toBeUndefined();
     expect(snapshot('  ').details).toEqual([]);
     expect(isTranscriptDisplayMessage(snapshot('  '))).toBe(false);
+    const withTool = toTranscriptEntry({ info: { ...info }, parts: [
+      { type: 'reasoning', text: 'ended' },
+      { type: 'tool', tool: 'bash', state: { status: 'running', title: 'bash', input: {} } },
+    ] } as never);
+    expect(getTranscriptActivityLabel(withTool)).toBe('bash');
   });
 
   it('renders a failed tool body', () => {
