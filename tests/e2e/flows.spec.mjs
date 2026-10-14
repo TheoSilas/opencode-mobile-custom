@@ -1372,6 +1372,11 @@ test('OpenCode 2 confirms per-chat binding and keeps the admitted task account w
     })).json();
     await openReadyChat(page);
     await connectToServer(page, base);
+    await goToTab(page, 'Settings');
+    await ensureAiSection(page);
+    await page.getByRole('button', { name: /^OpenAI \d+ of 2 selected$/ }).click();
+    await page.getByText('GPT-4.1 standard', { exact: true }).click();
+    await goToTab(page, 'Chat');
     await openChatLibrary(page);
     await page.getByRole('button', { name: 'Open Account and model chat', exact: true }).click();
     await expect(page.getByTestId('chat-next-send-account-model')).toContainText('Work');
