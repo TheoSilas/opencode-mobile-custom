@@ -12,8 +12,36 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    if (method === 'PATCH' && (response.status === 404 || response.status === 405)) {
+      throw new Error(`SESSION_ACCOUNT_BINDING_UNSUPPORTED (${response.status})`);
+    }
     if (!response.ok) throw new Error(`OpenCode rejected the session account (${response.status}).`);
     return response;
+  };
+  const readAccountBinding = async (sessionID: string) => {
+    const response = await request(`/api/session/${encodeURIComponent(sessionID)}`, { method: 'GET' });
+    if (response.status === 405) {
+      throw new Error(`SESSION_ACCOUNT_BINDING_UNSUPPORTED (${response.status})`);
+    }
+    if (!response.ok) throw new Error(`Could not read the chat account binding (${response.status}).`);
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error('Could not read the chat account binding: unexpected response format.');
+    }
+    const data = body && typeof body === 'object' ? (body as Record<string, unknown>).data : undefined;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Could not read the chat account binding: unexpected response format.');
+    }
+    const record = data as Record<string, unknown>;
+    if (!Object.prototype.hasOwnProperty.call(record, 'credentialID')) {
+      throw new Error('SESSION_ACCOUNT_BINDING_UNSUPPORTED: the server did not return a binding field.');
+    }
+    if (record.credentialID !== null && record.credentialID !== undefined && typeof record.credentialID !== 'string') {
+      throw new Error('Could not read the chat account binding: invalid account field.');
+    }
+    return { credentialID: typeof record.credentialID === 'string' ? record.credentialID : undefined };
   };
   const inboxToPrompt = (item: Extract<Awaited<ReturnType<typeof api.session.inbox.list>>[number], { type: 'user' }>): PendingPrompt => ({
     id: item.id, sessionId: item.sessionID, createdAt: item.time.created,
@@ -113,7 +141,7 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
         await api.session.remove({ sessionID: parameters.sessionID });
         return ok(undefined);
       },
-      update: async (parameters: { sessionID: string; title?: string; permission?: unknown; credentialID?: string }) => {
+      update: async (parameters: { sessionID: string; title?: string; permission?: unknown; credentialID?: string | null }) => {
         if (parameters.title !== undefined || parameters.permission !== undefined) {
           const update = {
             sessionID: parameters.sessionID,
@@ -124,13 +152,16 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
         }
         if (parameters.credentialID !== undefined) {
           await accountRequest(parameters.sessionID, 'PATCH', { credentialID: parameters.credentialID });
+          const binding = await readAccountBinding(parameters.sessionID);
+          const expected = typeof parameters.credentialID === 'string' ? parameters.credentialID : undefined;
+          if (binding.credentialID !== expected) throw new Error('OpenCode did not confirm the selected session account.');
+          const session = await api.session.get({ sessionID: parameters.sessionID });
+          return ok({ ...sessionToV1(session), credentialID: expected });
         }
         const session = await api.session.get({ sessionID: parameters.sessionID });
-        if (parameters.credentialID !== undefined && (session as typeof session & { credentialID?: string }).credentialID !== parameters.credentialID) {
-          throw new Error('OpenCode did not confirm the selected session account.');
-        }
         return ok(sessionToV1(session));
       },
+      accountBinding: { read: readAccountBinding },
       children: async (parameters: { sessionID: string }) => {
         const response = await api.session.list({ parentID: parameters.sessionID });
         return ok((response.data ?? []).map(sessionToV1));

@@ -29,6 +29,8 @@ export function sessionToV1(session: SessionInfo): Record<string, unknown> {
     cost: session.cost,
     agent: session.agent,
     credentialID: (session as SessionInfo & { credentialID?: string }).credentialID,
+    taskCredentialID: (session as SessionInfo & { taskCredentialID?: string }).taskCredentialID,
+    taskModelId: (session as SessionInfo & { taskModelId?: string }).taskModelId,
   };
 }
 

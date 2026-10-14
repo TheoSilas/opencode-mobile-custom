@@ -65,6 +65,7 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
     addProviderAccount,
     activateProviderAccount,
     bindSessionAccount,
+    readSessionBinding,
     refreshProviderAccounts,
     renameProviderAccount,
     removeProviderAccount,
@@ -309,8 +310,8 @@ export function useOpencodeProviderValues(input: ProviderValuesInput) {
   );
 
   const capabilitiesValue = useMemo<CapabilitiesContextValue>(
-    () => ({ currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, providerOAuth: { start: startProviderOAuth, complete: completeProviderOAuth, completeAutomatic: completeAutomaticProviderOAuth, cancel: cancelProviderOAuth }, providerAccounts: { refresh: refreshProviderAccounts, add: addProviderAccount, activate: activateProviderAccount, bindSession: bindSessionAccount, rename: renameProviderAccount, remove: removeProviderAccount } }),
-    [currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth, cancelProviderOAuth, refreshProviderAccounts, addProviderAccount, activateProviderAccount, bindSessionAccount, renameProviderAccount, removeProviderAccount],
+    () => ({ currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, providerOAuth: { start: startProviderOAuth, complete: completeProviderOAuth, completeAutomatic: completeAutomaticProviderOAuth, cancel: cancelProviderOAuth }, providerAccounts: { refresh: refreshProviderAccounts, add: addProviderAccount, activate: activateProviderAccount, bindSession: bindSessionAccount, readSessionBinding, rename: renameProviderAccount, remove: removeProviderAccount } }),
+    [currentConfig, availableProviders, providerAuthMethodsById, configuredProviders, availableModels, availableAgents, configureProvider, setProviderAuth, removeProvider, startProviderOAuth, completeProviderOAuth, completeAutomaticProviderOAuth, cancelProviderOAuth, refreshProviderAccounts, addProviderAccount, activateProviderAccount, bindSessionAccount, readSessionBinding, renameProviderAccount, removeProviderAccount],
   );
 
   const preferencesValue = useMemo<PreferencesContextValue>(

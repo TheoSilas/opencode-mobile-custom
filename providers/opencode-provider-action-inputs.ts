@@ -165,7 +165,7 @@ export type ConnectionActionsInput = {
   setLastSessionByConnection: Dispatch<SetStateAction<Record<string, Record<string, string>>>>;
   setChatPreferences: Dispatch<SetStateAction<ChatPreferences>>;
   setDiagnostics: Dispatch<SetStateAction<Diagnostics | undefined>>;
-  setSendingState: Dispatch<SetStateAction<{ sessionId?: string; active: boolean }>>;
+  setSendingState: Dispatch<SetStateAction<{ sessionId?: string; active: boolean; taskSelection?: { sessionId: string; credentialID?: string; modelId?: string } }>>;
   settingsRef: { current: OpencodeConnectionSettings };
   chatPreferencesRef: { current: ChatPreferences };
   serverContractRef: { current: ServerContract };

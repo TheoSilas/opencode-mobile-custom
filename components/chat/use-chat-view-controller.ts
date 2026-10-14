@@ -68,6 +68,10 @@ export function useChatViewController() {
   const status = currentSessionId ? sessionStatuses[currentSessionId] : undefined;
   const pendingStop = sendingState.stopConfirmation && sendingState.stopConfirmation.sessionId === currentSessionId ? sendingState.stopConfirmation.phase : undefined;
   const running = (sendingState.active && sendingState.sessionId === currentSessionId) || (!!status && status.type !== 'idle') || Boolean(pendingStop);
+  const submittedTaskSelection = sendingState.taskSelection;
+  const taskSelection = running ? (submittedTaskSelection && submittedTaskSelection.sessionId === currentSessionId
+    ? { credentialID: submittedTaskSelection.credentialID, modelId: submittedTaskSelection.modelId }
+    : {}) : undefined;
   const retryAttempt = status?.type === 'retry' ? status.attempt : undefined;
   const conversationActive = conversation.active;
   const {
@@ -406,7 +410,7 @@ export function useChatViewController() {
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,
     setCopiedMessageId, setDiffScope, setDraft, setExpandedDiffId, setIsUpdatingAutoApprove,
     setProgressVisible, setSendFeedback, setSessionMenuVisible, setVoiceFeedback, showSendAction,
-    slim, speakingMessageId, toggleConversationMode, transcriptPaging, unrevertSession,
+    slim, speakingMessageId, taskSelection, toggleConversationMode, transcriptPaging, unrevertSession,
     updateChatPreferences, visibleModels, voiceFeedback, voiceRecoveryAction, configuredProviders, providerAccounts,
   };
 }

@@ -27,7 +27,7 @@ type ProviderEffectsInput = OpencodeProviderState & {
   setPromptError: (error: { message: string; occurredAt: number; sessionId?: string } | undefined) => void;
   conversationPhase: ConversationPhase;
   conversationSessionId?: string;
-  sendingState: { sessionId?: string; active: boolean };
+  sendingState: { sessionId?: string; active: boolean; taskSelection?: { sessionId: string; credentialID?: string; modelId?: string } };
   pruneTranscript: (keepIds: Set<string>, limit: number) => void;
 };
 

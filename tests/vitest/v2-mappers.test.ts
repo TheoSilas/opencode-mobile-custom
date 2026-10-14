@@ -22,6 +22,7 @@ describe('v2 response mappers', () => {
       get: vi.fn(async () => session),
     } };
     h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { credentialID: 'cred_work' } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: admitted }), { status: 200 }));
     const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
     await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_work' } as never)).resolves.toMatchObject({ data: { credentialID: 'cred_work' } });
@@ -29,11 +30,32 @@ describe('v2 response mappers', () => {
     expect(h.request.mock.calls.map(([url, init]) => ({
       url: new URL(url).pathname + new URL(url).search,
       method: init.method,
-      credentialID: JSON.parse(init.body).credentialID,
+      credentialID: init.body ? JSON.parse(init.body).credentialID : undefined,
     }))).toEqual([
       { url: '/api/session/ses_bound?location%5Bdirectory%5D=%2Frepo', method: 'PATCH', credentialID: 'cred_work' },
+      { url: '/api/session/ses_bound?location%5Bdirectory%5D=%2Frepo', method: 'GET', credentialID: undefined },
       { url: '/api/session/ses_bound/prompt?location%5Bdirectory%5D=%2Frepo', method: 'POST', credentialID: 'cred_work' },
     ]);
+  });
+  it('does not confirm a binding when the server omits, rejects, or cannot read the account field', async () => {
+    const session = { id: 'ses_bound', title: 'Bound', credentialID: 'cred_work', time: { created: 1, updated: 2 } };
+    h.api = { session: { get: vi.fn(async () => session) } };
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_bound' } }), { status: 200 }));
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
+      .rejects.toThrow('SESSION_ACCOUNT_BINDING_UNSUPPORTED');
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session }), { status: 200 }));
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
+      .rejects.toThrow('did not confirm');
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
+      .rejects.toThrow('Could not read the chat account binding (503)');
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 404 }));
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
+      .rejects.toThrow('SESSION_ACCOUNT_BINDING_UNSUPPORTED');
   });
   it('preserves session usage fields', () => {
     const session = sessionToV1({

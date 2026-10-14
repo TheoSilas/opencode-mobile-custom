@@ -80,10 +80,21 @@ export function usePromptLifecycle({
   projectMemory,
   personalMemory,
 }: PromptLifecycleInput) {
-  const [sendingState, setSendingState] = useState<{ sessionId?: string; active: boolean }>({ active: false });
+  const [sendingState, setSendingState] = useState<{ sessionId?: string; active: boolean; taskSelection?: { sessionId: string; credentialID?: string; modelId?: string }}>({ active: false });
   const [promptError, setPromptError] = useState<{ message: string; occurredAt: number; sessionId?: string }>();
   const [stopConfirmation, setStopConfirmation] = useState<{ sessionId: string; scope: string; phase: 'requesting' | 'checking' | 'unknown' }>();
   const latestPromptBySession = useRef(new Map<string, number>());
+  const observedBusyForTaskRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    const task = sendingState.taskSelection;
+    if (!task) return;
+    const status = sessionStatuses[task.sessionId];
+    if (status?.type && status.type !== 'idle') observedBusyForTaskRef.current.add(task.sessionId);
+    if (status?.type === 'idle' && observedBusyForTaskRef.current.delete(task.sessionId) && !sendingState.active) {
+      setSendingState((current) => current.taskSelection === task ? { ...current, taskSelection: undefined } : current);
+    }
+  }, [sendingState.active, sendingState.taskSelection, sessionStatuses]);
 
   const sendPrompt = useCallback(
     async (
@@ -125,6 +136,7 @@ export function usePromptLifecycle({
           }).catch(() => undefined);
         }
 
+        observedBusyForTaskRef.current.delete(sessionId);
         setSendingState({ active: true, sessionId });
         const selectedModel = availableModels.find((model) => model.id === chatPreferences.modelId);
         if (attachments?.length && !selectedModel) {
@@ -201,6 +213,14 @@ export function usePromptLifecycle({
           parts,
         }, chatPreferences.promptDelivery ?? 'steer');
         promptAccepted = true;
+        setSendingState((current) => current.sessionId === sessionId ? {
+          ...current,
+          taskSelection: {
+            sessionId,
+            credentialID,
+            modelId: chatPreferences.modelId,
+          },
+        } : current);
         setStopConfirmation((current) => current?.sessionId === sessionId && current.scope === connectionScope ? undefined : current);
         latestPromptBySession.current.set(sessionId, requestedAt);
         // Native SSE may miss a failure emitted after the HTTP admission succeeds.
@@ -298,7 +318,7 @@ export function usePromptLifecycle({
       } finally {
         setSendingState((current) => (
           current.sessionId === sessionId
-            ? { active: false, sessionId: undefined }
+            ? { active: false, sessionId: undefined, taskSelection: current.taskSelection }
             : current
         ));
       }
@@ -325,7 +345,7 @@ export function usePromptLifecycle({
       latestPromptBySession.current.delete(sessionId);
       await clearPendingTaskFinishedNotification(scope, sessionId).catch(() => undefined);
       if (promptSubmissionRef.current.sessionId === sessionId) promptSubmissionRef.current = { active: false, sessionId: undefined };
-      setSendingState((current) => current.sessionId === sessionId ? { active: false, sessionId: undefined } : current);
+      setSendingState((current) => current.sessionId === sessionId ? { active: false, sessionId: undefined, taskSelection: current.taskSelection } : current);
       await Promise.all([refreshMessages(sessionId, true), refreshSessionDiff(sessionId, true), refreshSessionTodos(sessionId)]);
       setStopConfirmation((current) => current?.sessionId === sessionId && current.scope === scope ? undefined : current);
     } catch {

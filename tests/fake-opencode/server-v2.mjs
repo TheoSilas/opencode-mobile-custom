@@ -188,8 +188,9 @@ function sessionToV2(session) {
      time: { created: session.time.created, updated: session.time.updated, ...(session.time.idle !== undefined ? { idle: session.time.idle } : {}) },
     location: { directory: session.directory || state.project.worktree },
     model: session.model || FAKE_MODEL,
-    ...(session.credentialID ? { credentialID: session.credentialID } : {}),
+    credentialID: session.credentialID ?? null,
     ...(session.taskCredentialID ? { taskCredentialID: session.taskCredentialID } : {}),
+    ...(session.taskModelId ? { taskModelId: session.taskModelId } : {}),
      ...(session.agent ? { agent: session.agent } : {}),
      ...(session.outcome ? { outcome: session.outcome } : {}),
     cost: usage.cost,
@@ -295,6 +296,11 @@ const models = [{
   status: 'active',
   enabled: true,
   limit: { context: 128000, output: 4096 },
+}, {
+  id: 'openai/gpt-4.1-standard', modelID: 'gpt-4.1-standard', providerID: 'openai', name: 'GPT-4.1 standard',
+  capabilities: { tools: true, input: ['text', 'image'], output: ['text'] }, variants: [], time: { released: 0 },
+  cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }], status: 'active', enabled: true,
+  limit: { context: 128000, output: 4096 },
 }];
 
 const providerCatalog = [
@@ -304,7 +310,7 @@ const providerCatalog = [
 ];
 
 function modelCatalog() {
-  return [models[0], ...providerCatalog.slice(1).map((provider) => ({
+  return [...models, ...providerCatalog.slice(1).map((provider) => ({
     ...models[0], id: `${provider.id}/coding-model`, modelID: 'coding-model',
     providerID: provider.id, name: `${provider.name} coding model`,
     enabled: state.configuredProviderIds.has(provider.id),
@@ -337,6 +343,18 @@ const server = http.createServer(async (req, res) => {
       }
       sendJson(res, 200, { data: { suppressEvents, clients: v2Clients.size } });
       return;
+    }
+
+    if (req.method === 'POST' && pathname === '/__control/account-binding') {
+      const body = await readJson(req);
+      state.accountBinding = {
+        ...state.accountBinding,
+        ...(typeof body?.unsupported === 'boolean' ? { unsupported: body.unsupported } : {}),
+        ...(typeof body?.readFailure === 'boolean' ? { readFailure: body.readFailure } : {}),
+        ...(typeof body?.bindFailure === 'boolean' ? { bindFailure: body.bindFailure } : {}),
+        ...(typeof body?.omitConfirmation === 'boolean' ? { omitConfirmation: body.omitConfirmation } : {}),
+      };
+      return sendJson(res, 200, { data: state.accountBinding });
     }
 
     if (req.method === 'POST' && pathname === '/__control/reasoning-tool') {
@@ -572,7 +590,11 @@ const server = http.createServer(async (req, res) => {
       for (const [sessionID, status] of Object.entries(state.sessionStatuses)) {
         // The running set excludes retries, matching the real server. The app
         // must preserve the event-derived retry across this list refresh.
-        if (status?.type === 'busy') active[sessionID] = { type: 'running' };
+        if (status?.type === 'busy') active[sessionID] = {
+          type: 'running',
+          ...(helpers.getSession(sessionID)?.taskCredentialID ? { credentialID: helpers.getSession(sessionID).taskCredentialID } : {}),
+          ...(helpers.getSession(sessionID)?.taskModelId ? { modelId: helpers.getSession(sessionID).taskModelId } : {}),
+        };
       }
       sendJson(res, 200, { data: active });
       return;
@@ -601,9 +623,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && /^\/api\/session\/[^/]+$/.test(pathname)) {
+      if (state.accountBinding.readFailure) return sendJson(res, 503, { error: 'session binding read failed' });
       const session = helpers.getSession(pathname.split('/')[3]);
       if (!session) return notFound(res);
-      sendJson(res, 200, { data: sessionToV2(session) });
+      const data = sessionToV2(session);
+      if (state.accountBinding.unsupported) delete data.credentialID;
+      sendJson(res, 200, { data });
       return;
     }
 
@@ -617,12 +642,21 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'PATCH' && /^\/api\/session\/[^/]+$/.test(pathname)) {
+      if (state.accountBinding.unsupported) return notFound(res);
       const sessionID = pathname.split('/')[3];
       const body = await readJson(req);
+      if (state.accountBinding.bindFailure) return sendJson(res, 503, { error: 'session account binding rejected' });
       const session = helpers.getSession(sessionID);
       if (!session) return notFound(res);
+      if (state.accountBinding.omitConfirmation) return sendJson(res, 204);
       if (typeof body?.title === 'string') session.title = body.title;
       if (body?.credentialID !== undefined) {
+        if (body.credentialID === null) {
+          delete session.credentialID;
+          res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
+          res.end();
+          return;
+        }
         const credential = state.credentials.find((entry) => entry.id === body.credentialID);
         if (!credential) return sendJson(res, 400, { error: 'credential not found' });
         if (credential.integrationID !== (session.model || FAKE_MODEL).providerID) return sendJson(res, 400, { error: 'credential belongs to another provider' });
@@ -710,6 +744,9 @@ const server = http.createServer(async (req, res) => {
         if (!credential) return sendJson(res, 400, { error: 'credential not found' });
         if (credential.integrationID !== (session.model || FAKE_MODEL).providerID) return sendJson(res, 400, { error: 'credential belongs to another provider' });
       }
+      session.taskCredentialID = credentialID;
+      session.taskModelId = body?.model ? `${body.model.providerID}/${body.model.modelID}` : session.model
+        ? `${session.model.providerID}/${session.model.id}` : undefined;
       const files = (body?.files || []).map((file) => {
         const match = file.uri?.match(/^data:([^;,]+);base64,([\s\S]*)$/);
         return { name: file.name, mime: match?.[1] || 'application/octet-stream', data: match?.[2] || '', source: { type: 'inline' } };

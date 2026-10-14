@@ -4,6 +4,8 @@
 
 消息卡片仅在服务器实际给出非空 reasoning part 时提供“推理”折叠区，默认折叠；展开后逐段显示公开返回的原文，流式消息刷新及历史重载走同一转录数据。推理文字结束不改变会话执行状态。运行指示优先显示正在运行的工具，其他活动回退为一般执行中；取消任务按钮调用服务器 interrupt/abort，不是可恢复暂停。取消请求与任务终止分开，未获服务器确认时显示待确认，重连后继续核对。详情和验收点见 [reasoning-and-execution-task.md](reasoning-and-execution-task.md)。
 
+聊天模型面板在会话账号成功回读后显示“本聊天账号·服务端已确认”的单选状态；账号列表读取失败、绑定失败和协议不支持分别展示。提交框旁同时显示下次发送的账号与模型；运行任务另显示本次提交使用的账号与模型，无法核实时明确标为未确认。选择中的账号在服务端回读前不显示已生效；详情见 [session-account-binding-task.md](session-account-binding-task.md)。
+
 ## Chat attachments and pending messages
 
 The composer attachment button offers Photo library and Files. The photo picker

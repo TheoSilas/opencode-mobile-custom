@@ -372,6 +372,17 @@ try {
   await v2request(`/api/session/${personal.id}`, json('PATCH', { credentialID: 'credential-openai-2' }));
   assert((await v2request(`/api/session/${work.id}`)).data.credentialID === 'credential-openai', 'Work binding must be server-confirmed');
   assert((await v2request(`/api/session/${personal.id}`)).data.credentialID === 'credential-openai-2', 'Personal binding must be server-confirmed');
+  await v2request('/__control/account-binding', json('POST', { bindFailure: true }));
+  assert((await fetch(`${v2Origin}/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }))).status === 503, 'Failed bind must reject the write');
+  assert((await v2request(`/api/session/${work.id}`)).data.credentialID === 'credential-openai', 'Failed bind must retain the previous account');
+  await v2request('/__control/account-binding', json('POST', { bindFailure: false, unsupported: true }));
+  assert((await fetch(`${v2Origin}/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }))).status === 404, 'Unsupported bind must be distinguishable from read failure');
+  await v2request('/__control/account-binding', json('POST', { unsupported: false, readFailure: true }));
+  assert((await fetch(`${v2Origin}/api/session/${work.id}`)).status === 503, 'Binding read failure must be surfaced');
+  await v2request('/__control/account-binding', json('POST', { readFailure: false, omitConfirmation: true }));
+  await v2request(`/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }));
+  assert((await v2request(`/api/session/${work.id}`)).data.credentialID === 'credential-openai', 'Unconfirmed bind must leave the previous account untouched');
+  await v2request('/__control/account-binding', json('POST', { omitConfirmation: false }));
   const workPrompt = await v2Api.session.prompt({ sessionID: work.id, text: 'Work task' });
   const personalPrompt = await v2Api.session.prompt({ sessionID: personal.id, text: 'Personal task' });
   await v2request('/api/credential/credential-openai-2/activate', { method: 'POST' });

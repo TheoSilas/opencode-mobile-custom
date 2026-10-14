@@ -42,6 +42,7 @@ export function createState(scenario) {
 
   return {
     scenario,
+    accountBinding: { unsupported: false, readFailure: false, bindFailure: false, omitConfirmation: false },
     rootPath,
     project,
     projects: [project, secondaryProject],

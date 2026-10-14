@@ -34,7 +34,7 @@ export function ChatView() {
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
     pendingPrompts, pendingInteractions, pendingStop, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
     rejectQuestion, replyToPermission, replyToQuestion, revertSession, retryAttempt, running, selectDiffMessage,
-    selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage,
+    selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage, taskSelection,
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,
     setCopiedMessageId, setDiffScope, setDraft, setExpandedDiffId, setIsUpdatingAutoApprove,
     setProgressVisible, setSendFeedback, setSessionMenuVisible, setVoiceFeedback, showSendAction,
@@ -216,7 +216,9 @@ export function ChatView() {
           configuredProviders={configuredProviders}
           providerAccounts={providerAccounts}
           supportsAccounts={serverCapabilities.contract === 'v2'}
+          sessionId={currentSessionId}
           sessionCredentialID={(selectedSession as (typeof selectedSession & { credentialID?: string }) | undefined)?.credentialID}
+          taskSelection={taskSelection}
           autoApproveAvailable={serverCapabilities.configWrite}
           availableAgents={availableAgents}
           chatPreferences={chatPreferences}

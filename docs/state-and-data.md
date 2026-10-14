@@ -2,6 +2,8 @@
 
 推理内容是服务端消息的 reasoning part，不进入独立的任务状态机；转录可展示纯 reasoning 消息并保留原文。provider 的 `sendingState.stopConfirmation` 记录当前连接作用域中取消请求的阶段（requesting/checking/unknown），后端 `session.status()` 的新鲜回读证实 idle 后才清理守卫与通知。会话状态仍由 SSE 与轮询调和，失联时的 UI 显示状态待确认。该状态不会把“推理已结束”解释成任务完成。详见 [reasoning-and-execution-task.md](reasoning-and-execution-task.md)。
 
+会话账号绑定使用 V2 会话 GET 的回读结果，不将客户端所选账号当作已生效。provider 处理读取和 PATCH→GET 确认，并在绑定失败时尽可能回滚到此前服务端绑定；回滚不可核实时标为未知。`sendingState.taskSelection` 仅保留已提交任务当时传入的账号/模型快照，用于和“下次发送”区分，服务端 idle 后清除；不将该快照声称为服务器对执行账号的确认。参见 [session-account-binding-task.md](session-account-binding-task.md)。
+
 ## State Ownership Overview
 
 The application uses a single shared domain store implemented with React state inside `OpencodeProvider`.

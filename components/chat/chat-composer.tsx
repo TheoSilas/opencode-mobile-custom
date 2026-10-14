@@ -26,7 +26,9 @@ type ChatComposerProps = {
   configuredProviders?: ProviderOption[];
   providerAccounts?: CapabilitiesContextValue['providerAccounts'];
   supportsAccounts?: boolean;
+  sessionId?: string;
   sessionCredentialID?: string;
+  taskSelection?: { credentialID?: string; modelId?: string };
   chatPreferences: ChatPreferences;
   connectionStatus: 'idle' | 'connecting' | 'connected' | 'error';
   conversation: { active: boolean; isListening: boolean; phase: string; statusLabel?: string };
@@ -62,7 +64,9 @@ export function ChatComposer({
   configuredProviders,
   providerAccounts,
   supportsAccounts = false,
+  sessionId,
   sessionCredentialID,
+  taskSelection,
   chatPreferences,
   connectionStatus,
   conversation,
@@ -126,7 +130,9 @@ export function ChatComposer({
       providers={configuredProviders}
       accountActions={providerAccounts}
       supportsAccounts={supportsAccounts}
+      sessionId={sessionId}
       sessionCredentialID={sessionCredentialID}
+      taskSelection={taskSelection}
       onSelect={(model) => updateChatPreferences({ providerId: model.providerID, modelId: model.id })}
       recentModelIds={chatPreferences.recentModelIds}
       selectedModelId={chatPreferences.modelId}

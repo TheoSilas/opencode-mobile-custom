@@ -117,7 +117,7 @@ export type ProviderValuesInput = ActionInputs & {
   savedPermissions: SavedPermissionRule[];
   refreshSavedPermissions: () => Promise<void>;
   removeSavedPermission: (id: string) => Promise<void>;
-  sendingState: { sessionId?: string; active: boolean; stopConfirmation?: { sessionId: string; phase: 'requesting' | 'checking' | 'unknown' } };
+  sendingState: { sessionId?: string; active: boolean; taskSelection?: { sessionId: string; credentialID?: string; modelId?: string }; stopConfirmation?: { sessionId: string; phase: 'requesting' | 'checking' | 'unknown' } };
   isRefreshingSessions: boolean;
   isRefreshingMessages: boolean;
   isRefreshingDiffs: boolean;

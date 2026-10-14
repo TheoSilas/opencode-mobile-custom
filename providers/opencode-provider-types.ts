@@ -64,6 +64,8 @@ export type ProviderOption = {
   // appear in the account list but are not necessarily the active model route.
   requestIntegrationId?: string;
   accounts?: ProviderAccount[];
+  accountReadStatus?: 'ready' | 'error' | 'unsupported';
+  accountReadError?: string;
 };
 
 export type ConversationPhase = 'off' | 'listening' | 'submitting' | 'waiting' | 'speaking';
@@ -204,7 +206,8 @@ export type CapabilitiesContextValue = {
     cancel: (providerId: string) => Promise<void>;
   };
   providerAccounts: {
-    bindSession: (credentialId: string) => Promise<void>;
+    bindSession: (credentialId: string, sessionId?: string) => Promise<void>;
+    readSessionBinding: (sessionId?: string) => Promise<string | undefined>;
     refresh: () => Promise<void>;
     add: (providerId: string, values: ProviderAuthValues, label?: string) => Promise<void>;
     activate: (credentialId: string) => Promise<void>;
@@ -328,6 +331,7 @@ export type ChatContextValue = {
   sendingState: {
     sessionId?: string;
     active: boolean;
+    taskSelection?: { sessionId: string; credentialID?: string; modelId?: string };
     stopConfirmation?: { sessionId: string; phase: 'requesting' | 'checking' | 'unknown' };
   };
   promptError?: { message: string; occurredAt: number; sessionId?: string; sourceTitle?: string };

@@ -15,6 +15,10 @@ on the phone, then push for mandatory cloud browser E2E. Unavailable browser E2E
 is pending, never passed. The manual fork workflow has separate `validate` and
 `apk` jobs; `apk` requires successful validation of the same run's commit.
 
+## 聊天账号绑定回归
+
+`tests/vitest/v2-mappers.test.ts` 校验绑定 PATCH 后的 GET 确认及拒绝/缺失字段；fake V2 自检校验拒绝、读取失败、无确认和不支持响应。`tests/e2e/flows.spec.mjs` 增加同聊天切换账号与模型、任务仍运行时的本次/下次选择区分，以及失败时保留原绑定。Android/Termux 无法本地运行 Playwright，云端验证及 fake/E2E 独立人工代码审查仍待完成，见 [fake-e2e-human-review.md](fake-e2e-human-review.md) 和 [session-account-binding-task.md](session-account-binding-task.md)。
+
 ## Feed attachments and OpenCode 2 inbox
 
 `tests/vitest/feed.test.ts` covers picker data normalization, preview decoding
