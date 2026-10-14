@@ -40,8 +40,10 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
       throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}; invalid account field).`);
     }
     return {
-      credentialID: fieldStatus === 'unbound' ? undefined : typeof record.credentialID === 'string' ? record.credentialID : undefined,
-      unbound: fieldStatus === 'unbound',
+      credentialID: typeof record.credentialID === 'string' ? record.credentialID : undefined,
+      unbound: fieldStatus === 'unbound' || record.credentialID == null,
+      field: fieldStatus === 'unbound' ? 'omitted' : record.credentialID == null ? 'null' : 'present',
+      httpStatus: response.status,
     };
   };
   const inboxToPrompt = (item: Extract<Awaited<ReturnType<typeof api.session.inbox.list>>[number], { type: 'user' }>): PendingPrompt => ({
@@ -152,10 +154,15 @@ export function buildSessionApi({ api, directory, request, listSessionPage, ok }
           await api.session.update(update);
         }
         if (parameters.credentialID !== undefined) {
-          await accountRequest(parameters.sessionID, 'PATCH', { credentialID: parameters.credentialID });
+          const patch = await accountRequest(parameters.sessionID, 'PATCH', { credentialID: parameters.credentialID });
           const binding = await readAccountBinding(parameters.sessionID);
           const expected = typeof parameters.credentialID === 'string' ? parameters.credentialID : undefined;
-          if (binding.unbound || binding.credentialID !== expected) throw new Error('OpenCode did not confirm the selected session account.');
+          if ((expected && binding.unbound) || binding.credentialID !== expected) {
+            // Only a short suffix is diagnostic; no credential, headers, or body
+            // are written to logs or exposed in the error message.
+            const masked = (id?: string) => id ? `…${id.slice(-4)}` : '∅';
+            throw new Error(`OpenCode did not confirm the selected session account. PATCH /api/session/:id HTTP ${patch.status} requested ${masked(expected)}; GET /api/session/:id HTTP ${binding.httpStatus} returned ${binding.field === 'present' ? masked(binding.credentialID) : binding.field}.`);
+          }
           const session = await api.session.get({ sessionID: parameters.sessionID });
           return ok({ ...sessionToV1(session), credentialID: expected });
         }

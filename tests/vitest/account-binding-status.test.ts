@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classifyAccountBindingRead, getAccountBindingCapability, getAccountBindingRequestDiagnostic } from '@/lib/opencode/account-binding-status';
+import { classifyAccountBindingRead, getAccountBindingCapability, getAccountBindingMismatchDiagnostic, getAccountBindingRequestDiagnostic } from '@/lib/opencode/account-binding-status';
 
 describe('chat account binding read status', () => {
   it('keeps authentication failures distinct from unsupported protocol', () => {
@@ -26,6 +26,11 @@ describe('chat account binding request diagnostics', () => {
     expect(getAccountBindingRequestDiagnostic('Could not read (GET /api/session/ses_abc: HTTP 401).'))
       .toBe('GET /api/session/ses_abc · HTTP 401');
     expect(getAccountBindingRequestDiagnostic('No account was confirmed')).toBeUndefined();
+  });
+  it('shows only masked IDs and PATCH/GET status for a rejected confirmation', () => {
+    expect(getAccountBindingMismatchDiagnostic('OpenCode did not confirm the selected session account. PATCH /api/session/:id HTTP 204 requested …onal; GET /api/session/:id HTTP 200 returned omitted.'))
+      .toBe('PATCH /api/session/:id HTTP 204 requested …onal; GET /api/session/:id HTTP 200 returned omitted');
+    expect(getAccountBindingMismatchDiagnostic('OpenCode did not confirm; credentialID=cred_personal')).toBeUndefined();
   });
 });
 

@@ -43,12 +43,15 @@ describe('v2 response mappers', () => {
     const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
     h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_bound' } }), { status: 200 }));
-    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
-      .rejects.toThrow('did not confirm');
+    const omitted = await client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never).catch((error: Error) => error);
+    expect(omitted).toBeInstanceOf(Error);
+    expect(omitted.message).toContain('PATCH /api/session/:id HTTP 204 requested …onal; GET /api/session/:id HTTP 200 returned omitted');
+    expect(omitted.message).not.toContain('cred_personal');
+    expect(omitted.message).not.toContain('ses_bound');
     h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: session }), { status: 200 }));
     await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
-      .rejects.toThrow('did not confirm');
+      .rejects.toThrow('PATCH /api/session/:id HTTP 204 requested …onal; GET /api/session/:id HTTP 200 returned …work');
     h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(new Response(null, { status: 503 }));
     await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
@@ -65,7 +68,7 @@ describe('v2 response mappers', () => {
     h.request.mockReset().mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_bound', credentialID: 'cred_work' } }), { status: 200 }));
     const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
     const binding = (client.session as typeof client.session & { accountBinding: { read: (input: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
-    await expect(binding.read({ sessionID: 'ses_bound' })).resolves.toEqual({ credentialID: 'cred_work', unbound: false });
+    await expect(binding.read({ sessionID: 'ses_bound' })).resolves.toEqual({ credentialID: 'cred_work', unbound: false, field: 'present', httpStatus: 200 });
     expect(new URL(h.request.mock.calls[0][0]).pathname).toBe('/api/session/ses_bound');
     expect(new URL(h.request.mock.calls[0][0]).searchParams.get('location[directory]')).toBe('/repo');
   });
@@ -94,7 +97,18 @@ describe('v2 response mappers', () => {
     h.request.mockReset().mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_unbound' } }), { status: 200 }));
     const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
     const binding = (client.session as typeof client.session & { accountBinding: { read: (input: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
-    await expect(binding.read({ sessionID: 'ses_unbound' })).resolves.toEqual({ credentialID: undefined, unbound: true });
+    await expect(binding.read({ sessionID: 'ses_unbound' })).resolves.toEqual({ credentialID: undefined, unbound: true, field: 'omitted', httpStatus: 200 });
+    h.request.mockReset().mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_unbound', credentialID: null } }), { status: 200 }));
+    await expect(binding.read({ sessionID: 'ses_unbound' })).resolves.toEqual({ credentialID: undefined, unbound: true, field: 'null', httpStatus: 200 });
+  });
+  it('accepts a verified clear back to unbound during rollback', async () => {
+    const session = { id: 'ses_bound', title: 'Bound', time: { created: 1, updated: 2 } };
+    h.api = { session: { get: vi.fn(async () => session) } };
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: session.id, credentialID: null } }), { status: 200 }));
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    await expect(client.session.update({ sessionID: session.id, credentialID: null } as never))
+      .resolves.toMatchObject({ data: { credentialID: undefined } });
   });
   it('preserves session usage fields', () => {
     const session = sessionToV1({

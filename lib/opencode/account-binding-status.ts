@@ -22,3 +22,7 @@ export function getAccountBindingRequestDiagnostic(message: string): string | un
   const match = message.match(/\b(GET|PATCH) (\/api\/session\/[^:]+): HTTP (\d{3})\b/);
   return match ? `${match[1]} ${match[2]} · HTTP ${match[3]}` : undefined;
 }
+
+export function getAccountBindingMismatchDiagnostic(message: string): string | undefined {
+  return message.match(/PATCH \/api\/session\/:id HTTP \d{3} requested (?:…[^;\s]+|∅); GET \/api\/session\/:id HTTP \d{3} returned (?:…[^.\s]+|omitted|null|∅)/)?.[0];
+}

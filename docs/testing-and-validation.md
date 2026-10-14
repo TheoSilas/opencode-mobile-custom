@@ -34,6 +34,11 @@ the same scoped client and active project directory. Account request errors
 surface method/path/status in the UI without logging credentials, headers, query
 parameters, or response bodies. A `405` on another endpoint/method is not treated
 as evidence that session binding is unsupported.
+The PATCH→GET mismatch regression checks the read-after-write diagnostic uses
+only the route template, both HTTP statuses, and masked ID suffixes; an omitted
+field on a 200 GET never counts as binding support. Device acceptance of the
+formal service must record these values from the App and verify persistence via
+a subsequent fresh GET, without capturing auth headers or sending a prompt.
 
 ## Feed attachments and OpenCode 2 inbox
 

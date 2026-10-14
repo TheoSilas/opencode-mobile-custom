@@ -13,7 +13,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ModelOption, ProviderOption, ReasoningLevel } from '@/providers/opencode-provider';
 import type { CapabilitiesContextValue } from '@/providers/opencode-provider-types';
-import { getAccountBindingRequestDiagnostic } from '@/lib/opencode/account-binding-status';
+import { getAccountBindingMismatchDiagnostic, getAccountBindingRequestDiagnostic } from '@/lib/opencode/account-binding-status';
 
 function isUnsupportedAccountError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? '');
@@ -29,7 +29,10 @@ function formatAccountError(error: unknown, t: (key: string) => string, action: 
   if (isUnsupportedAccountError(error)) return t('chat:accounts.protocolUnsupported');
   if (status === '401' || status === '403') return `${t(action === 'read' ? 'chat:accounts.readAuthFailed' : 'chat:accounts.bindingAuthFailed')}${requestDiagnostic ? ` · ${requestDiagnostic}` : ''}`;
   if (action === 'read') return `${t('chat:accounts.readFailed')}${requestDiagnostic ? ` · ${requestDiagnostic}` : status ? `（HTTP ${status}）` : message ? `：${message}` : ''}`;
-  if (/did not confirm/i.test(message)) return t('chat:accounts.bindingNotConfirmed');
+  if (/did not confirm/i.test(message)) {
+    const trace = getAccountBindingMismatchDiagnostic(message);
+    return `${t('chat:accounts.bindingNotConfirmed')}${trace ? ` · ${trace}` : ''}`;
+  }
   if (/unavailable|not found/i.test(message)) return t('chat:accounts.bindingAccountUnavailable');
   return `${t('chat:accounts.bindingFailed')}${status ? `（HTTP ${status}）` : message ? `：${message}` : ''}`;
 }
