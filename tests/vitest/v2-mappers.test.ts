@@ -4,15 +4,112 @@ import { modelToV1, projectToV1, sessionToV1 } from '@/lib/opencode/v2-mappers';
 import { mapSavedPermission, messageToV1 } from '@/lib/opencode/v2/mappers';
 import { buildV2Client } from '@/lib/opencode/v2-client';
 
-const h = vi.hoisted(() => ({ api: undefined as unknown }));
+const h = vi.hoisted(() => ({ api: undefined as unknown, request: vi.fn() }));
 vi.mock('@opencode/client', () => ({ OpenCode: { make: () => h.api } }));
 vi.mock('@/lib/opencode/client', () => ({
   getServerBase: () => ({ origin: 'http://test', pathPrefix: '' }),
   getRequestHeaders: () => ({}),
-  createPrefixFetch: () => () => {},
+  createPrefixFetch: () => h.request,
 }));
 
 describe('v2 response mappers', () => {
+  it('sends the bound credential in actual scoped HTTP requests and verifies the server response', async () => {
+    const session = { id: 'ses_bound', title: 'Bound', credentialID: 'cred_work', time: { created: 1, updated: 2 } };
+    const admitted = { id: 'msg_bound', sessionID: session.id, type: 'user', time: { created: 3 }, payload: { text: 'Hello' }, delivery: 'steer' };
+    h.api = { session: {
+      update: vi.fn(() => { throw new Error('Old SDK cannot send credentialID'); }),
+      prompt: vi.fn(() => { throw new Error('Old SDK cannot send credentialID'); }),
+      get: vi.fn(async () => session),
+    } };
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { credentialID: 'cred_work' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: admitted }), { status: 200 }));
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_work' } as never)).resolves.toMatchObject({ data: { credentialID: 'cred_work' } });
+    await expect(client.promptInbox!.submit({ sessionID: session.id, credentialID: 'cred_work', parts: [{ type: 'text', text: 'Hello' }] } as never)).resolves.toMatchObject({ id: 'msg_bound' });
+    expect(h.request.mock.calls.map(([url, init]) => ({
+      url: new URL(url).pathname + new URL(url).search,
+      method: init.method,
+      credentialID: init.body ? JSON.parse(init.body).credentialID : undefined,
+    }))).toEqual([
+      { url: '/api/session/ses_bound?location%5Bdirectory%5D=%2Frepo', method: 'PATCH', credentialID: 'cred_work' },
+      { url: '/api/session/ses_bound?location%5Bdirectory%5D=%2Frepo', method: 'GET', credentialID: undefined },
+      { url: '/api/session/ses_bound/prompt?location%5Bdirectory%5D=%2Frepo', method: 'POST', credentialID: 'cred_work' },
+    ]);
+  });
+  it('does not confirm a binding when the server omits, rejects, or cannot read the account field', async () => {
+    const session = { id: 'ses_bound', title: 'Bound', credentialID: 'cred_work', time: { created: 1, updated: 2 } };
+    h.api = { session: { get: vi.fn(async () => session) } };
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_bound' } }), { status: 200 }));
+    const omitted = await client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never).catch((error: Error) => error);
+    expect(omitted).toBeInstanceOf(Error);
+    expect(omitted.message).toContain('PATCH /api/session/:id HTTP 204 requested …onal; GET /api/session/:id HTTP 200 returned omitted');
+    expect(omitted.message).not.toContain('cred_personal');
+    expect(omitted.message).not.toContain('ses_bound');
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session }), { status: 200 }));
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
+      .rejects.toThrow('PATCH /api/session/:id HTTP 204 requested …onal; GET /api/session/:id HTTP 200 returned …work');
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
+      .rejects.toThrow('GET /api/session/ses_bound: HTTP 503');
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 404 }));
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
+      .rejects.toThrow('PATCH /api/session/ses_bound: HTTP 404');
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 405 }));
+    await expect(client.session.update({ sessionID: session.id, credentialID: 'cred_personal' } as never))
+      .rejects.toThrow('SESSION_ACCOUNT_BINDING_UNSUPPORTED (PATCH /api/session/ses_bound: HTTP 405)');
+  });
+  it('reads the requested session ID through the scoped V2 account-binding endpoint', async () => {
+    h.api = { session: { switchAgent: vi.fn(), switchModel: vi.fn(), prompt: vi.fn() } };
+    h.request.mockReset().mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_bound', credentialID: 'cred_work' } }), { status: 200 }));
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    const binding = (client.session as typeof client.session & { accountBinding: { read: (input: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
+    await expect(binding.read({ sessionID: 'ses_bound' })).resolves.toEqual({ credentialID: 'cred_work', unbound: false, field: 'present', httpStatus: 200 });
+    expect(new URL(h.request.mock.calls[0][0]).pathname).toBe('/api/session/ses_bound');
+    expect(new URL(h.request.mock.calls[0][0]).searchParams.get('location[directory]')).toBe('/repo');
+  });
+  it('keeps authentication and read failures distinct from an explicitly unsupported binding endpoint', async () => {
+    h.api = { session: { prompt: vi.fn(), switchAgent: vi.fn(), switchModel: vi.fn() } };
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    const binding = (client.session as typeof client.session & { accountBinding: { read: (input: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
+
+    h.request.mockReset().mockResolvedValueOnce(new Response('Unauthorized', { status: 401 }));
+    await expect(binding.read({ sessionID: 'ses_bound' })).rejects.toThrow('GET /api/session/ses_bound: HTTP 401');
+    expect(h.request.mock.calls[0][1].method).toBe('GET');
+
+    h.request.mockReset().mockResolvedValueOnce(new Response('Unavailable', { status: 503 }));
+    await expect(binding.read({ sessionID: 'ses_bound' })).rejects.toThrow('GET /api/session/ses_bound: HTTP 503');
+
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 405 }));
+    await expect(binding.read({ sessionID: 'ses_bound' })).rejects.toThrow('SESSION_ACCOUNT_BINDING_UNSUPPORTED (GET /api/session/ses_bound: HTTP 405)');
+
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 405 }));
+    const accountPromptClient = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    await expect(accountPromptClient.promptInbox!.submit({ sessionID: 'ses_bound', credentialID: 'cred_work', parts: [{ type: 'text', text: 'test' }] } as never))
+      .rejects.toThrow('OpenCode rejected the session account (POST /api/session/ses_bound: HTTP 405)');
+  });
+  it('treats an omitted optional credentialID as unbound, not unsupported', async () => {
+    h.api = { session: {} };
+    h.request.mockReset().mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_unbound' } }), { status: 200 }));
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    const binding = (client.session as typeof client.session & { accountBinding: { read: (input: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
+    await expect(binding.read({ sessionID: 'ses_unbound' })).resolves.toEqual({ credentialID: undefined, unbound: true, field: 'omitted', httpStatus: 200 });
+    h.request.mockReset().mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'ses_unbound', credentialID: null } }), { status: 200 }));
+    await expect(binding.read({ sessionID: 'ses_unbound' })).resolves.toEqual({ credentialID: undefined, unbound: true, field: 'null', httpStatus: 200 });
+  });
+  it('accepts a verified clear back to unbound during rollback', async () => {
+    const session = { id: 'ses_bound', title: 'Bound', time: { created: 1, updated: 2 } };
+    h.api = { session: { get: vi.fn(async () => session) } };
+    h.request.mockReset().mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: session.id, credentialID: null } }), { status: 200 }));
+    const client = buildV2Client({ serverUrl: 'http://test', directory: '/repo', username: '', password: '' } as never);
+    await expect(client.session.update({ sessionID: session.id, credentialID: null } as never))
+      .resolves.toMatchObject({ data: { credentialID: undefined } });
+  });
   it('preserves session usage fields', () => {
     const session = sessionToV1({
       id: 'ses_1',
@@ -30,6 +127,10 @@ describe('v2 response mappers', () => {
     expect(session.tokens).toEqual({ input: 1200, output: 240, reasoning: 10, cache: { read: 800, write: 100 } });
     expect(session.title).toBe('Chat');
     expect(session.time).toEqual({ created: 1, updated: 2 });
+
+    const failed = sessionToV1({ id: 'ses_failed', time: { created: 1, updated: 4, idle: 4 }, outcome: 'failed' } as never);
+    expect(failed.outcome).toBe('failed');
+    expect(failed.time).toMatchObject({ updated: 4, idle: 4 });
 
     const minimalSession = sessionToV1({ id: 'ses_2', projectID: 'project-1', cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: 0, updated: 0 } } as never);
     expect(minimalSession.title).toBe('');

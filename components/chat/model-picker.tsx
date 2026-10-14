@@ -13,6 +13,29 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ModelOption, ProviderOption, ReasoningLevel } from '@/providers/opencode-provider';
 import type { CapabilitiesContextValue } from '@/providers/opencode-provider-types';
+import { getAccountBindingMismatchDiagnostic, getAccountBindingRequestDiagnostic } from '@/lib/opencode/account-binding-status';
+
+function isUnsupportedAccountError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /SESSION_ACCOUNT_BINDING_UNSUPPORTED/.test(message);
+}
+
+function formatAccountError(error: unknown, t: (key: string) => string, action: 'read' | 'bind') {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const requestDiagnostic = getAccountBindingRequestDiagnostic(message);
+  if (/SESSION_ACCOUNT_BINDING_UNSUPPORTED/.test(message)) return `${t('chat:accounts.protocolUnsupported')}${requestDiagnostic ? ` · ${requestDiagnostic}` : ''}`;
+  if (/SESSION_ACCOUNT_BINDING_UNKNOWN/.test(message)) return t('chat:accounts.bindingUnknown');
+  const status = message.match(/\b(401|403|404|405|409|422|500|501|502|503)\b/)?.[1];
+  if (isUnsupportedAccountError(error)) return t('chat:accounts.protocolUnsupported');
+  if (status === '401' || status === '403') return `${t(action === 'read' ? 'chat:accounts.readAuthFailed' : 'chat:accounts.bindingAuthFailed')}${requestDiagnostic ? ` · ${requestDiagnostic}` : ''}`;
+  if (action === 'read') return `${t('chat:accounts.readFailed')}${requestDiagnostic ? ` · ${requestDiagnostic}` : status ? `（HTTP ${status}）` : message ? `：${message}` : ''}`;
+  if (/did not confirm/i.test(message)) {
+    const trace = getAccountBindingMismatchDiagnostic(message);
+    return `${t('chat:accounts.bindingNotConfirmed')}${trace ? ` · ${trace}` : ''}`;
+  }
+  if (/unavailable|not found/i.test(message)) return t('chat:accounts.bindingAccountUnavailable');
+  return `${t('chat:accounts.bindingFailed')}${status ? `（HTTP ${status}）` : message ? `：${message}` : ''}`;
+}
 
 type ModelPickerProps = {
   disabled?: boolean;
@@ -24,6 +47,9 @@ type ModelPickerProps = {
   providers?: ProviderOption[];
   accountActions?: CapabilitiesContextValue['providerAccounts'];
   supportsAccounts?: boolean;
+  sessionId?: string;
+  sessionCredentialID?: string;
+  taskSelection?: { credentialID?: string; modelId?: string };
   onSelect: (model: ModelOption) => void;
   recentModelIds?: string[];
   selectedModelId?: string;
@@ -35,7 +61,7 @@ function getSelectedModelLabel(models: ModelOption[], selectedModelId: string | 
   return selected ? `${selected.label} · ${selected.providerLabel}` : fallback;
 }
 
-export function ModelPicker({ disabled = false, models, providers, accountActions, supportsAccounts = false, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
+export function ModelPicker({ disabled = false, models, providers, accountActions, supportsAccounts, sessionId, sessionCredentialID, taskSelection, onSelect, recentModelIds, selectedModelId, slim = false, compact = false, reasoningLabel, reasoning, onReasoningChange }: ModelPickerProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const palette = Colors[colorScheme];
@@ -43,6 +69,10 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
   const [query, setQuery] = useState('');
   const [busyAccount, setBusyAccount] = useState<string>();
   const [accountStatus, setAccountStatus] = useState<'ready' | 'checking' | 'error'>('ready');
+  const [bindingStatus, setBindingStatus] = useState<'not-read' | 'checking' | 'bound' | 'unbound' | 'error' | 'unsupported' | 'no-session'>(supportsAccounts === false ? 'unsupported' : 'not-read');
+  const [bindingRefresh, setBindingRefresh] = useState(0);
+  const [confirmedCredentialID, setConfirmedCredentialID] = useState(sessionCredentialID);
+  const [bindingError, setBindingError] = useState('');
   const [accountFeedback, setAccountFeedback] = useState('');
   const [renaming, setRenaming] = useState<string>();
   const [newLabel, setNewLabel] = useState('');
@@ -81,10 +111,49 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
     }
   }, [visible]);
 
+  useEffect(() => {
+    if (supportsAccounts === false) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- contract resolution invalidates prior state.
+      setBindingStatus('unsupported');
+      setBindingError('');
+      return;
+    }
+    if (supportsAccounts === undefined) {
+      // Protocol has not been established yet; unknown must never claim unsupported.
+      setBindingStatus('not-read');
+      setBindingError('');
+      return;
+    }
+    if (!accountActions) {
+      setBindingStatus('error');
+      setBindingError(t('chat:accounts.notChecked'));
+      return;
+    }
+    if (!sessionId) {
+      setBindingStatus('no-session');
+      setConfirmedCredentialID(undefined);
+      return;
+    }
+    let cancelled = false;
+    setBindingStatus('checking');
+    setBindingError('');
+    void accountActions.readSessionBinding(sessionId).then((credentialID) => {
+      if (cancelled) return;
+      setConfirmedCredentialID(credentialID);
+      setBindingStatus(credentialID ? 'bound' : 'unbound');
+    }).catch((error: unknown) => {
+      if (cancelled) return;
+      setBindingStatus(isUnsupportedAccountError(error) ? 'unsupported' : 'error');
+      setBindingError(formatAccountError(error, t, 'read'));
+    });
+    return () => { cancelled = true; };
+  }, [accountActions, bindingRefresh, sessionId, supportsAccounts, t]);
+
   const close = () => setVisible(false);
   const open = () => {
     Keyboard.dismiss();
     setVisible(true);
+    if (sessionId && supportsAccounts) setBindingRefresh((current) => current + 1);
     if (supportsAccounts && accountActions && selectedModelId) {
       setBusyAccount('refresh');
       setAccountStatus('checking');
@@ -103,21 +172,65 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
   const selected = models.find((model) => model.id === selectedModelId);
   const selectedProvider = providers?.find((provider) => provider.id === selected?.providerID);
   const accounts = (selectedProvider?.accounts ?? []).filter((account) => !account.integrationId || account.integrationId === selectedProvider?.requestIntegrationId);
-  const activeAccount = accountStatus === 'error' ? undefined : accounts.find((account) => account.active);
-  async function changeAccount(id: string, action: () => Promise<void>, success: string) {
+  const boundAccount = accounts.find((account) => account.id === confirmedCredentialID);
+  const activeAccount = accounts.find((account) => account.active);
+  const taskAccount = taskSelection?.credentialID
+    ? providers?.flatMap((provider) => provider.accounts ?? []).find((account) => account.id === taskSelection.credentialID)
+    : undefined;
+  async function changeAccount(id: string, action: () => Promise<void>, success: string, binding = false) {
     setBusyAccount(id);
     setAccountFeedback('');
     try {
       await action();
       setAccountStatus('ready');
       setAccountFeedback(success);
+      if (binding) {
+        setConfirmedCredentialID(id);
+        setBindingStatus('bound');
+        setBindingError('');
+      }
       setRenaming(undefined);
     } catch (error) {
-      setAccountFeedback(error instanceof Error ? error.message : t('chat:accounts.failed'));
+      const reason = formatAccountError(error, t, 'bind');
+      setAccountFeedback(reason);
+      if (binding && isUnsupportedAccountError(error)) setBindingStatus('unsupported');
+      else if (binding && /SESSION_ACCOUNT_BINDING_UNKNOWN/.test(error instanceof Error ? error.message : String(error ?? ''))) {
+        setBindingStatus('error');
+        setBindingError(reason);
+      }
     } finally {
       setBusyAccount(undefined);
     }
   }
+  const nextAccountLabel = bindingStatus === 'bound'
+    ? boundAccount?.label || t('chat:accounts.accountUnavailable')
+    : bindingStatus === 'unbound'
+      ? activeAccount?.label || t('chat:accounts.serverDefault')
+      : bindingStatus === 'unsupported'
+        ? t('chat:accounts.upgradeRequired')
+        : bindingStatus === 'error'
+          ? t('chat:accounts.readFailedShort')
+          : bindingStatus === 'no-session'
+            ? t('chat:accounts.createChatFirst')
+            : t('chat:accounts.notChecked');
+  const accountSummaryLabel = bindingStatus === 'bound'
+    ? `${t('chat:accounts.confirmed')}: ${boundAccount?.label || t('chat:accounts.accountUnavailable')}`
+    : bindingStatus === 'unbound'
+      ? `${t('chat:accounts.unbound')}: ${activeAccount?.label || t('chat:accounts.serverDefault')}`
+      : bindingStatus === 'unsupported'
+        ? t('chat:accounts.upgradeRequired')
+        : bindingStatus === 'error'
+          ? t('chat:accounts.readFailedShort')
+          : bindingStatus === 'no-session'
+            ? t('chat:accounts.createChatFirst')
+            : t('chat:accounts.notChecked');
+  const selectedModelLabel = getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'));
+  const taskModel = taskSelection?.modelId ? models.find((model) => model.id === taskSelection.modelId) : undefined;
+  const taskModelLabel = taskSelection?.modelId
+    ? taskModel?.label || taskSelection.modelId
+    : t('chat:accounts.taskModelUnconfirmed');
+  const taskSummaryLabel = `${t('chat:accounts.currentTask')}: ${taskSelection?.credentialID ? (taskAccount?.label || t('chat:accounts.accountUnavailable')) : t('chat:accounts.taskAccountUnconfirmed')} · ${taskModelLabel}`;
+  const nextSummaryLabel = `${t('chat:accounts.nextSend')}: ${nextAccountLabel} · ${selected?.label || t('chat:modelPicker.selectModel')}`;
   const recentModels = useMemo(() => (recentModelIds ?? [])
     .map((id) => models.find((model) => model.id === id))
     .filter((model): model is ModelOption => model !== undefined && model.id !== selectedModelId)
@@ -157,13 +270,13 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
         <Pressable
           testID="chat-model-picker-trigger"
           accessibilityRole="button"
-           accessibilityLabel={`${getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}${activeAccount ? ` · ${t('chat:accounts.current')}: ${activeAccount.label}` : ''}${reasoningLabel ? ` · ${reasoningLabel}` : ''}`}
+            accessibilityLabel={`${supportsAccounts ? `${taskSelection ? `${taskSummaryLabel} · ` : ''}${nextSummaryLabel}` : selectedModelLabel}${reasoningLabel ? ` · ${reasoningLabel}` : ''}`}
           accessibilityState={{ disabled: disabled || models.length === 0 }}
           disabled={disabled || models.length === 0}
            onPress={open}
           style={({ pressed }) => [styles.summary, { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 }]}>
-           <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryModel, { color: palette.text }]}>{selected?.label || t('chat:modelPicker.selectModel')}</Text>
-           {activeAccount ? <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.muted }]}>{activeAccount.label}</Text> : null}
+            {supportsAccounts && taskSelection ? <Text testID="chat-current-task-account" maxFontSizeMultiplier={1.3} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.muted }]}>{taskSummaryLabel}</Text> : null}
+            <Text testID="chat-next-send-account-model" maxFontSizeMultiplier={1.3} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.text }]}>{supportsAccounts ? (taskSelection ? nextSummaryLabel : `${selectedModelLabel} · ${accountSummaryLabel}`) : selectedModelLabel}</Text>
            {reasoningLabel ? <Text maxFontSizeMultiplier={1.5} numberOfLines={1} style={[styles.summaryReasoning, { color: palette.text }]}>{reasoningLabel}</Text> : null}
         </Pressable>
       ) : (
@@ -175,7 +288,7 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
            onPress={open}
           slim={slim}
           testID="chat-model-picker-trigger">
-           {`${getSelectedModelLabel(models, selectedModelId, t('chat:modelPicker.selectModel'))}${activeAccount ? ` · ${activeAccount.label}` : ''}`}
+            {`${selectedModelLabel} · ${accountSummaryLabel}`}
         </ControlButton>
       )}
       <Modal animationType="slide" transparent visible={visible} onRequestClose={close}>
@@ -202,19 +315,39 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
                   />
                 </View>
                ) : null}
-               {supportsAccounts && accountActions && selectedProvider ? (
-                 <View testID="chat-account-panel" style={{ paddingHorizontal: 16, paddingVertical: 8, gap: 6 }}>
-                   {accounts.length > 0 ? (
-                     <>
-                       <Text style={{ color: palette.text }}>{t('chat:accounts.current')}: {busyAccount === 'refresh' ? t('chat:accounts.switching') : activeAccount?.label || t('chat:accounts.unknown')}</Text>
-                       <Text style={{ color: palette.muted, fontSize: 12 }}>{t('chat:accounts.globalHint')}</Text>
-                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                         {accounts.map((account, index) => <View key={account.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                           <Pressable disabled={!!busyAccount || account.active} accessibilityRole="button"
-                             onPress={() => void changeAccount(account.id, () => accountActions.activate(account.id), t('chat:accounts.switched'))}
-                             style={[styles.option, { marginBottom: 0, minHeight: 44, borderColor: account.active ? palette.tint : palette.border, backgroundColor: palette.surface }]}>
-                             <Text style={{ color: palette.text }}>{account.label}{accounts.filter((item) => item.label === account.label).length > 1 ? ` (${index + 1})` : ''}{account.active ? ' ✓' : ''}</Text>
-                           </Pressable>
+                {selectedProvider ? (
+                  <View testID="chat-account-panel" style={{ paddingHorizontal: 16, paddingVertical: 8, gap: 6 }}>
+                    {supportsAccounts !== true || !accountActions ? (
+                      <Text accessibilityRole="alert" style={{ color: supportsAccounts === false ? palette.warning : palette.muted }}>
+                        {supportsAccounts === false ? t('chat:accounts.upgradeRequired') : t('chat:accounts.notChecked')}
+                      </Text>
+                    ) : <>
+                      <Text testID="chat-account-binding-status" style={{ color: bindingStatus === 'error' || bindingStatus === 'unsupported' ? palette.danger : palette.text }}>
+                        {bindingStatus === 'checking' ? t('chat:accounts.reading')
+                          : bindingStatus === 'bound' ? `${t('chat:accounts.chatAccount')}: ${boundAccount?.label || t('chat:accounts.accountUnavailable')} · ${t('chat:accounts.confirmed')}`
+                            : bindingStatus === 'unbound' ? `${t('chat:accounts.chatAccount')}: ${t('chat:accounts.unboundConfirmed')}`
+                              : bindingStatus === 'unsupported' ? t('chat:accounts.protocolUnsupported')
+                              : bindingStatus === 'error' ? `${t('chat:accounts.readFailed')}: ${bindingError}`
+                                : bindingStatus === 'no-session' ? t('chat:accounts.createChatFirst')
+                                  : t('chat:accounts.notChecked')}</Text>
+                      <Text style={{ color: palette.muted, fontSize: 12 }}>{t('chat:accounts.sessionHint')}</Text>
+                    </>}
+                    {supportsAccounts && accountActions && (accountStatus === 'error' || selectedProvider.accountReadStatus === 'error') ? (
+                      <Text accessibilityRole="alert" style={{ color: palette.danger }}>{formatAccountError(new Error(selectedProvider.accountReadError || accountFeedback || ''), t, 'read')}</Text>
+                    ) : null}
+                    {supportsAccounts && accountActions && accountStatus !== 'error' && selectedProvider.accountReadStatus !== 'error' && accounts.length > 0 ? (
+                      <>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {accounts.map((account, index) => <View key={account.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Pressable testID={`chat-account-option-${account.id}`} disabled={!!busyAccount || (bindingStatus !== 'bound' && bindingStatus !== 'unbound') || account.id === confirmedCredentialID} accessibilityRole="radio"
+                                aria-checked={account.id === confirmedCredentialID}
+                                accessibilityState={{ checked: account.id === confirmedCredentialID, disabled: !!busyAccount || (bindingStatus !== 'bound' && bindingStatus !== 'unbound') || account.id === confirmedCredentialID }}
+                               accessibilityLabel={`${account.label}${account.id === confirmedCredentialID ? `, ${t('chat:accounts.confirmed')}` : ''}`}
+                                onPress={() => void changeAccount(account.id, () => accountActions.bindSession(account.id, sessionId), t('chat:accounts.switched'), true)}
+                               style={[styles.option, { marginBottom: 0, minHeight: 44, borderColor: account.id === confirmedCredentialID ? palette.tint : palette.border, backgroundColor: palette.surface }]}>
+                               <MaterialCommunityIcons name={account.id === confirmedCredentialID ? 'radiobox-marked' : 'radiobox-blank'} size={20} color={account.id === confirmedCredentialID ? palette.tint : palette.muted} />
+                               <Text style={{ color: palette.text }}>{account.label}{accounts.filter((item) => item.label === account.label).length > 1 ? ` (${index + 1})` : ''}</Text>
+                            </Pressable>
                            <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat:accounts.name')}: ${account.label}`} onPress={() => { setRenaming(account.id); setNewLabel(account.label); }} style={{ padding: 10 }}>
                              <MaterialCommunityIcons name="pencil" size={18} color={palette.tint} />
                            </Pressable>
@@ -227,15 +360,16 @@ export function ModelPicker({ disabled = false, models, providers, accountAction
                          </Pressable>
                        </View> : null}
                      </>
-                   ) : (
-                     <Text accessibilityRole="alert" style={{ color: accountStatus === 'error' ? palette.danger : palette.muted }}>
-                       {accountStatus === 'error' ? (accountFeedback || t('chat:accounts.failed')) : accountStatus === 'checking' ? t('chat:accounts.switching') : t('chat:accounts.empty')}
-                     </Text>
-                   )}
-                   {busyAccount ? <Text accessibilityRole="alert" style={{ color: palette.muted }}>{t('chat:accounts.switching')}</Text> : null}
-                   {accountFeedback && accountStatus !== 'error' ? <Text accessibilityRole="alert" style={{ color: palette.text }}>{accountFeedback}</Text> : null}
-                 </View>
-               ) : null}
+                    ) : supportsAccounts && accountActions && accountStatus !== 'error' && selectedProvider.accountReadStatus !== 'error' ? (
+                       <Text accessibilityRole="alert" style={{ color: palette.muted }}>
+                        {accountStatus === 'checking' ? t('chat:accounts.switching') : t('chat:accounts.empty')}
+                      </Text>
+                    ) : null}
+                    {busyAccount ? <Text accessibilityRole="alert" style={{ color: palette.muted }}>{t('chat:accounts.switching')}</Text> : null}
+                    {busyAccount && busyAccount !== 'refresh' ? <Text accessibilityRole="alert" style={{ color: palette.muted }}>{t('chat:accounts.savingBinding')}</Text> : null}
+                    {accountFeedback ? <Text accessibilityRole="alert" style={{ color: accountStatus === 'error' ? palette.danger : palette.text }}>{accountFeedback}</Text> : null}
+                  </View>
+                ) : null}
               <View style={[styles.searchShell, { backgroundColor: palette.background, borderColor: palette.border }]}>
                 <MaterialCommunityIcons name="magnify" size={20} color={palette.muted} />
                 <TextInput

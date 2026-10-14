@@ -366,6 +366,34 @@ try {
   assert(missingInstruction.status === 404, `V2 instruction put for a missing session returned ${missingInstruction.status}`);
 
   await fetch(`${v2Origin}/__control/reset`, json('POST', { scenario: 'inbox' }));
+  const work = await v2Api.session.create({ title: 'Work account' });
+  const personal = await v2Api.session.create({ title: 'Personal account' });
+  await v2request(`/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai' }));
+  await v2request(`/api/session/${personal.id}`, json('PATCH', { credentialID: 'credential-openai-2' }));
+  assert((await v2request(`/api/session/${work.id}`)).data.credentialID === 'credential-openai', 'Work binding must be server-confirmed');
+  assert((await v2request(`/api/session/${personal.id}`)).data.credentialID === 'credential-openai-2', 'Personal binding must be server-confirmed');
+  await v2request('/__control/account-binding', json('POST', { bindFailure: true }));
+  assert((await fetch(`${v2Origin}/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }))).status === 503, 'Failed bind must reject the write');
+  assert((await v2request(`/api/session/${work.id}`)).data.credentialID === 'credential-openai', 'Failed bind must retain the previous account');
+  await v2request('/__control/account-binding', json('POST', { bindFailure: false, unsupported: true }));
+  assert((await fetch(`${v2Origin}/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }))).status === 405, 'Unsupported bind must use an explicit unsupported-method response');
+  await v2request('/__control/account-binding', json('POST', { unsupported: false, readFailure: true }));
+  assert((await fetch(`${v2Origin}/api/session/${work.id}`)).status === 503, 'Binding read failure must be surfaced');
+  await v2request('/__control/account-binding', json('POST', { readFailure: false, omitConfirmation: true }));
+  await v2request(`/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }));
+  assert((await v2request(`/api/session/${work.id}`)).data.credentialID === 'credential-openai', 'Unconfirmed bind must leave the previous account untouched');
+  await v2request('/__control/account-binding', json('POST', { omitConfirmation: false }));
+  const workPrompt = await v2Api.session.prompt({ sessionID: work.id, text: 'Work task' });
+  const personalPrompt = await v2Api.session.prompt({ sessionID: personal.id, text: 'Personal task' });
+  await v2request('/api/credential/credential-openai-2/activate', { method: 'POST' });
+  await v2request(`/api/session/${work.id}`, json('PATCH', { credentialID: 'credential-openai-2' }));
+  const uses = (await v2request('/__control/credential-uses')).data;
+  assert(uses.find((item) => item.messageID === workPrompt.id)?.credentialID === 'credential-openai', 'Global active and default changes must not rewrite the work task');
+  assert(uses.find((item) => item.messageID === personalPrompt.id)?.credentialID === 'credential-openai-2', 'Personal task must keep its own credential');
+  const invalid = await fetch(`${v2Origin}/api/session/${work.id}/prompt`, json('POST', { text: 'Invalid task', credentialID: 'credential-removed' }));
+  assert(invalid.status === 400, 'Missing bound credential must fail without fallback');
+
+  await fetch(`${v2Origin}/__control/reset`, json('POST', { scenario: 'inbox' }));
   const inboxSession = await v2Api.session.create({ title: 'Inbox contract' });
   await v2Api.session.prompt({ sessionID: inboxSession.id, text: 'Initial response' });
   const steered = await v2Api.session.prompt({ sessionID: inboxSession.id, text: 'Steering hint', delivery: 'steer' });
@@ -383,6 +411,20 @@ try {
   assert((await v2Api.session.inbox.list({ sessionID: inboxSession.id }))[0].delivery === 'steer', 'Inbox update must change delivery');
   await v2Api.session.inbox.cancel({ sessionID: inboxSession.id, inboxID: cancelled.id });
   assert((await v2Api.session.inbox.list({ sessionID: inboxSession.id })).length === 0, 'Cancellation must remove the pending item');
+
+  await v2request('/__control/reset', json('POST', { scenario: 'reasoning-tool' }));
+  const thinkingSession = await v2Api.session.create({ title: 'Reasoning tool contract' });
+  await v2Api.session.prompt({ sessionID: thinkingSession.id, text: 'Wait for the tool' });
+  const reasoningPath = `/__control/reasoning-tool`;
+  const initialThinking = (await v2Api.message.list({ sessionID: thinkingSession.id })).data.find((item) => item.type === 'assistant');
+  assert(initialThinking.content[0].text === ' first line' && initialThinking.content[1].state.status === 'running', 'Reasoning and running tool must coexist');
+  await v2request(reasoningPath, json('POST', { sessionID: thinkingSession.id, action: 'update', text: ' first line\nsecond line  ' }));
+  const streamed = (await v2Api.message.list({ sessionID: thinkingSession.id })).data.find((item) => item.type === 'assistant');
+  assert(streamed.content[0].text === ' first line\nsecond line  ' && streamed.content[1].state.status === 'running', 'Stream snapshot must retain the exact published text while tool runs');
+  await v2Api.session.interrupt({ sessionID: thinkingSession.id });
+  assert((await v2Api.session.active())[thinkingSession.id], 'Interrupt response alone must not mark server work idle');
+  await v2request(reasoningPath, json('POST', { sessionID: thinkingSession.id, action: 'confirm-interrupt' }));
+  assert(!(await v2Api.session.active())[thinkingSession.id] && (await v2Api.session.get({ sessionID: thinkingSession.id })).outcome === 'interrupted', 'Server confirmation must end the task');
 
   console.log('Fake OpenCode 1.18.3 server self-test passed.');
   console.log('Fake OpenCode 2.0 server self-test passed.');

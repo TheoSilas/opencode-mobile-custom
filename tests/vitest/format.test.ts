@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { getMessagePreview, toTranscriptEntry, deriveTodosFromMessages } from '@/lib/opencode/format';
-import { getUserTurnForMessage } from '@/lib/opencode/transcript';
+import { getTranscriptActivityLabel, getUserTurnForMessage, isTranscriptDisplayMessage } from '@/lib/opencode/transcript';
 
 vi.mock('@/lib/i18n', () => ({ getFormatLocale: () => 'en' }));
 
@@ -17,6 +17,22 @@ const todoWritePart = (id: string, todos: unknown[]) => ({
 describe('format', () => {
   it('prefers visible text over reasoning', () => {
     expect(getMessagePreview({ info, parts: [{ type: 'reasoning', text: 'private reasoning' }, { type: 'text', text: 'Visible reply' }] } as never)).toBe('Visible reply');
+  });
+
+  it('keeps the actual published reasoning through streaming snapshots and history', () => {
+    const snapshot = (text: string) => toTranscriptEntry({ info: { ...info }, parts: [{ type: 'reasoning', text }] } as never);
+    const partial = snapshot(' first');
+    const full = snapshot(' first\nsecond  ');
+    expect(isTranscriptDisplayMessage(partial)).toBe(true);
+    expect(full.details).toMatchObject([{ kind: 'reasoning', body: ' first\nsecond  ' }]);
+    expect(getTranscriptActivityLabel(full)).toBeUndefined();
+    expect(snapshot('  ').details).toEqual([]);
+    expect(isTranscriptDisplayMessage(snapshot('  '))).toBe(false);
+    const withTool = toTranscriptEntry({ info: { ...info }, parts: [
+      { type: 'reasoning', text: 'ended' },
+      { type: 'tool', tool: 'bash', state: { status: 'running', title: 'bash', input: {} } },
+    ] } as never);
+    expect(getTranscriptActivityLabel(withTool)).toBe('bash');
   });
 
   it('renders a failed tool body', () => {

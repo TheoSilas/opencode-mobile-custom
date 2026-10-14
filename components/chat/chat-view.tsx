@@ -14,6 +14,7 @@ import { useChatViewController } from '@/components/chat/use-chat-view-controlle
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { normalizeTranscriptFontSize } from '@/providers/opencode-preferences';
+import { getAccountBindingCapability } from '@/lib/opencode/account-binding-status';
 
 export function ChatView() {
   const { t } = useTranslation();
@@ -32,9 +33,9 @@ export function ChatView() {
     handleSendPrompt, handleSpeakEntry, handleToggleRecording, handleVoiceRecovery,
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
-    pendingPrompts, pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
+    pendingPrompts, pendingInteractions, pendingStop, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
     rejectQuestion, replyToPermission, replyToQuestion, revertSession, retryAttempt, running, selectDiffMessage,
-    selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage,
+    selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage, taskSelection,
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,
     setCopiedMessageId, setDiffScope, setDraft, setExpandedDiffId, setIsUpdatingAutoApprove,
     setProgressVisible, setSendFeedback, setSessionMenuVisible, setVoiceFeedback, showSendAction,
@@ -146,6 +147,7 @@ export function ChatView() {
           pendingInteractions={pendingInteractions}
           retryAttempt={retryAttempt}
           running={running}
+          pendingStop={pendingStop}
           speakingMessageId={speakingMessageId}
         />
 
@@ -214,7 +216,10 @@ export function ChatView() {
           attachments={attachments}
           configuredProviders={configuredProviders}
           providerAccounts={providerAccounts}
-          supportsAccounts={serverCapabilities.contract === 'v2'}
+          supportsAccounts={getAccountBindingCapability(connection.status, serverCapabilities.contract)}
+          sessionId={currentSessionId}
+          sessionCredentialID={(selectedSession as (typeof selectedSession & { credentialID?: string }) | undefined)?.credentialID}
+          taskSelection={taskSelection}
           autoApproveAvailable={serverCapabilities.configWrite}
           availableAgents={availableAgents}
           chatPreferences={chatPreferences}
@@ -226,7 +231,7 @@ export function ChatView() {
           isCreatingSession={isCreatingSession}
           isSpeechInputAvailable={isSpeechInputAvailable}
           isSpeechInputListening={isSpeechInputListening}
-          isStoppingSession={isStoppingSession}
+          isStoppingSession={isStoppingSession || pendingStop === 'requesting' || pendingStop === 'checking' || connection.status !== 'connected'}
           isUpdatingAutoApprove={isUpdatingAutoApprove}
           onToggleConversationMode={() => void toggleConversationMode()}
           onAttach={(source) => void handleAttach(source)}

@@ -143,6 +143,9 @@ const helpers = createSessionHelpers({ emitEvent, getNow, getState: () => state 
 
 
 function deliverInboxItem(item) {
+  const session = helpers.getSession(item.sessionID);
+  session.taskCredentialID = item.payload.credentialID;
+  state.credentialUses.push({ sessionID: item.sessionID, messageID: item.id, credentialID: session.taskCredentialID });
   state.inboxBySession[item.sessionID] = (state.inboxBySession[item.sessionID] || []).filter((entry) => entry.id !== item.id);
   state.activePromptBySession[item.sessionID] = item.payload.text;
   helpers.handlePromptSubmission(item.sessionID, {
@@ -182,10 +185,14 @@ function sessionToV2(session) {
     id: session.id,
     projectID: session.projectID || state.project.id,
     title: session.title || '',
-    time: { created: session.time.created, updated: session.time.updated },
+     time: { created: session.time.created, updated: session.time.updated, ...(session.time.idle !== undefined ? { idle: session.time.idle } : {}) },
     location: { directory: session.directory || state.project.worktree },
     model: session.model || FAKE_MODEL,
-    ...(session.agent ? { agent: session.agent } : {}),
+    credentialID: session.credentialID ?? null,
+    ...(session.taskCredentialID ? { taskCredentialID: session.taskCredentialID } : {}),
+    ...(session.taskModelId ? { taskModelId: session.taskModelId } : {}),
+     ...(session.agent ? { agent: session.agent } : {}),
+     ...(session.outcome ? { outcome: session.outcome } : {}),
     cost: usage.cost,
     tokens: { input: usage.input, output: usage.output, reasoning: usage.reasoning, cache: usage.cache },
   };
@@ -211,6 +218,7 @@ function messageToV2(record) {
   for (const part of parts) {
     if (part.type === 'text') content.push({ type: 'text', text: part.text });
     else if (part.type === 'reasoning') content.push({ type: 'reasoning', text: part.text });
+    else if (part.type === 'tool') content.push({ type: 'tool', id: `tool-${record.info.id}`, name: part.tool, state: part.state });
   }
   // V2 has no server-owned todo endpoint. Surface the plan through a
   // `todowrite` tool part so the adapter can derive it from the transcript.
@@ -288,6 +296,11 @@ const models = [{
   status: 'active',
   enabled: true,
   limit: { context: 128000, output: 4096 },
+}, {
+  id: 'openai/gpt-4.1-standard', modelID: 'gpt-4.1-standard', providerID: 'openai', name: 'GPT-4.1 standard',
+  capabilities: { tools: true, input: ['text', 'image'], output: ['text'] }, variants: [], time: { released: 0 },
+  cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }], status: 'active', enabled: true,
+  limit: { context: 128000, output: 4096 },
 }];
 
 const providerCatalog = [
@@ -297,7 +310,7 @@ const providerCatalog = [
 ];
 
 function modelCatalog() {
-  return [models[0], ...providerCatalog.slice(1).map((provider) => ({
+  return [...models, ...providerCatalog.slice(1).map((provider) => ({
     ...models[0], id: `${provider.id}/coding-model`, modelID: 'coding-model',
     providerID: provider.id, name: `${provider.name} coding model`,
     enabled: state.configuredProviderIds.has(provider.id),
@@ -332,6 +345,39 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && pathname === '/__control/account-binding') {
+      const body = await readJson(req);
+      state.accountBinding = {
+        ...state.accountBinding,
+        ...(typeof body?.unsupported === 'boolean' ? { unsupported: body.unsupported } : {}),
+        ...(typeof body?.readFailure === 'boolean' ? { readFailure: body.readFailure } : {}),
+        ...(typeof body?.bindFailure === 'boolean' ? { bindFailure: body.bindFailure } : {}),
+        ...(typeof body?.omitConfirmation === 'boolean' ? { omitConfirmation: body.omitConfirmation } : {}),
+      };
+      return sendJson(res, 200, { data: state.accountBinding });
+    }
+
+    if (req.method === 'POST' && pathname === '/__control/reasoning-tool') {
+      if (state.scenario !== 'reasoning-tool') return notFound(res);
+      const body = await readJson(req);
+      const session = helpers.getSession(body.sessionID);
+      const message = state.messagesBySession[body.sessionID]?.find((record) => record.info.role === 'assistant');
+      if (!session || !message) return notFound(res);
+      if (body.action === 'update') {
+        message.parts[0].text = body.text;
+        emitV2Event(event('session.reasoning.delta', { sessionID: body.sessionID }));
+      }
+      if (body.action === 'complete' || body.action === 'confirm-interrupt') {
+        message.parts[1].state = { status: 'completed', title: 'bash', input: {}, output: '' };
+        state.sessionStatuses[body.sessionID] = { type: 'idle' };
+        session.time.idle = getNow();
+        session.outcome = body.action === 'complete' ? 'succeeded' : 'interrupted';
+        emitV2Event(event('session.execution.interrupted', { sessionID: body.sessionID }));
+      }
+      sendJson(res, 200, { data: { status: state.sessionStatuses[body.sessionID], content: messageToV2(message).content } });
+      return;
+    }
+
     if (pathname === '/__control/terminal') {
       if (req.method === 'POST') terminalFixture.control(await readJson(req));
       sendJson(res, 200, { data: terminalFixture.snapshot() });
@@ -351,6 +397,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/__control/instructions') {
       sendJson(res, 200, { data: state.instructionsBySession });
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/__control/credential-uses') {
+      sendJson(res, 200, { data: state.credentialUses });
       return;
     }
 
@@ -519,6 +570,16 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'DELETE' && credentialMatch) {
       const credentialID = decodeURIComponent(credentialMatch[1]);
       state.credentials = state.credentials.filter((credential) => credential.id !== credentialID);
+      if (state.scenario === 'post-admission-failure') {
+        // Admission has promoted this credential to the active task. Record the
+        // terminal failure without SSE so the client must reconcile the result.
+        for (const session of state.sessions) {
+          if (session.taskCredentialID !== credentialID || state.sessionStatuses[session.id]?.type !== 'busy') continue;
+          session.outcome = 'failed';
+          session.time.idle = getNow();
+          state.sessionStatuses[session.id] = { type: 'idle' };
+        }
+      }
       res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
       res.end();
       return;
@@ -529,7 +590,11 @@ const server = http.createServer(async (req, res) => {
       for (const [sessionID, status] of Object.entries(state.sessionStatuses)) {
         // The running set excludes retries, matching the real server. The app
         // must preserve the event-derived retry across this list refresh.
-        if (status?.type === 'busy') active[sessionID] = { type: 'running' };
+        if (status?.type === 'busy') active[sessionID] = {
+          type: 'running',
+          ...(helpers.getSession(sessionID)?.taskCredentialID ? { credentialID: helpers.getSession(sessionID).taskCredentialID } : {}),
+          ...(helpers.getSession(sessionID)?.taskModelId ? { modelId: helpers.getSession(sessionID).taskModelId } : {}),
+        };
       }
       sendJson(res, 200, { data: active });
       return;
@@ -552,14 +617,18 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const directory = body?.location?.directory;
       const session = helpers.createSession(body?.title || '', directory);
+      if (body?.credentialID) session.credentialID = body.credentialID;
       sendJson(res, 200, { data: sessionToV2(session) });
       return;
     }
 
     if (req.method === 'GET' && /^\/api\/session\/[^/]+$/.test(pathname)) {
+      if (state.accountBinding.readFailure) return sendJson(res, 503, { error: 'session binding read failed' });
       const session = helpers.getSession(pathname.split('/')[3]);
       if (!session) return notFound(res);
-      sendJson(res, 200, { data: sessionToV2(session) });
+      const data = sessionToV2(session);
+      if (state.accountBinding.unsupported) delete data.credentialID;
+      sendJson(res, 200, { data });
       return;
     }
 
@@ -573,11 +642,26 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'PATCH' && /^\/api\/session\/[^/]+$/.test(pathname)) {
+      if (state.accountBinding.unsupported) return sendJson(res, 405, { error: 'session account binding is not supported' });
       const sessionID = pathname.split('/')[3];
       const body = await readJson(req);
+      if (state.accountBinding.bindFailure) return sendJson(res, 503, { error: 'session account binding rejected' });
       const session = helpers.getSession(sessionID);
       if (!session) return notFound(res);
+      if (state.accountBinding.omitConfirmation) return sendJson(res, 204);
       if (typeof body?.title === 'string') session.title = body.title;
+      if (body?.credentialID !== undefined) {
+        if (body.credentialID === null) {
+          delete session.credentialID;
+          res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
+          res.end();
+          return;
+        }
+        const credential = state.credentials.find((entry) => entry.id === body.credentialID);
+        if (!credential) return sendJson(res, 400, { error: 'credential not found' });
+        if (credential.integrationID !== (session.model || FAKE_MODEL).providerID) return sendJson(res, 400, { error: 'credential belongs to another provider' });
+        session.credentialID = credential.id;
+      }
       res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
       res.end();
       return;
@@ -647,15 +731,29 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/session\/[^/]+\/prompt$/.test(pathname)) {
       const sessionID = pathname.split('/')[3];
-      if (!helpers.getSession(sessionID)) return notFound(res);
+      const session = helpers.getSession(sessionID);
+      if (!session) return notFound(res);
       const body = await readJson(req);
+      const credentialID = body?.credentialID || session.credentialID;
+      // A new admitted task supersedes a previous terminal outcome. The
+      // client's bounded poll is keyed to this prompt's admission time.
+      delete session.outcome;
+      delete session.time.idle;
+      if (credentialID) {
+        const credential = state.credentials.find((entry) => entry.id === credentialID);
+        if (!credential) return sendJson(res, 400, { error: 'credential not found' });
+        if (credential.integrationID !== (session.model || FAKE_MODEL).providerID) return sendJson(res, 400, { error: 'credential belongs to another provider' });
+      }
+      session.taskCredentialID = credentialID;
+      session.taskModelId = body?.model ? `${body.model.providerID}/${body.model.modelID}` : session.model
+        ? `${session.model.providerID}/${session.model.id}` : undefined;
       const files = (body?.files || []).map((file) => {
         const match = file.uri?.match(/^data:([^;,]+);base64,([\s\S]*)$/);
         return { name: file.name, mime: match?.[1] || 'application/octet-stream', data: match?.[2] || '', source: { type: 'inline' } };
       });
       const item = {
         id: `message-${state.nextMessageId++}`, sessionID, type: 'user',
-        payload: { text: body?.text || '', files }, delivery: body?.delivery || 'steer', time: { created: getNow() },
+        payload: { text: body?.text || '', files, ...(credentialID ? { credentialID } : {}) }, delivery: body?.delivery || 'steer', time: { created: getNow() },
       };
       state.inboxBySession[sessionID] = [...(state.inboxBySession[sessionID] || []), item];
       emitV2Event(event('session.inbox.enqueued', { sessionID, inboxID: item.id, item: { type: 'user', payload: item.payload, delivery: item.delivery } }));
@@ -666,7 +764,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/session\/[^/]+\/interrupt$/.test(pathname)) {
       const sessionID = pathname.split('/')[3];
-      state.sessionStatuses[sessionID] = { type: 'idle' };
+      if (state.scenario !== 'reasoning-tool') state.sessionStatuses[sessionID] = { type: 'idle' };
       sendJson(res, 200, { interrupted: true });
       return;
     }

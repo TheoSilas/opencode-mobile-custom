@@ -20,7 +20,7 @@ type Input = {
   connected: boolean;
   currentSessionId?: string;
   sessions: Session[];
-  sendingState: { active: boolean; sessionId?: string };
+  sendingState: { active: boolean; sessionId?: string; taskSelection?: { sessionId: string; credentialID?: string; modelId?: string } };
   promptError?: { sessionId?: string; occurredAt: number };
 };
 

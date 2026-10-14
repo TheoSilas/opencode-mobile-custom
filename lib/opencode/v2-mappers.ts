@@ -19,7 +19,8 @@ export function sessionToV1(session: SessionInfo): Record<string, unknown> {
     id: session.id,
     title: session.title ?? '',
     directory: session.location?.directory,
-    time: { created: session.time.created, updated: session.time.updated },
+    time: { created: session.time.created, updated: session.time.updated, ...(session.time.idle !== undefined ? { idle: session.time.idle } : {}) },
+    ...(session.outcome ? { outcome: session.outcome } : {}),
     parentID: session.parentID,
     revert: session.revert,
     share: undefined,
@@ -27,6 +28,9 @@ export function sessionToV1(session: SessionInfo): Record<string, unknown> {
     tokens: session.tokens,
     cost: session.cost,
     agent: session.agent,
+    credentialID: (session as SessionInfo & { credentialID?: string }).credentialID,
+    taskCredentialID: (session as SessionInfo & { taskCredentialID?: string }).taskCredentialID,
+    taskModelId: (session as SessionInfo & { taskModelId?: string }).taskModelId,
   };
 }
 

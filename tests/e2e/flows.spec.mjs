@@ -1360,6 +1360,189 @@ test('OpenCode 2 lists provider accounts and switches the active one', async ({ 
   }
 });
 
+test('OpenCode 2 confirms per-chat binding and keeps the admitted task account while changing account and model', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port, 'reasoning-tool');
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    await waitForServer(request, `${base}/api/info`);
+    const { data: session } = await (await request.post(`${base}/api/session`, {
+      data: { title: 'Account and model chat', credentialID: 'credential-openai' },
+    })).json();
+    await openReadyChat(page);
+    await connectToServer(page, base);
+    await goToTab(page, 'Settings');
+    await ensureAiSection(page);
+    await page.getByRole('button', { name: /^OpenAI \d+ of 2 selected$/ }).click();
+    await page.getByText('GPT-4.1 standard', { exact: true }).click();
+    await goToTab(page, 'Chat');
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Open Account and model chat', exact: true }).click();
+    await expect(page.getByTestId('chat-next-send-account-model')).toContainText('Work');
+    await page.getByTestId('chat-model-picker-trigger').click();
+    await expect(page.getByTestId('chat-account-binding-status')).toContainText('Work · Server confirmed');
+    await expect(page.getByTestId('chat-account-option-credential-openai')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('chat-account-option-credential-openai-2').click();
+    await expect(page.getByTestId('chat-account-binding-status')).toContainText('Personal · Server confirmed');
+    await expect(page.getByTestId('chat-account-option-credential-openai-2')).toHaveAttribute('aria-checked', 'true');
+    expect((await (await request.get(`${base}/api/session/${session.id}`)).json()).data.credentialID).toBe('credential-openai-2');
+    await page.getByRole('button', { name: 'Close model picker' }).click();
+    await sendPrompt(page, 'Account and model turn one');
+    await expect(page.getByTestId('chat-current-task-account')).toContainText('Personal');
+    await page.getByTestId('chat-model-picker-trigger').click();
+    await page.getByTestId('chat-account-option-credential-openai').click();
+    await expect(page.getByTestId('chat-account-binding-status')).toContainText('Work · Server confirmed');
+    await page.getByText('GPT-4.1 standard', { exact: true }).click();
+    await expect(page.getByTestId('chat-current-task-account')).toContainText('Personal');
+    await expect(page.getByTestId('chat-next-send-account-model')).toContainText('Work · GPT-4.1 standard');
+    const uses = (await (await request.get(`${base}/__control/credential-uses`)).json()).data;
+    expect(uses.at(-1).credentialID).toBe('credential-openai-2');
+    await request.post(`${base}/__control/reasoning-tool`, { data: { sessionID: session.id, action: 'complete' } });
+    await expect(page.getByTestId('chat-current-task-account')).toHaveCount(0, { timeout: 15_000 });
+    await sendPrompt(page, 'Account and model turn two');
+    await expect.poll(async () => (await (await request.get(`${base}/__control/credential-uses`)).json()).data.at(-1)?.credentialID).toBe('credential-openai');
+    expect((await (await request.get(`${base}/api/session/${session.id}`)).json()).data.model.id).toBe('gpt-4.1-standard');
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
+test('OpenCode 2 distinguishes binding refusal, unsupported protocol, and failed read', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port);
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    await waitForServer(request, `${base}/api/info`);
+    const { data: session } = await (await request.post(`${base}/api/session`, {
+      data: { title: 'Binding failure chat', credentialID: 'credential-openai' },
+    })).json();
+    await openReadyChat(page);
+    await connectToServer(page, base);
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Open Binding failure chat', exact: true }).click();
+    await page.getByTestId('chat-model-picker-trigger').click();
+    await expect(page.getByTestId('chat-account-binding-status')).toContainText('Work · Server confirmed');
+    await request.post(`${base}/__control/account-binding`, { data: { bindFailure: true } });
+    await page.getByTestId('chat-account-option-credential-openai-2').click();
+    await expect(page.getByText(/Chat account binding failed/)).toBeVisible();
+    await expect(page.getByTestId('chat-account-option-credential-openai')).toHaveAttribute('aria-checked', 'true');
+    expect((await (await request.get(`${base}/api/session/${session.id}`)).json()).data.credentialID).toBe('credential-openai');
+    await request.post(`${base}/__control/account-binding`, { data: { bindFailure: false, unsupported: true } });
+    await page.getByTestId('chat-account-option-credential-openai-2').click();
+    await expect(page.getByTestId('chat-account-binding-status')).toContainText('protocol does not support');
+    await request.post(`${base}/__control/account-binding`, { data: { unsupported: false, readFailure: true } });
+    await page.reload();
+    await page.getByTestId('chat-model-picker-trigger').click();
+    await expect(page.getByTestId('chat-account-binding-status')).toContainText('Could not read this chat account');
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
+test('OpenCode 2 shows an error when a bound chat account was removed elsewhere', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port);
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    await waitForServer(request, `${base}/api/info`);
+    const created = await (await request.post(`${base}/api/session`, {
+      data: { title: 'Removed account chat', credentialID: 'credential-openai' },
+    })).json();
+    await openReadyChat(page);
+    await connectToServer(page, base);
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Open Removed account chat', exact: true }).click();
+    await expect(page.getByTestId('chat-library')).not.toBeVisible();
+    expect((await request.delete(`${base}/api/credential/credential-openai`)).ok()).toBeTruthy();
+
+    await sendPrompt(page, 'Do not submit with removed account');
+    await expect(page.getByText('This chat account is no longer available. Select an available account before sending.')).toBeVisible();
+    const messages = await (await request.get(`${base}/api/session/${created.data.id}/message`)).json();
+    expect(messages.data.some((message) => message.type === 'user')).toBe(false);
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
+test('OpenCode 2 recovers a post-admission failure when the native event is missed', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port, 'post-admission-failure');
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    await waitForServer(request, `${base}/api/info`);
+    const created = await (await request.post(`${base}/api/session`, {
+      data: { title: 'Late account failure', credentialID: 'credential-openai' },
+    })).json();
+    await openReadyChat(page);
+    await connectToServer(page, base);
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Open Late account failure', exact: true }).click();
+    await expect(page.getByTestId('chat-library')).not.toBeVisible();
+
+    const admitted = page.waitForResponse((response) => response.url().includes(`/api/session/${created.data.id}/prompt`)
+      && response.request().method() === 'POST');
+    await sendPrompt(page, 'Task accepted before account removal');
+    const admission = await admitted;
+    expect(admission.status()).toBe(200);
+    expect((await admission.json()).data.sessionID).toBe(created.data.id);
+    expect((await request.delete(`${base}/api/credential/credential-openai`)).ok()).toBeTruthy();
+    const settled = await (await request.get(`${base}/api/session/${created.data.id}`)).json();
+    expect(settled.data.outcome).toBe('failed');
+    await expect(page.getByText(/This chat account is no longer available|OpenCode could not complete this task/)).toBeVisible({ timeout: 15_000 });
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
+test('OpenCode 2 retains streamed reasoning while tools run and confirms cancellation', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port, 'reasoning-tool');
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    await waitForServer(request, `${base}/api/info`);
+    const created = await (await request.post(`${base}/api/session`, { data: { title: 'Reasoning and tool' } })).json();
+    const sessionID = created.data.id;
+    await openReadyChat(page);
+    await connectToServer(page, base);
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Open Reasoning and tool', exact: true }).click();
+    await sendPrompt(page, 'Do the tool work');
+    const reasoning = page.locator('[data-testid^="reasoning-toggle-"]');
+    await expect(reasoning).toBeVisible();
+    const published = page.locator('[data-testid^="reasoning-content-"]');
+    await expect(published).toHaveCount(0);
+    await reasoning.click();
+    await expect(published).toHaveText(' first line');
+    await request.post(`${base}/__control/reasoning-tool`, { data: { sessionID, action: 'update', text: ' first line\nsecond line  ' } });
+    await expect.poll(() => published.evaluate((node) => node.textContent)).toBe(' first line\nsecond line  ');
+    await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Cancel task');
+    await page.reload();
+    await expect(page.locator('[data-testid^="reasoning-toggle-"]')).toBeVisible();
+    await page.locator('[data-testid^="reasoning-toggle-"]').click();
+    await expect.poll(() => published.evaluate((node) => node.textContent)).toBe(' first line\nsecond line  ');
+    await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Cancel task');
+    // Lose the status read after the interrupt is admitted: the UI must not
+    // interpret the HTTP acknowledgement or a disconnected poll as completion.
+    const statusRoute = '**/api/session/active*';
+    await page.route(statusRoute, (route) => route.abort());
+    await page.getByTestId('chat-primary-button').click();
+    await expect(page.getByText(/Task status unconfirmed/)).toBeVisible();
+    const active = await (await request.get(`${base}/api/session/active`)).json();
+    expect(active.data[sessionID]).toBeTruthy();
+    await page.unroute(statusRoute);
+    await request.post(`${base}/__control/reasoning-tool`, { data: { sessionID, action: 'confirm-interrupt' } });
+    await expect(page.getByText(/Task status unconfirmed/)).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Start conversation mode');
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
 test('OpenCode 2 learns a personal preference and uses it in another project', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   const port = await getFreePort();

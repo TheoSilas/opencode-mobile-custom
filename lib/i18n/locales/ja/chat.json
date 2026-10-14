@@ -1,5 +1,5 @@
 {
-  "accounts": { "photos": "写真ライブラリ", "files": "ファイル", "current": "サーバーの現在のアカウント", "unknown": "不明", "globalHint": "切り替えはこのサーバーの他のチャットやクライアントの今後のリクエストにも影響します。このチャット専用の設定ではありません。", "renameHint": "長押しするとサーバー上のアカウント名を変更できます。", "name": "アカウント名", "save": "保存", "switching": "アカウントを切り替え中…", "switched": "サーバーが切り替えを確認しました。", "renamed": "サーバーが名前を確認しました。", "failed": "アカウントの変更に失敗しました。", "empty": "このプロバイダーにはまだアカウントが保存されていません。「設定 → プロバイダー」で追加してください。", "imageUnsupported": "選択したモデルは画像に対応していません。", "unsupportedFormat": "PNG、JPEG、GIF、WebP を選択してください。" },
+  "accounts": {"photos":"写真ライブラリ","files":"ファイル","current":"サーバーの現在のアカウント","unknown":"不明","sessionHint":"このチャットの新しいタスクにはサーバーが確認したアカウントを使用します。変更しても他のチャットや実行中のタスクには影響しません。","globalHint":"切り替えるとサーバーのアクティブアカウントが更新されますが、このアプリはサーバー・プロジェクト・チャットごとに記憶し、戻ったときに復元します。","renameHint":"長押しするとサーバー上のアカウント名を変更できます。","name":"アカウント名","save":"保存","switching":"アカウントを切り替え中…","switched":"サーバーが切り替えを確認しました。","renamed":"サーバーが名前を確認しました。","failed":"アカウントの変更に失敗しました。","empty":"このプロバイダーにはまだアカウントが保存されていません。「設定 → プロバイダー」で追加してください。","imageUnsupported":"選択したモデルは画像に対応していません。","unsupportedFormat":"PNG、JPEG、GIF、WebP を選択してください。","savingBinding":"Saving chat account binding…","chatAccount":"This chat's account","confirmed":"Server confirmed","unbound":"No chat binding","unboundConfirmed":"Not bound (confirmed by server)","serverDefault":"Server default account","accountUnavailable":"Account is absent from the server list","upgradeRequired":"This server protocol does not support chat account binding. Upgrade OpenCode to use it.","readFailedShort":"Read failed","createChatFirst":"Create the chat and send its first message before binding an account.","notChecked":"Account status not checked","reading":"Reading this chat's server account binding…","readFailed":"Could not read this chat account","readAuthFailed":"Could not read accounts: server authentication failed. Check the connection settings.","protocolUnsupported":"The server protocol does not support chat account binding. Upgrade OpenCode.","bindingFailed":"Chat account binding failed","bindingNotConfirmed":"The server did not confirm the new account; the last confirmed binding is still shown. Retry or refresh.","bindingAccountUnavailable":"The selected account is unavailable; the last confirmed binding is still shown.","bindingAuthFailed":"Account binding failed because server authentication was rejected. The previous binding is unchanged.","currentTask":"Current task account submitted","nextSend":"Next send account","taskAccountUnconfirmed":"The server did not confirm which account this task uses","taskModelUnconfirmed":"The server did not confirm which model this task uses","bindingUnknown":"Binding changed or could not be read back; the current server account is unknown. Refresh before sending."},
   "view": {
     "tabSession": "セッション",
     "tabFilesChanged": "{{files}}件のファイル変更",
@@ -53,6 +53,8 @@
     "runningActivity": "OpenCode は{{activity}}中です...",
     "runningRetry": "OpenCode でエラーが発生し、再試行しています（試行 {{attempt}}）...",
     "runningGeneric": "OpenCode は現在のステップを処理しています...",
+    "cancellingTask": "タスクをキャンセル中。サーバーの確認を待っています...",
+    "statusUnconfirmed": "タスクの状態は未確認です。再接続後に確認します...",
     "answerNeeded": "回答が必要です",
     "waitingForAnswer": "OpenCode はあなたの回答を待っています",
     "openProgressLabel": "進捗を開く。{{total}}件中{{completed}}件のタスクが完了",
@@ -130,7 +132,7 @@
     "startDictation": "音声入力を開始",
     "stopDictation": "音声入力を停止",
     "sendTask": "タスクを送信",
-    "stopTask": "タスクを停止"
+    "stopTask": "タスクをキャンセル"
   },
   "header": {
     "pricingUnavailable": "料金を取得できません",

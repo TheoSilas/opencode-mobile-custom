@@ -67,6 +67,8 @@
     "hideTitle": "Hide workspace",
     "hideConfirm": "Hide this workspace in this app? Source files, server records and chats remain untouched. You can show it again here.",
     "hidden": "Hidden in this app",
+    "hiddenHint": "Hidden workspaces are kept out of the main list.",
+    "show": "Show",
     "showNamed": "Show {{name}} again"
   },
   "errors": {

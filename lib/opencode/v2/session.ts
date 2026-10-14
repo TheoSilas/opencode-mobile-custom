@@ -1,9 +1,51 @@
 import { sessionToV1 } from '../v2-mappers';
+import { classifyAccountBindingRead } from '../account-binding-status';
 import { fileToV1, messageToV1 } from './mappers';
 import type { PendingPrompt, PromptDelivery } from '../prompt-inbox';
 import { stringField, syncSessionInstructions, type V2Adapter, type V2Diff } from './shared';
 
-export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapter): Record<string, unknown> {
+export function buildSessionApi({ api, directory, request, listSessionPage, ok }: V2Adapter): Record<string, unknown> {
+  // The published client predates session credential fields and drops them while
+  // serializing. Send these two operations through the same scoped fetch instead.
+  const accountRequest = async (sessionID: string, method: 'PATCH' | 'POST', body: Record<string, unknown>) => {
+    const response = await request(`/api/session/${encodeURIComponent(sessionID)}${method === 'POST' ? '/prompt' : ''}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (method === 'PATCH' && response.status === 405) {
+      throw new Error(`SESSION_ACCOUNT_BINDING_UNSUPPORTED (${method} /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status})`);
+    }
+    if (!response.ok) throw new Error(`OpenCode rejected the session account (${method} /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}).`);
+    return response;
+  };
+  const readAccountBinding = async (sessionID: string) => {
+    const response = await request(`/api/session/${encodeURIComponent(sessionID)}`, { method: 'GET' });
+    const result = classifyAccountBindingRead(response.status);
+    if (result === 'unsupported') throw new Error(`SESSION_ACCOUNT_BINDING_UNSUPPORTED (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status})`);
+    if (result !== 'confirmed') throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}).`);
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}; unexpected response format).`);
+    }
+    const data = body && typeof body === 'object' ? (body as Record<string, unknown>).data : undefined;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}; unexpected response format).`);
+    }
+    const record = data as Record<string, unknown>;
+    const fieldStatus = classifyAccountBindingRead(response.status, Object.prototype.hasOwnProperty.call(record, 'credentialID'));
+    if (record.credentialID !== null && record.credentialID !== undefined && typeof record.credentialID !== 'string') {
+      throw new Error(`Could not read the chat account binding (GET /api/session/${encodeURIComponent(sessionID)}: HTTP ${response.status}; invalid account field).`);
+    }
+    return {
+      credentialID: typeof record.credentialID === 'string' ? record.credentialID : undefined,
+      unbound: fieldStatus === 'unbound' || record.credentialID == null,
+      field: fieldStatus === 'unbound' ? 'omitted' : record.credentialID == null ? 'null' : 'present',
+      httpStatus: response.status,
+    };
+  };
   const inboxToPrompt = (item: Extract<Awaited<ReturnType<typeof api.session.inbox.list>>[number], { type: 'user' }>): PendingPrompt => ({
     id: item.id, sessionId: item.sessionID, createdAt: item.time.created,
     text: item.payload.text, delivery: item.delivery, state: 'waiting',
@@ -16,6 +58,7 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
     const sessionID = stringField(parameters.sessionID);
     const agent = typeof parameters.agent === 'string' ? parameters.agent : undefined;
     const model = parameters.model as { providerID?: string; modelID?: string } | undefined;
+    const credentialID = typeof parameters.credentialID === 'string' ? parameters.credentialID : undefined;
     if (agent) await api.session.switchAgent({ sessionID, agent });
     if (model?.providerID && model.modelID) {
       await api.session.switchModel({ sessionID, model: { id: model.modelID, providerID: model.providerID } });
@@ -32,7 +75,15 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
         return { uri: stringField(record.url), name: stringField(record.filename, 'Attachment') };
       });
     await syncSessionInstructions(api, sessionID, parameters.system);
-    const admitted = await api.session.prompt({ sessionID, text, delivery, ...(files.length > 0 ? { files } : {}) });
+    const prompt = {
+      text,
+      delivery,
+      ...(files.length > 0 ? { files } : {}),
+    };
+    const admitted = credentialID
+      ? ((await (await accountRequest(sessionID, 'POST', { ...prompt, credentialID })).json()) as { data: Awaited<ReturnType<typeof api.session.prompt>> }).data
+      : await api.session.prompt({ sessionID, ...prompt });
+    if (!admitted || admitted.type !== 'user' || admitted.sessionID !== sessionID) throw new Error('OpenCode returned an invalid prompt admission.');
     return inboxToPrompt(admitted);
   };
   return {
@@ -42,6 +93,10 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
         .filter((item): item is Extract<typeof item, { type: 'user' }> => item.type === 'user').map(inboxToPrompt),
     },
     session: {
+      get: async (parameters: { sessionID: string }) => {
+        const session = await api.session.get({ sessionID: parameters.sessionID });
+        return ok(sessionToV1(session));
+      },
       list: async () => {
         const response = await listSessionPage();
         const headers = new Headers();
@@ -89,17 +144,32 @@ export function buildSessionApi({ api, directory, listSessionPage, ok }: V2Adapt
         await api.session.remove({ sessionID: parameters.sessionID });
         return ok(undefined);
       },
-      update: async (parameters: { sessionID: string; title?: string; permission?: unknown }) => {
+      update: async (parameters: { sessionID: string; title?: string; permission?: unknown; credentialID?: string | null }) => {
         if (parameters.title !== undefined || parameters.permission !== undefined) {
-          await api.session.update({
+          const update = {
             sessionID: parameters.sessionID,
             ...(parameters.title !== undefined ? { title: parameters.title } : {}),
             ...(parameters.permission !== undefined ? { permissions: parameters.permission as never } : {}),
-          });
+          };
+          await api.session.update(update);
+        }
+        if (parameters.credentialID !== undefined) {
+          const patch = await accountRequest(parameters.sessionID, 'PATCH', { credentialID: parameters.credentialID });
+          const binding = await readAccountBinding(parameters.sessionID);
+          const expected = typeof parameters.credentialID === 'string' ? parameters.credentialID : undefined;
+          if ((expected && binding.unbound) || binding.credentialID !== expected) {
+            // Only a short suffix is diagnostic; no credential, headers, or body
+            // are written to logs or exposed in the error message.
+            const masked = (id?: string) => id ? `…${id.slice(-4)}` : '∅';
+            throw new Error(`OpenCode did not confirm the selected session account. PATCH /api/session/:id HTTP ${patch.status} requested ${masked(expected)}; GET /api/session/:id HTTP ${binding.httpStatus} returned ${binding.field === 'present' ? masked(binding.credentialID) : binding.field}.`);
+          }
+          const session = await api.session.get({ sessionID: parameters.sessionID });
+          return ok({ ...sessionToV1(session), credentialID: expected });
         }
         const session = await api.session.get({ sessionID: parameters.sessionID });
         return ok(sessionToV1(session));
       },
+      accountBinding: { read: (parameters: { sessionID: string }) => readAccountBinding(parameters.sessionID) },
       children: async (parameters: { sessionID: string }) => {
         const response = await api.session.list({ parentID: parameters.sessionID });
         return ok((response.data ?? []).map(sessionToV1));

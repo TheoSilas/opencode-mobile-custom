@@ -1,5 +1,5 @@
 {
-  "accounts": { "photos": "Fotomediathek", "files": "Dateien", "current": "Aktives Serverkonto", "unknown": "Unbekannt", "globalHint": "Der Wechsel betrifft künftige Anfragen aller Chats und Clients dieses Servers; dieser Chat ist nicht an ein Konto gebunden.", "renameHint": "Konto gedrückt halten, um es auf dem Server umzubenennen.", "name": "Kontoname", "save": "Speichern", "switching": "Konto wird gewechselt…", "switched": "Server hat den Kontowechsel bestätigt.", "renamed": "Server hat den Kontonamen bestätigt.", "failed": "Kontowechsel fehlgeschlagen.", "empty": "Für diesen Anbieter sind noch keine Konten gespeichert. Füge eines unter Einstellungen → Anbieter hinzu.", "imageUnsupported": "Das ausgewählte Modell unterstützt keine Bilder.", "unsupportedFormat": "Bitte PNG, JPEG, GIF oder WebP wählen." },
+  "accounts": {"photos":"Fotomediathek","files":"Dateien","current":"Aktives Serverkonto","unknown":"Unbekannt","sessionHint":"Dieser Chat verwendet das vom Server bestätigte Konto für neue Aufgaben. Ein Wechsel ändert weder andere Chats noch laufende Aufgaben.","globalHint":"Der Wechsel aktualisiert das aktive Serverkonto; diese App merkt sich jedoch ein Konto pro Server, Projekt und Chat und stellt es beim Zurückkehren wieder her.","renameHint":"Konto gedrückt halten, um es auf dem Server umzubenennen.","name":"Kontoname","save":"Speichern","switching":"Konto wird gewechselt…","switched":"Server hat den Kontowechsel bestätigt.","renamed":"Server hat den Kontonamen bestätigt.","failed":"Kontowechsel fehlgeschlagen.","empty":"Für diesen Anbieter sind noch keine Konten gespeichert. Füge eines unter Einstellungen → Anbieter hinzu.","imageUnsupported":"Das ausgewählte Modell unterstützt keine Bilder.","unsupportedFormat":"Bitte PNG, JPEG, GIF oder WebP wählen.","savingBinding":"Saving chat account binding…","chatAccount":"This chat's account","confirmed":"Server confirmed","unbound":"No chat binding","unboundConfirmed":"Not bound (confirmed by server)","serverDefault":"Server default account","accountUnavailable":"Account is absent from the server list","upgradeRequired":"This server protocol does not support chat account binding. Upgrade OpenCode to use it.","readFailedShort":"Read failed","createChatFirst":"Create the chat and send its first message before binding an account.","notChecked":"Account status not checked","reading":"Reading this chat's server account binding…","readFailed":"Could not read this chat account","readAuthFailed":"Could not read accounts: server authentication failed. Check the connection settings.","protocolUnsupported":"The server protocol does not support chat account binding. Upgrade OpenCode.","bindingFailed":"Chat account binding failed","bindingNotConfirmed":"The server did not confirm the new account; the last confirmed binding is still shown. Retry or refresh.","bindingAccountUnavailable":"The selected account is unavailable; the last confirmed binding is still shown.","bindingAuthFailed":"Account binding failed because server authentication was rejected. The previous binding is unchanged.","currentTask":"Current task account submitted","nextSend":"Next send account","taskAccountUnconfirmed":"The server did not confirm which account this task uses","taskModelUnconfirmed":"The server did not confirm which model this task uses","bindingUnknown":"Binding changed or could not be read back; the current server account is unknown. Refresh before sending."},
   "view": {
     "tabSession": "Sitzung",
     "tabFilesChanged": "{{files}} Dateien geändert",
@@ -53,6 +53,8 @@
     "runningActivity": "OpenCode {{activity}}...",
     "runningRetry": "OpenCode ist auf einen Fehler gestoßen und versucht es erneut (Versuch {{attempt}})...",
     "runningGeneric": "OpenCode arbeitet den aktuellen Schritt ab...",
+    "cancellingTask": "Aufgabe wird abgebrochen; Serverbestätigung steht aus...",
+    "statusUnconfirmed": "Aufgabenstatus unbestätigt. Prüfung nach Wiederverbindung...",
     "answerNeeded": "Antwort erforderlich",
     "waitingForAnswer": "OpenCode wartet auf deine Antwort",
     "openProgressLabel": "Fortschritt öffnen. {{completed}} von {{total}} Aufgaben abgeschlossen",
@@ -130,7 +132,7 @@
     "startDictation": "Diktat starten",
     "stopDictation": "Diktat stoppen",
     "sendTask": "Aufgabe senden",
-    "stopTask": "Aufgabe stoppen"
+    "stopTask": "Aufgabe abbrechen"
   },
   "header": {
     "pricingUnavailable": "Preise nicht verfügbar",

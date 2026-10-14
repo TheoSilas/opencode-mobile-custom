@@ -26,6 +26,20 @@ describe('mapV2Event refresh mappings', () => {
     expect(mapped('session.metadata.updated', { sessionID: 's1' })?.payload.type).toBe('session.updated');
     expect(mapped('command.executed', { sessionID: 's1' })?.payload.type).toBe('session.updated');
   });
+  it('surfaces failed executions with their server error instead of silently reporting idle', () => {
+    const event = mapped('session.execution.failed', {
+      sessionID: 's1', error: { type: 'unknown', message: 'Credential cred_removed is unavailable: credential not found' },
+    });
+    expect(event?.payload).toMatchObject({ type: 'session.error', properties: {
+      sessionID: 's1', error: { name: 'unknown', message: 'Credential cred_removed is unavailable: credential not found' },
+    } });
+    const { actions } = createActions();
+    handleProviderEvent(event!.payload as never, actions);
+    expect(actions.setPromptError).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: 's1', message: expect.stringContaining('credential not found'),
+    }));
+    expect(actions.setSessionStatuses).toHaveBeenCalled();
+  });
 });
 
 function createActions() {

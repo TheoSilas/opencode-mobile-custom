@@ -118,13 +118,16 @@ export async function discoverChatCapabilities(client: ScopedOpencodeClient, act
     };
   }
 
-  const [configResponse, providersResponse, providerAuthResponse, agentsResponse, accounts] = await Promise.all([
+  const [configResponse, providersResponse, providerAuthResponse, agentsResponse, accountsResult] = await Promise.all([
     client.config.get(),
     client.provider.list(),
     client.provider.auth(),
     client.app.agents(),
-    client.accounts ? client.accounts.list().catch(() => [] as ProviderAccountInfo[]) : Promise.resolve([] as ProviderAccountInfo[]),
+    client.accounts
+      ? client.accounts.list().then((items) => ({ items, status: 'ready' as const })).catch((error: unknown) => ({ items: [] as ProviderAccountInfo[], status: 'error' as const, error: error instanceof Error ? error.message : 'Could not read provider accounts.' }))
+      : Promise.resolve({ items: [] as ProviderAccountInfo[], status: 'unsupported' as const }),
   ]);
+  const { items: accounts } = accountsResult;
 
   const nextConfig = requireData(configResponse.data, 'config request');
   const providerData = requireData(providersResponse.data, 'provider request');
@@ -175,6 +178,8 @@ export async function discoverChatCapabilities(client: ScopedOpencodeClient, act
         configured: configuredProviderIds.has(provider.id) || providerAccounts.length > 0,
         integrationIds,
         requestIntegrationId: integrationIds[0] ?? provider.id,
+        accountReadStatus: accountsResult.status,
+        ...(accountsResult.status === 'error' ? { accountReadError: accountsResult.error } : {}),
         ...(providerAccounts.length
           ? { accounts: providerAccounts.map(({ id, providerId, label, method, active }) => ({ id, integrationId: providerId, label, method, active })) }
           : {}),

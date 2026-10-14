@@ -67,6 +67,8 @@
     "hideTitle": "Ocultar espacio de trabajo",
     "hideConfirm": "¿Ocultar este espacio de trabajo solo en esta aplicación? Los archivos, el proyecto y los chats permanecen intactos. Puedes volver a mostrarlo aquí.",
     "hidden": "Ocultos en esta aplicación",
+    "hiddenHint": "Los espacios ocultos se guardan aquí y no ocupan la lista principal.",
+    "show": "Mostrar",
     "showNamed": "Mostrar {{name}} de nuevo"
   },
   "errors": {

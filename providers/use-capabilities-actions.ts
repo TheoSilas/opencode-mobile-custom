@@ -25,6 +25,7 @@ type CapabilitiesActionsInput = {
   connectionScope: string;
   currentSessionId?: string;
   sessions: Session[];
+  setSessions: Dispatch<SetStateAction<Session[]>>;
   chatPreferences: ChatPreferences;
   isCurrentClient: (candidate: object) => boolean;
   currentConfig?: Config;
@@ -45,6 +46,7 @@ export function useCapabilitiesActions({
   connectionScope,
   currentSessionId,
   sessions,
+  setSessions,
   chatPreferences,
   isCurrentClient,
   currentConfig,
@@ -321,6 +323,61 @@ export function useCapabilitiesActions({
     await refreshChatCapabilities();
   }, [client, refreshChatCapabilities]);
 
+  const readSessionBinding = useCallback(async (sessionId = currentSessionId) => {
+    if (!activeProjectPath || !sessionId || !client.accounts) throw new Error('Select a chat on an OpenCode 2 server first.');
+    const accountBinding = (client.session as typeof client.session & { accountBinding?: { read: (parameters: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
+    if (!accountBinding) throw new Error('SESSION_ACCOUNT_BINDING_CLIENT_UNAVAILABLE');
+    const binding = await accountBinding.read({ sessionID: sessionId });
+    if (!isCurrentClient(client)) throw new Error('The server connection changed while reading this chat account.');
+    setSessions((current) => current.map((item) => item.id === sessionId ? { ...item, credentialID: binding.credentialID } as Session : item));
+    return binding.credentialID;
+  }, [activeProjectPath, client, currentSessionId, isCurrentClient, setSessions]);
+
+  const bindSessionAccount = useCallback(async (credentialId: string, sessionId = currentSessionId) => {
+    if (!activeProjectPath || !sessionId || !client.accounts) throw new Error('Select a chat on an OpenCode 2 server first.');
+    const accounts = await client.accounts.list();
+    if (!accounts.some((account) => account.id === credentialId)) throw new Error('Selected account is unavailable.');
+    const readBinding = async () => {
+      const bindingApi = (client.session as typeof client.session & { accountBinding?: { read: (parameters: { sessionID: string }) => Promise<{ credentialID?: string; unbound?: boolean }> } }).accountBinding;
+      if (!bindingApi) throw new Error('SESSION_ACCOUNT_BINDING_CLIENT_UNAVAILABLE');
+      return bindingApi.read({ sessionID: sessionId });
+    };
+    const before = await readBinding();
+    if (!isCurrentClient(client)) throw new Error('The server connection changed while selecting this chat account.');
+    const previousCredentialID = before.credentialID;
+    let confirmed: Session & { credentialID?: string };
+    try {
+      const response = await client.session.update({ sessionID: sessionId, credentialID: credentialId } as Parameters<typeof client.session.update>[0]);
+      confirmed = response.data as Session & { credentialID?: string };
+      if (confirmed.credentialID !== credentialId) throw new Error('OpenCode did not confirm the selected session account.');
+      const binding = await readBinding();
+      if (binding.unbound || binding.credentialID !== credentialId) throw new Error('OpenCode did not confirm the selected session account.');
+      confirmed.credentialID = binding.credentialID;
+    } catch (error) {
+      // PATCH and the follow-up GET are separate requests. If the write landed
+      // but its confirmation failed, restore the last server-read binding.
+      let previousBindingConfirmed = false;
+      try {
+        const latest = await readBinding();
+        const latestCredentialID = latest.credentialID;
+        if (latestCredentialID === previousCredentialID) {
+          previousBindingConfirmed = true;
+        } else if (latestCredentialID === credentialId) {
+          await client.session.update({ sessionID: sessionId, credentialID: previousCredentialID ?? null } as Parameters<typeof client.session.update>[0]);
+          const restored = await readBinding();
+          if (restored.credentialID !== previousCredentialID) throw new Error('The previous chat account could not be restored.');
+          previousBindingConfirmed = true;
+        }
+      } catch {
+        // The caller marks the binding as uncertain if the prior value cannot be re-read.
+      }
+      if (!previousBindingConfirmed) throw new Error(`SESSION_ACCOUNT_BINDING_UNKNOWN: ${error instanceof Error ? error.message : 'Chat account binding failed.'}`);
+      throw error;
+    }
+    if (!isCurrentClient(client) || sessionId !== currentSessionId) return;
+    setSessions((current) => current.map((item) => item.id === sessionId ? confirmed : item));
+  }, [activeProjectPath, client, currentSessionId, isCurrentClient, setSessions]);
+
   const refreshProviderAccounts = useCallback(async () => {
     if (!client.accounts) return;
     await client.accounts.list();
@@ -415,6 +472,8 @@ export function useCapabilitiesActions({
     cancelProviderOAuth,
     addProviderAccount,
     activateProviderAccount,
+    bindSessionAccount,
+    readSessionBinding,
     refreshProviderAccounts,
     renameProviderAccount,
     removeProviderAccount,

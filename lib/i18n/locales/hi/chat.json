@@ -1,5 +1,5 @@
 {
-  "accounts": { "photos": "फ़ोटो लाइब्रेरी", "files": "फ़ाइलें", "current": "सर्वर का सक्रिय खाता", "unknown": "अज्ञात", "globalHint": "बदलाव इस सर्वर के अन्य चैट और क्लाइंट के भविष्य के अनुरोधों पर भी लागू होगा; चैट का अपना खाता नहीं है।", "renameHint": "सर्वर पर नाम बदलने के लिए खाते को देर तक दबाएँ।", "name": "खाते का नाम", "save": "सहेजें", "switching": "खाता बदला जा रहा है…", "switched": "सर्वर ने खाते का बदलाव पुष्टि किया।", "renamed": "सर्वर ने नाम की पुष्टि की।", "failed": "खाता नहीं बदला जा सका।", "empty": "इस प्रदाता के लिए अभी तक कोई खाता संग्रहीत नहीं है। सेटिंग → प्रदाता में एक जोड़ें।", "imageUnsupported": "चुना गया मॉडल चित्र स्वीकार नहीं करता।", "unsupportedFormat": "PNG, JPEG, GIF या WebP चुनें।" },
+  "accounts": {"photos":"फ़ोटो लाइब्रेरी","files":"फ़ाइलें","current":"सर्वर का सक्रिय खाता","unknown":"अज्ञात","sessionHint":"यह चैट नए कार्यों के लिए सर्वर द्वारा पुष्टि किए गए खाते का उपयोग करती है। इसे बदलने से अन्य चैट या चल रहे कार्य प्रभावित नहीं होते।","globalHint":"बदलाव सर्वर का सक्रिय खाता अपडेट करता है, लेकिन यह ऐप हर सर्वर, प्रोजेक्ट और चैट के लिए खाता अलग से याद रखकर लौटने पर बहाल करता है।","renameHint":"सर्वर पर नाम बदलने के लिए खाते को देर तक दबाएँ।","name":"खाते का नाम","save":"सहेजें","switching":"खाता बदला जा रहा है…","switched":"सर्वर ने खाते का बदलाव पुष्टि किया।","renamed":"सर्वर ने नाम की पुष्टि की।","failed":"खाता नहीं बदला जा सका।","empty":"इस प्रदाता के लिए अभी तक कोई खाता संग्रहीत नहीं है। सेटिंग → प्रदाता में एक जोड़ें।","imageUnsupported":"चुना गया मॉडल चित्र स्वीकार नहीं करता।","unsupportedFormat":"PNG, JPEG, GIF या WebP चुनें।","savingBinding":"Saving chat account binding…","chatAccount":"This chat's account","confirmed":"Server confirmed","unbound":"No chat binding","unboundConfirmed":"Not bound (confirmed by server)","serverDefault":"Server default account","accountUnavailable":"Account is absent from the server list","upgradeRequired":"This server protocol does not support chat account binding. Upgrade OpenCode to use it.","readFailedShort":"Read failed","createChatFirst":"Create the chat and send its first message before binding an account.","notChecked":"Account status not checked","reading":"Reading this chat's server account binding…","readFailed":"Could not read this chat account","readAuthFailed":"Could not read accounts: server authentication failed. Check the connection settings.","protocolUnsupported":"The server protocol does not support chat account binding. Upgrade OpenCode.","bindingFailed":"Chat account binding failed","bindingNotConfirmed":"The server did not confirm the new account; the last confirmed binding is still shown. Retry or refresh.","bindingAccountUnavailable":"The selected account is unavailable; the last confirmed binding is still shown.","bindingAuthFailed":"Account binding failed because server authentication was rejected. The previous binding is unchanged.","currentTask":"Current task account submitted","nextSend":"Next send account","taskAccountUnconfirmed":"The server did not confirm which account this task uses","taskModelUnconfirmed":"The server did not confirm which model this task uses","bindingUnknown":"Binding changed or could not be read back; the current server account is unknown. Refresh before sending."},
   "view": {
     "tabSession": "सेशन",
     "tabFilesChanged": "{{files}} फ़ाइलें बदलीं",
@@ -53,6 +53,8 @@
     "runningActivity": "OpenCode अभी {{activity}} पर काम कर रहा है...",
     "runningRetry": "OpenCode को एक त्रुटि मिली और वह फिर से प्रयास कर रहा है (प्रयास {{attempt}})...",
     "runningGeneric": "OpenCode वर्तमान चरण पर काम कर रहा है...",
+    "cancellingTask": "कार्य रद्द हो रहा है; सर्वर की पुष्टि की प्रतीक्षा है...",
+    "statusUnconfirmed": "कार्य की स्थिति की पुष्टि नहीं हुई। दोबारा जुड़ने पर जाँच होगी...",
     "answerNeeded": "उत्तर चाहिए",
     "waitingForAnswer": "OpenCode आपके उत्तर की प्रतीक्षा कर रहा है",
     "openProgressLabel": "प्रगति खोलें। {{total}} में से {{completed}} कार्य पूरे हुए",
@@ -130,7 +132,7 @@
     "startDictation": "बोलकर लिखना शुरू करें",
     "stopDictation": "बोलकर लिखना रोकें",
     "sendTask": "कार्य भेजें",
-    "stopTask": "कार्य रोकें"
+    "stopTask": "कार्य रद्द करें"
   },
   "header": {
     "pricingUnavailable": "मूल्य निर्धारण अनुपलब्ध",

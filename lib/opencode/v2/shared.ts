@@ -51,6 +51,7 @@ export type V2Adapter = {
   api: V2Api;
   ctx: AdapterContext;
   directory?: string;
+  request: (path: string, init: RequestInit) => Promise<Response>;
   vcsLocation: LocationOptions;
   ok: (data: unknown) => RawResult;
   listSessionPage: () => Promise<Awaited<ReturnType<V2Api['session']['list']>>>;

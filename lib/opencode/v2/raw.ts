@@ -71,11 +71,16 @@ export function buildV2Raw(settings: OpencodeConnectionSettings): { client: Reco
 
   const ok = (data: unknown): RawResult => ({ data });
   const listSessionPage = () => coalesceRead(api, 'sessions', () => api.session.list(directory ? { directory } : {}));
+  const request = (path: string, init: RequestInit) => {
+    const url = new URL(path, base.origin);
+    if (directory) url.searchParams.set('location[directory]', directory);
+    return prefixedFetch(url.toString(), { ...init, headers: { ...headers, ...init.headers } });
+  };
 
   // The V2 surface is assembled from per-domain builders. Each builder is a
   // self-contained translation slice; the composer below only wires them
   // together, so adding or changing an endpoint touches one builder.
-  const adapter: V2Adapter = { api, ctx, directory, vcsLocation, ok, listSessionPage, getProjectID };
+  const adapter: V2Adapter = { api, ctx, directory, vcsLocation, request, ok, listSessionPage, getProjectID };
 
   const client: Record<string, unknown> = {
     __opencode: { directory },

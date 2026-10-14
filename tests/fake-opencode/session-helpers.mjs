@@ -76,6 +76,8 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
 
   function completePrompt(sessionId, promptText) {
     const state = getState();
+    const session = getSession(sessionId);
+    if (session?.outcome === 'failed') return;
     const userMessages = getMessages(sessionId).filter((message) => message.info.role === 'user');
     const latestUserMessage = userMessages.at(-1);
     const previousDiffs = userMessages.filter((message) => message.info.summary?.diffs).length;
@@ -120,7 +122,6 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
     emitEvent({ type: 'todo.updated', properties: { sessionID: sessionId, todos } });
     emitEvent({ type: 'session.idle', properties: { sessionID: sessionId } });
 
-    const session = getSession(sessionId);
     if (session && !session.title.trim()) {
       session.title = summarizePrompt(promptText);
       emitEvent({ type: 'session.updated', properties: { sessionID: sessionId, info: session } });
@@ -244,6 +245,16 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
 
     if (state.scenario === 'inbox') {
       createMessage(sessionId, 'assistant', [{ type: 'text', text: `Working on: ${promptText}` }]);
+      return;
+    }
+
+    if (state.scenario === 'post-admission-failure') return;
+
+    if (state.scenario === 'reasoning-tool') {
+      createMessage(sessionId, 'assistant', [
+        { type: 'reasoning', text: ' first line' },
+        { type: 'tool', tool: 'bash', state: { status: 'running', title: 'bash', input: {} } },
+      ]);
       return;
     }
 

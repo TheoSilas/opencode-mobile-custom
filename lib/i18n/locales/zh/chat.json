@@ -1,6 +1,6 @@
 {
   "accounts": {
-    "photos": "手机相册", "files": "选择文件", "current": "服务器当前账号", "unknown": "未知", "globalHint": "切换会影响服务器后续请求，包括其他聊天和客户端；此聊天没有独立绑定账号。", "renameHint": "长按账号可在服务器上重命名。", "name": "账号名称", "save": "保存", "switching": "正在切换服务器账号…", "switched": "服务器已确认账号切换。", "renamed": "服务器已确认账号名称。", "failed": "账号操作失败。", "empty": "此提供商尚未保存账号，请在「设置 → 提供商」中添加。", "imageUnsupported": "当前模型不支持图片输入，请切换支持图片的模型。", "unsupportedFormat": "此图片格式无法发送给模型，请选择 PNG、JPEG、GIF 或 WebP。"
+    "photos": "手机相册", "files": "选择文件", "current": "服务器当前账号", "unknown": "未知", "sessionHint": "账号绑定只影响本聊天后续发送，不会切换其他聊天，也不会改变正在执行任务实际使用的账号。", "globalHint": "切换会更新服务器当前账号；本应用会按服务器、项目和聊天分别记住账号。", "renameHint": "长按账号可在服务器上重命名。", "name": "账号名称", "save": "保存", "switching": "正在读取账号列表…", "savingBinding": "正在保存聊天账号绑定…", "switched": "服务器已确认本聊天账号已生效。", "renamed": "服务器已确认账号名称。", "failed": "账号操作失败。", "empty": "此提供商尚未保存账号，请在「设置 → 提供商」中添加。", "imageUnsupported": "当前模型不支持图片输入，请切换支持图片的模型。", "unsupportedFormat": "此图片格式无法发送给模型，请选择 PNG、JPEG、GIF 或 WebP。", "chatAccount": "本聊天账号", "confirmed": "服务端已确认", "unbound": "未绑定账号", "unboundConfirmed": "未绑定（服务端已确认）", "serverDefault": "服务器默认账号", "accountUnavailable": "账号未出现在服务器列表中", "upgradeRequired": "此服务器协议不支持聊天账号绑定，请升级 OpenCode 后再使用。", "readFailedShort": "读取失败", "createChatFirst": "创建聊天并发送首条消息后，才能绑定聊天账号。", "notChecked": "账号状态尚未核实", "reading": "正在读取本聊天的服务端账号绑定…", "readFailed": "读取本聊天账号失败", "readAuthFailed": "读取账号失败：服务器认证未通过，请检查连接设置。", "protocolUnsupported": "服务器协议不支持聊天账号绑定，请升级 OpenCode。", "bindingFailed": "聊天账号绑定失败", "bindingNotConfirmed": "服务器未确认新账号；仍显示上一次已确认的绑定。请重试或刷新。", "bindingAccountUnavailable": "所选账号已不可用；仍显示上一次已确认的绑定。", "bindingAuthFailed": "账号绑定失败：服务器认证未通过，原有绑定保持不变。", "currentTask": "当前任务提交账号", "nextSend": "下次发送账号", "taskAccountUnconfirmed": "服务器未提供此任务使用账号的确认信息", "taskModelUnconfirmed": "服务器未提供此任务使用模型的确认信息", "bindingUnknown": "账号绑定已变更或无法回读；当前服务端账号未知，请刷新后再发送。"
   },
   "view": {
     "tabSession": "会话",
@@ -55,6 +55,8 @@
     "runningActivity": "OpenCode 正在{{activity}}…",
     "runningRetry": "OpenCode 遇到错误，正在重试（第 {{attempt}} 次）…",
     "runningGeneric": "OpenCode 正在处理当前步骤…",
+    "cancellingTask": "正在取消任务，等待服务器确认…",
+    "statusUnconfirmed": "任务状态待确认；连接恢复后将核对服务器…",
     "answerNeeded": "需要回答",
     "waitingForAnswer": "OpenCode 正在等待你的回答",
     "openProgressLabel": "打开进度。已完成 {{completed}}/{{total}} 个任务",
@@ -132,7 +134,7 @@
     "startDictation": "开始语音输入",
     "stopDictation": "停止语音输入",
     "sendTask": "发送任务",
-    "stopTask": "停止任务"
+    "stopTask": "取消任务"
   },
   "header": {
     "pricingUnavailable": "价格不可用",

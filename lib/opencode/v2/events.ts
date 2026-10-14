@@ -35,7 +35,10 @@ export function mapV2Event(event: V2EventEnvelope, ctx: AdapterContext): V1Envel
     case 'session.execution.interrupted':
       return envelope('session.idle', { sessionID });
     case 'session.execution.failed':
-      return envelope('session.idle', { sessionID });
+      return envelope('session.error', {
+        sessionID,
+        error: { name: stringField((data.error as Record<string, unknown> | undefined)?.type) || 'Session failed', message: extractErrorMessage(data.error) },
+      });
     case 'session.retry.scheduled':
       return envelope('session.status', {
         sessionID,

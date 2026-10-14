@@ -74,6 +74,7 @@ assert.deepEqual([...collectDescendantSessionIds([{ id: 'a', parentID: 'b' }, { 
 const sessionAt = (id, updated) => ({ id, title: id, time: { created: 0, updated } });
 assert.equal(areSessionListsEqual([sessionAt('a', 1)], [sessionAt('a', 1)]), true);
 assert.equal(areSessionListsEqual([sessionAt('a', 1)], [sessionAt('a', 2)]), false);
+assert.equal(areSessionListsEqual([{ ...sessionAt('a', 1), credentialID: 'work' }], [{ ...sessionAt('a', 1), credentialID: 'personal' }]), false);
 assert.equal(areSessionListsEqual([sessionAt('a', 1)], [sessionAt('a', 1), sessionAt('b', 1)]), false);
 assert.equal(areSessionStatusMapsEqual({ a: { type: 'idle' } }, { a: { type: 'idle' } }), true);
 assert.equal(areSessionStatusMapsEqual({ a: { type: 'idle' } }, { a: { type: 'busy' } }), false);

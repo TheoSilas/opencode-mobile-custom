@@ -1,5 +1,7 @@
 # Testing And Validation
 
+推理／取消验收：`tests/vitest/format.test.ts` 验证纯 reasoning、原文与空内容；fake-server 自检及 `tests/e2e/flows.spec.mjs` 的 reasoning-tool 流程验证流式快照、工具在运行、历史恢复、取消响应与后端实际确认之间的区别。Android/Termux 不运行桌面 Playwright；新提交云端 E2E 未通过前不得称为完成。fake-server／E2E 改动另需人工代码审查，资料见 [fake-e2e-human-review.md](fake-e2e-human-review.md)。正式 4096 切换预案见 [backend-switch-runbook.md](backend-switch-runbook.md)，当前不执行。
+
 <!-- Modified for the TheoSilas fork: document the manual APK build workflow. -->
 ## TheoSilas fork APK build
 
@@ -12,6 +14,31 @@ defines the platform split: run the complete static gate and fake-server self-te
 on the phone, then push for mandatory cloud browser E2E. Unavailable browser E2E
 is pending, never passed. The manual fork workflow has separate `validate` and
 `apk` jobs; `apk` requires successful validation of the same run's commit.
+
+## 聊天账号绑定回归
+
+`tests/vitest/v2-mappers.test.ts` 校验绑定 PATCH 后的 GET 确认及拒绝/缺失字段；fake V2 自检校验拒绝、读取失败、无确认和不支持响应。`tests/e2e/flows.spec.mjs` 增加同聊天切换账号与模型、任务仍运行时的本次/下次选择区分，以及失败时保留原绑定。Android/Termux 无法本地运行 Playwright，云端验证及 fake/E2E 独立人工代码审查仍待完成，见 [fake-e2e-human-review.md](fake-e2e-human-review.md) 和 [session-account-binding-task.md](session-account-binding-task.md)。
+
+`tests/vitest/account-binding-status.test.ts` 与 V2 adapter regression distinguish
+401/403 authentication failure, other read failures (including missing-session
+404), and explicit method-specific unsupported evidence (405). A successful
+session payload without the optional `credentialID` is interpreted as unbound,
+not unsupported. An auth or read failure must never render the upgrade /
+protocol-unsupported message. The Chat picker renders that message when its
+provider contract is V1; investigate contract detection separately before using
+that label as evidence about an OpenCode 2 server.
+
+Runtime identity remains provider-owned: connection settings, detected contract,
+and the capability selector are shared by Settings and Chat; account actions use
+the same scoped client and active project directory. Account request errors
+surface method/path/status in the UI without logging credentials, headers, query
+parameters, or response bodies. A `405` on another endpoint/method is not treated
+as evidence that session binding is unsupported.
+The PATCH→GET mismatch regression checks the read-after-write diagnostic uses
+only the route template, both HTTP statuses, and masked ID suffixes; an omitted
+field on a 200 GET never counts as binding support. Device acceptance of the
+formal service must record these values from the App and verify persistence via
+a subsequent fresh GET, without capturing auth headers or sending a prompt.
 
 ## Feed attachments and OpenCode 2 inbox
 
@@ -82,8 +109,31 @@ server-confirmed activation, and rejected/malformed reads. Read-only inspection
 of the local 2.0.12 server confirmed the missing route and existing labeled
 OpenAI/DeepSeek connections; its CLI marks the first credential active. This
 does not replace acceptance of switching/renaming through the installed APK.
+Device acceptance must select different provider accounts in two chats,
+switch between those chats, relaunch the app, and verify that each chat
+retains its server-side binding before sending (also when another client
+changes the provider's globally active account).
 The account E2E also selects credentials by their distinct label and short ID
 and accepts the explicit deletion confirmation before checking removal.
+For V2 execution failures before a model stream begins (including removed
+session-bound credentials), `session.execution.failed` must display the server's
+error in the affected chat and clear the busy indicator; mapping it only to
+idle hides the cause. The isolated candidate's local mock-model trace checks
+the actual authorization identity at every provider request without paid calls.
+On Android, SSE failure delivery can be absent even though the server has set
+the session outcome to `failed`. When a chat has an explicitly bound credential,
+the provider verifies that the credential is still listed before submitting a
+new prompt, so removing it in another client produces a visible chat error and
+never falls back to the active global account. Recheck this on the installed APK
+with the isolated backend and two offline accounts; a unit event mapping alone
+does not constitute device acceptance.
+For failures that occur after the server admits a prompt, the provider also
+checks the durable V2 session outcome at a bounded interval. Only an idle
+timestamp later than this prompt may produce a fallback error; a subsequent
+prompt or connection change supersedes the check. A successful SSE error keeps
+its more specific message. Both pre-admission and post-admission failures must
+be verified on the device, along with the absence of another account's model
+request in the isolated gateway log.
 
 Android 1.0.61 device crash logs identified Expo's reflective view creation
 failure (`Didn't find a correct constructor`). Inspection of the shipped APK
@@ -100,6 +150,8 @@ handoff inclusion, disabled-record retention, and switching servers/projects.
 the composer attachment list and reject oversized gallery selections.
 Provider-account Vitest checks server activation/rename requests and refuses to
 report success without authoritative account-list confirmation.
+The session-list equality regression verifies that a binding changed by another
+client is applied by the next refresh even if its title and timestamp are unchanged.
 Static checks and fake-server self-tests cannot verify the native photo picker,
 an authenticated server's credential label/update support, or actual provider
 image acceptance; those require device/server validation. The local V2 server
