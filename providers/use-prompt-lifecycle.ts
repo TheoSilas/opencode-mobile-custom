@@ -33,6 +33,7 @@ type PromptLifecycleInput = {
   connectionScope: string;
   sessions: Session[];
   sessionStatuses: Record<string, SessionStatus>;
+  connection: { status: 'idle' | 'connecting' | 'connected' | 'error' };
   availableModels: ModelOption[];
   chatPreferences: ChatPreferences;
   settingsRef: { current: OpencodeConnectionSettings };
@@ -60,6 +61,7 @@ export function usePromptLifecycle({
   connectionScope,
   sessions,
   sessionStatuses,
+  connection,
   availableModels,
   chatPreferences,
   settingsRef,
@@ -80,6 +82,7 @@ export function usePromptLifecycle({
 }: PromptLifecycleInput) {
   const [sendingState, setSendingState] = useState<{ sessionId?: string; active: boolean }>({ active: false });
   const [promptError, setPromptError] = useState<{ message: string; occurredAt: number; sessionId?: string }>();
+  const [stopConfirmation, setStopConfirmation] = useState<{ sessionId: string; scope: string; phase: 'requesting' | 'checking' | 'unknown' }>();
   const latestPromptBySession = useRef(new Map<string, number>());
 
   const sendPrompt = useCallback(
@@ -93,7 +96,7 @@ export function usePromptLifecycle({
         return false;
       }
 
-      if (promptSubmissionRef.current.active) {
+      if (promptSubmissionRef.current.active || (stopConfirmation?.sessionId === sessionId && stopConfirmation.scope === connectionScope)) {
         return false;
       }
 
@@ -198,6 +201,7 @@ export function usePromptLifecycle({
           parts,
         }, chatPreferences.promptDelivery ?? 'steer');
         promptAccepted = true;
+        setStopConfirmation((current) => current?.sessionId === sessionId && current.scope === connectionScope ? undefined : current);
         latestPromptBySession.current.set(sessionId, requestedAt);
         // Native SSE may miss a failure emitted after the HTTP admission succeeds.
         // Observe the durable V2 terminal outcome as a bounded safety fallback.
@@ -233,7 +237,7 @@ export function usePromptLifecycle({
                 // Transient status reads do not replace the existing SSE path.
               }
             }
-            latestPromptBySession.current.delete(sessionId);
+            if (latestPromptBySession.current.get(sessionId) === requestedAt) latestPromptBySession.current.delete(sessionId);
           })();
         }
         if (handoff) projectMemory.markSent(sessionId);
@@ -299,37 +303,66 @@ export function usePromptLifecycle({
         ));
       }
     },
-    [activeProjectPath, availableModels, busyNotificationsRef, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, pendingNotificationsRef, personalMemory, projectMemory, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, setCurrentSessionId, setPromptError, setSelectedDiffMessageBySession, settingsRef, submitPrompt, summarizeSessionTitle],
+    [activeProjectPath, availableModels, busyNotificationsRef, chatPreferences, client, connectionScope, fetchSessions, isCurrentClient, pendingNotificationsRef, personalMemory, projectMemory, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, scheduleSessionRefresh, sessions, setCurrentSessionId, setPromptError, setSelectedDiffMessageBySession, settingsRef, stopConfirmation, submitPrompt, summarizeSessionTitle],
   );
+
+  const confirmStop = useCallback(async (sessionId: string, scope: string) => {
+    if (!isCurrentClient(client) || scope !== connectionScope || connection.status !== 'connected') {
+      setStopConfirmation((current) => current?.sessionId === sessionId && current.scope === scope ? { ...current, phase: 'unknown' } : current);
+      return;
+    }
+    try {
+      const response = await client.session.status();
+      if (!isCurrentClient(client) || scope !== connectionScope) return;
+      if (response.data?.[sessionId]?.type !== 'idle') return;
+      // A fresh server read, rather than the last cached SSE state, confirms
+      // the execution is no longer active.
+      await refreshSessions(true);
+      if (!isCurrentClient(client)) return;
+      const trackingKey = pendingNotificationKey(scope, sessionId);
+      pendingNotificationsRef.current.delete(trackingKey);
+      busyNotificationsRef.current.delete(trackingKey);
+      latestPromptBySession.current.delete(sessionId);
+      await clearPendingTaskFinishedNotification(scope, sessionId).catch(() => undefined);
+      if (promptSubmissionRef.current.sessionId === sessionId) promptSubmissionRef.current = { active: false, sessionId: undefined };
+      setSendingState((current) => current.sessionId === sessionId ? { active: false, sessionId: undefined } : current);
+      await Promise.all([refreshMessages(sessionId, true), refreshSessionDiff(sessionId, true), refreshSessionTodos(sessionId)]);
+      setStopConfirmation((current) => current?.sessionId === sessionId && current.scope === scope ? undefined : current);
+    } catch {
+      if (isCurrentClient(client)) setStopConfirmation((current) => current?.sessionId === sessionId && current.scope === scope ? { ...current, phase: 'unknown' } : current);
+    }
+  }, [busyNotificationsRef, client, connection.status, connectionScope, isCurrentClient, pendingNotificationsRef, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, refreshSessions]);
+
+  const stopSessionId = stopConfirmation?.sessionId;
+  const stopScope = stopConfirmation?.scope;
+  const stopPhase = stopConfirmation?.phase;
+  useEffect(() => {
+    if (!stopSessionId || stopPhase === 'requesting' || stopScope !== connectionScope || connection.status !== 'connected') return;
+    // A missed response or lost SSE never counts as confirmation. Re-read on
+    // reconnection and at a bounded cadence until the server becomes idle.
+    const initial = setTimeout(() => { void confirmStop(stopSessionId, stopScope); }, 0);
+    const interval = setInterval(() => { void confirmStop(stopSessionId, stopScope); }, 5_000);
+    return () => { clearTimeout(initial); clearInterval(interval); };
+  }, [confirmStop, connection.status, connectionScope, stopSessionId, stopScope, stopPhase]);
 
   const abortSession = useCallback(
     async (sessionId: string) => {
-      const trackingKey = pendingNotificationKey(connectionScope, sessionId);
-      pendingNotificationsRef.current.delete(trackingKey);
-      busyNotificationsRef.current.delete(trackingKey);
-      await clearPendingTaskFinishedNotification(connectionScope, sessionId).catch(() => undefined);
-      await client.session.abort({ sessionID: sessionId });
-
-      // Reset prompt guards immediately so the user can submit again without
-      // waiting for the in-flight promptAsync to settle. sendPrompt's finally
-      // block sets the same values; both writes compose to the same state.
-      if (promptSubmissionRef.current.sessionId === sessionId) {
-        promptSubmissionRef.current = { active: false, sessionId: undefined };
+      if (connection.status !== 'connected') {
+        setStopConfirmation({ sessionId, scope: connectionScope, phase: 'unknown' });
+        return;
       }
-      setSendingState((current) => (
-        current.sessionId === sessionId
-          ? { active: false, sessionId: undefined }
-          : current
-      ));
-
-      await Promise.all([
-        refreshSessions(true),
-        refreshMessages(sessionId, true),
-        refreshSessionDiff(sessionId, true),
-        refreshSessionTodos(sessionId),
-      ]);
+      setStopConfirmation({ sessionId, scope: connectionScope, phase: 'requesting' });
+      try {
+        await client.session.abort({ sessionID: sessionId });
+        if (!isCurrentClient(client)) return;
+        setStopConfirmation((current) => current?.sessionId === sessionId && current.scope === connectionScope ? { ...current, phase: 'checking' } : current);
+        await confirmStop(sessionId, connectionScope);
+      } catch (error) {
+        setStopConfirmation((current) => current?.sessionId === sessionId && current.scope === connectionScope ? { ...current, phase: 'unknown' } : current);
+        throw error;
+      }
     },
-    [busyNotificationsRef, client, connectionScope, pendingNotificationsRef, promptSubmissionRef, refreshMessages, refreshSessionDiff, refreshSessionTodos, refreshSessions],
+    [client, connection.status, connectionScope, confirmStop, isCurrentClient],
   );
 
   useEffect(() => {
@@ -353,6 +386,7 @@ export function usePromptLifecycle({
 
       for (const [key, pending] of pendingEntries) {
         const { sessionId } = pending;
+        if (stopConfirmation?.sessionId === sessionId && stopConfirmation.scope === connectionScope) continue;
         const status = sessionStatuses[sessionId];
         const oldEnough = Date.now() - pending.requestedAt >= 5000;
         if ((!busyNotificationsRef.current.has(key) && !oldEnough) || (status && status.type !== 'idle') || (sendingState.active && sendingState.sessionId === sessionId)) {
@@ -382,14 +416,14 @@ export function usePromptLifecycle({
     return () => {
       cancelled = true;
     };
-  }, [busyNotificationsRef, connectionScope, pendingNotificationsRef, sendingState.active, sendingState.sessionId, sessionStatuses, sessions]);
+  }, [busyNotificationsRef, connectionScope, pendingNotificationsRef, sendingState.active, sendingState.sessionId, sessionStatuses, sessions, stopConfirmation]);
 
   const clearPromptError = useCallback(() => setPromptError(undefined), []);
 
   return {
     sendPrompt,
     abortSession,
-    sendingState,
+    sendingState: { ...sendingState, stopConfirmation: stopConfirmation?.scope === connectionScope ? stopConfirmation : undefined },
     setSendingState,
     promptError,
     setPromptError,

@@ -66,7 +66,8 @@ export function useChatViewController() {
   const lastAutoSpokenMessageIdRef = useRef<string | undefined>(undefined);
 
   const status = currentSessionId ? sessionStatuses[currentSessionId] : undefined;
-  const running = sendingState.active || (!!status && status.type !== 'idle');
+  const pendingStop = sendingState.stopConfirmation && sendingState.stopConfirmation.sessionId === currentSessionId ? sendingState.stopConfirmation.phase : undefined;
+  const running = (sendingState.active && sendingState.sessionId === currentSessionId) || (!!status && status.type !== 'idle') || Boolean(pendingStop);
   const retryAttempt = status?.type === 'retry' ? status.attempt : undefined;
   const conversationActive = conversation.active;
   const {
@@ -95,7 +96,7 @@ export function useChatViewController() {
     setVoiceFeedback,
   });
   const hasDraftInput = !!draft.trim() || attachments.length > 0;
-  const showSendAction = !running || hasDraftInput;
+  const showSendAction = !running || (hasDraftInput && !pendingStop && connection.status === 'connected');
   const visibleModels = useMemo(() => {
     const configuredProviderIds = new Set(configuredProviders.map((provider) => provider.id));
     const enabledModelIds = new Set(chatPreferences.enabledModelIds);
@@ -124,10 +125,6 @@ export function useChatViewController() {
   const currentActivityLabel = useMemo(() => {
     for (let index = currentTranscript.length - 1; index >= 0; index -= 1) {
       const entry = currentTranscript[index];
-      if (isTranscriptDisplayMessage(entry)) {
-        continue;
-      }
-
       const label = getTranscriptActivityLabel(entry);
       if (label) {
         return label;
@@ -403,7 +400,7 @@ export function useChatViewController() {
     handleSendPrompt, handleSpeakEntry, handleToggleRecording, handleVoiceRecovery, handleImageInsert,
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
-    pendingPrompts, pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
+    pendingPrompts, pendingInteractions, pendingStop, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
     rejectQuestion, replyToPermission, replyToQuestion, revertSession, retryAttempt, running, selectDiffMessage,
     selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage,
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,

@@ -1417,6 +1417,51 @@ test('OpenCode 2 recovers a post-admission failure when the native event is miss
   }
 });
 
+test('OpenCode 2 retains streamed reasoning while tools run and confirms cancellation', async ({ page, request }) => {
+  await resetScenario(request, 'happy-path');
+  const port = await getFreePort();
+  const server = spawnV2Server(port, 'reasoning-tool');
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    await waitForServer(request, `${base}/api/info`);
+    const created = await (await request.post(`${base}/api/session`, { data: { title: 'Reasoning and tool' } })).json();
+    const sessionID = created.data.id;
+    await openReadyChat(page);
+    await connectToServer(page, base);
+    await openChatLibrary(page);
+    await page.getByRole('button', { name: 'Open Reasoning and tool', exact: true }).click();
+    await sendPrompt(page, 'Do the tool work');
+    const reasoning = page.locator('[data-testid^="reasoning-toggle-"]');
+    await expect(reasoning).toBeVisible();
+    const published = page.locator('[data-testid^="reasoning-content-"]');
+    await expect(published).toHaveCount(0);
+    await reasoning.click();
+    await expect(published).toHaveText(' first line');
+    await request.post(`${base}/__control/reasoning-tool`, { data: { sessionID, action: 'update', text: ' first line\nsecond line  ' } });
+    await expect.poll(() => published.evaluate((node) => node.textContent)).toBe(' first line\nsecond line  ');
+    await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Cancel task');
+    await page.reload();
+    await expect(page.locator('[data-testid^="reasoning-toggle-"]')).toBeVisible();
+    await page.locator('[data-testid^="reasoning-toggle-"]').click();
+    await expect.poll(() => published.evaluate((node) => node.textContent)).toBe(' first line\nsecond line  ');
+    await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Cancel task');
+    // Lose the status read after the interrupt is admitted: the UI must not
+    // interpret the HTTP acknowledgement or a disconnected poll as completion.
+    const statusRoute = '**/api/session/active*';
+    await page.route(statusRoute, (route) => route.abort());
+    await page.getByTestId('chat-primary-button').click();
+    await expect(page.getByText(/Task status unconfirmed/)).toBeVisible();
+    const active = await (await request.get(`${base}/api/session/active`)).json();
+    expect(active.data[sessionID]).toBeTruthy();
+    await page.unroute(statusRoute);
+    await request.post(`${base}/__control/reasoning-tool`, { data: { sessionID, action: 'confirm-interrupt' } });
+    await expect(page.getByText(/Task status unconfirmed/)).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('chat-primary-button')).toHaveAccessibleName('Start conversation mode');
+  } finally {
+    server.kill('SIGTERM');
+  }
+});
+
 test('OpenCode 2 learns a personal preference and uses it in another project', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   const port = await getFreePort();

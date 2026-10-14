@@ -53,6 +53,8 @@
     "runningActivity": "OpenCode अभी {{activity}} पर काम कर रहा है...",
     "runningRetry": "OpenCode को एक त्रुटि मिली और वह फिर से प्रयास कर रहा है (प्रयास {{attempt}})...",
     "runningGeneric": "OpenCode वर्तमान चरण पर काम कर रहा है...",
+    "cancellingTask": "कार्य रद्द हो रहा है; सर्वर की पुष्टि की प्रतीक्षा है...",
+    "statusUnconfirmed": "कार्य की स्थिति की पुष्टि नहीं हुई। दोबारा जुड़ने पर जाँच होगी...",
     "answerNeeded": "उत्तर चाहिए",
     "waitingForAnswer": "OpenCode आपके उत्तर की प्रतीक्षा कर रहा है",
     "openProgressLabel": "प्रगति खोलें। {{total}} में से {{completed}} कार्य पूरे हुए",
@@ -130,7 +132,7 @@
     "startDictation": "बोलकर लिखना शुरू करें",
     "stopDictation": "बोलकर लिखना रोकें",
     "sendTask": "कार्य भेजें",
-    "stopTask": "कार्य रोकें"
+    "stopTask": "कार्य रद्द करें"
   },
   "header": {
     "pricingUnavailable": "मूल्य निर्धारण अनुपलब्ध",

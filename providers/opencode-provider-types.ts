@@ -328,6 +328,7 @@ export type ChatContextValue = {
   sendingState: {
     sessionId?: string;
     active: boolean;
+    stopConfirmation?: { sessionId: string; phase: 'requesting' | 'checking' | 'unknown' };
   };
   promptError?: { message: string; occurredAt: number; sessionId?: string; sourceTitle?: string };
   clearPromptError: () => void;

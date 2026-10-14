@@ -24,13 +24,12 @@ export function toTranscriptEntry(record: SessionMessageRecord): TranscriptEntry
     }
 
     if (part.type === 'reasoning') {
-      const text = part.text.trim();
-      if (text) {
+      if (part.text.trim()) {
         details.push({
           id,
           kind: 'reasoning',
           label: 'Reasoning',
-          body: text,
+          body: part.text,
         });
       }
       return;

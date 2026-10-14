@@ -65,6 +65,7 @@ type ChatContentProps = {
   pendingInteractions: number;
   retryAttempt?: number;
   running: boolean;
+  pendingStop?: 'requesting' | 'checking' | 'unknown';
   speakingMessageId?: string;
 };
 
@@ -97,6 +98,7 @@ export function ChatContent({ ...props }: ChatContentProps) {
         pendingInteractions={props.pendingInteractions}
         retryAttempt={props.retryAttempt}
         running={props.running}
+        pendingStop={props.pendingStop}
         speakingMessageId={props.speakingMessageId}
         slim={props.slim}
         transcriptFontSize={props.transcriptFontSize}

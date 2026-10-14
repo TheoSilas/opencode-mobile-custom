@@ -55,6 +55,8 @@
     "runningActivity": "OpenCode 正在{{activity}}…",
     "runningRetry": "OpenCode 遇到错误，正在重试（第 {{attempt}} 次）…",
     "runningGeneric": "OpenCode 正在处理当前步骤…",
+    "cancellingTask": "正在取消任务，等待服务器确认…",
+    "statusUnconfirmed": "任务状态待确认；连接恢复后将核对服务器…",
     "answerNeeded": "需要回答",
     "waitingForAnswer": "OpenCode 正在等待你的回答",
     "openProgressLabel": "打开进度。已完成 {{completed}}/{{total}} 个任务",
@@ -132,7 +134,7 @@
     "startDictation": "开始语音输入",
     "stopDictation": "停止语音输入",
     "sendTask": "发送任务",
-    "stopTask": "停止任务"
+    "stopTask": "取消任务"
   },
   "header": {
     "pricingUnavailable": "价格不可用",

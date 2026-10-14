@@ -55,6 +55,8 @@
     "runningActivity": "OpenCode is {{activity}}...",
     "runningRetry": "OpenCode hit an error and is retrying (attempt {{attempt}})...",
     "runningGeneric": "OpenCode is working through the current step...",
+    "cancellingTask": "Cancelling task; awaiting server confirmation...",
+    "statusUnconfirmed": "Task status unconfirmed. Checking the server when connected...",
     "answerNeeded": "Answer needed",
     "waitingForAnswer": "OpenCode is waiting for your answer",
     "openProgressLabel": "Open progress. {{completed}} of {{total}} tasks completed",
@@ -132,7 +134,7 @@
     "startDictation": "Start dictation",
     "stopDictation": "Stop dictation",
     "sendTask": "Send task",
-    "stopTask": "Stop task"
+    "stopTask": "Cancel task"
   },
   "header": {
     "pricingUnavailable": "Pricing unavailable",

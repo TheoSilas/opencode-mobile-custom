@@ -49,7 +49,7 @@ const declarations = [
   extractDeclarations(workspaceActionsSource, ['openWorkspaceFile', 'saveWorkspaceFile']),
   extractDeclarations(promptLifecycleSource, ['abortSession']),
 ].join('\n');
-let aborted = false;
+let aborted = false, stopPhase, checked = false;
 const client = { __opencode: { directory: '/repo' }, session: { abort: async () => { aborted = true; } } };
 let active = client, selected, patches = 0;
 const reads = new Map(), fileReads = new Map();
@@ -65,7 +65,9 @@ const context = {
   },
   setSelectedWorkspaceFile: (value) => { selected = value; },
   createFullFilePatch: () => 'patch', applyVcsPatch: async () => { patches++; }, refreshServerFeatures: async () => {}, refreshVcsDiff: async () => {},
-  connectionScope: 'scope', pendingNotificationKey: () => 'key', pendingNotificationsRef: { current: new Map() },
+  connectionScope: 'scope', connection: { status: 'connected' },
+  confirmStop: async () => { checked = true; }, setStopConfirmation: (state) => { stopPhase = typeof state === 'function' ? state(stopPhase) : state; },
+  pendingNotificationKey: () => 'key', pendingNotificationsRef: { current: new Map() },
   busyNotificationsRef: { current: new Set() }, promptSubmissionRef: { current: {} }, setSendingState: () => {},
   clearPendingTaskFinishedNotification: async () => { throw new Error('storage unavailable'); },
   refreshSessions: async () => {}, refreshMessages: async () => {}, refreshSessionDiff: async () => {}, refreshSessionTodos: async () => {},
@@ -178,8 +180,11 @@ browserRuntime.update({ client: active });
 assert.equal(browserRuntime.value.initialized, false, 'a different server with the same path resets the browser');
 assert.deepEqual(Array.from(browserRuntime.value.results), []); assert.equal(selected.path, 'selection-last'); assert.equal(patches, 0);
 
+active = client;
 await actions.abortSession('s');
 assert.equal(aborted, true, 'notification storage failure must not prevent aborting server work');
+assert.equal(checked, true, 'interrupt must be followed by a server status check');
+assert.equal(stopPhase.phase, 'checking', 'an interrupt request is not itself a terminal state');
 
 // Real realtime hook: connected busy polling, reconnect reconciliation,
 // backpressure, stable subscriptions, and cancellation of reconnect timers.

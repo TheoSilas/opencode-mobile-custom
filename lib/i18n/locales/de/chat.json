@@ -53,6 +53,8 @@
     "runningActivity": "OpenCode {{activity}}...",
     "runningRetry": "OpenCode ist auf einen Fehler gestoßen und versucht es erneut (Versuch {{attempt}})...",
     "runningGeneric": "OpenCode arbeitet den aktuellen Schritt ab...",
+    "cancellingTask": "Aufgabe wird abgebrochen; Serverbestätigung steht aus...",
+    "statusUnconfirmed": "Aufgabenstatus unbestätigt. Prüfung nach Wiederverbindung...",
     "answerNeeded": "Antwort erforderlich",
     "waitingForAnswer": "OpenCode wartet auf deine Antwort",
     "openProgressLabel": "Fortschritt öffnen. {{completed}} von {{total}} Aufgaben abgeschlossen",
@@ -130,7 +132,7 @@
     "startDictation": "Diktat starten",
     "stopDictation": "Diktat stoppen",
     "sendTask": "Aufgabe senden",
-    "stopTask": "Aufgabe stoppen"
+    "stopTask": "Aufgabe abbrechen"
   },
   "header": {
     "pricingUnavailable": "Preise nicht verfügbar",

@@ -53,6 +53,8 @@
     "runningActivity": "OpenCode está {{activity}}...",
     "runningRetry": "OpenCode encontró un error y lo está reintentando (intento {{attempt}})...",
     "runningGeneric": "OpenCode está avanzando en el paso actual...",
+    "cancellingTask": "Cancelando la tarea; esperando confirmación del servidor...",
+    "statusUnconfirmed": "Estado de la tarea sin confirmar. Se comprobará al reconectar...",
     "answerNeeded": "Se necesita respuesta",
     "waitingForAnswer": "OpenCode está esperando tu respuesta",
     "openProgressLabel": "Abrir el progreso. {{completed}} de {{total}} tareas completadas",
@@ -130,7 +132,7 @@
     "startDictation": "Iniciar dictado",
     "stopDictation": "Detener dictado",
     "sendTask": "Enviar tarea",
-    "stopTask": "Detener tarea"
+    "stopTask": "Cancelar tarea"
   },
   "header": {
     "pricingUnavailable": "Precio no disponible",

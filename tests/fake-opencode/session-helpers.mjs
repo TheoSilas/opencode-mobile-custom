@@ -250,6 +250,14 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
 
     if (state.scenario === 'post-admission-failure') return;
 
+    if (state.scenario === 'reasoning-tool') {
+      createMessage(sessionId, 'assistant', [
+        { type: 'reasoning', text: ' first line' },
+        { type: 'tool', tool: 'bash', state: { status: 'running', title: 'bash', input: {} } },
+      ]);
+      return;
+    }
+
     if (state.scenario === 'permission') {
       createPermissionRequest(sessionId);
       return;

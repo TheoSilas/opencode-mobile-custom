@@ -6,26 +6,6 @@ export function getTranscriptActivityLabel(entry: TranscriptEntry) {
     return runningTool.label;
   }
 
-  const latestTool = [...entry.details].reverse().find((detail) => detail.kind === 'tool');
-  if (latestTool) {
-    return latestTool.label;
-  }
-
-  const latestPatch = [...entry.details].reverse().find((detail) => detail.kind === 'patch');
-  if (latestPatch) {
-    return latestPatch.label;
-  }
-
-  const latestReasoning = [...entry.details].reverse().find((detail) => detail.kind === 'reasoning');
-  if (latestReasoning) {
-    return latestReasoning.label;
-  }
-
-  const latestStep = [...entry.details].reverse().find((detail) => detail.kind === 'step' || detail.kind === 'subtask');
-  if (latestStep) {
-    return latestStep.label;
-  }
-
   return undefined;
 }
 
@@ -34,7 +14,7 @@ export function isTranscriptDisplayMessage(entry: TranscriptEntry) {
     return true;
   }
 
-  return Boolean(entry.text.trim() || entry.error || entry.details.some((detail) => detail.kind === 'file'));
+  return Boolean(entry.text.trim() || entry.error || entry.details.some((detail) => detail.kind === 'file' || detail.kind === 'reasoning'));
 }
 
 export function summarizeTranscriptDetails(details: TranscriptDetail[], labels?: { patches: (count: number) => string; files: (count: number) => string }) {

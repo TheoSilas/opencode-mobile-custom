@@ -1,5 +1,7 @@
 # State And Data Model
 
+推理内容是服务端消息的 reasoning part，不进入独立的任务状态机；转录可展示纯 reasoning 消息并保留原文。provider 的 `sendingState.stopConfirmation` 记录当前连接作用域中取消请求的阶段（requesting/checking/unknown），后端 `session.status()` 的新鲜回读证实 idle 后才清理守卫与通知。会话状态仍由 SSE 与轮询调和，失联时的 UI 显示状态待确认。该状态不会把“推理已结束”解释成任务完成。详见 [reasoning-and-execution-task.md](reasoning-and-execution-task.md)。
+
 ## State Ownership Overview
 
 The application uses a single shared domain store implemented with React state inside `OpencodeProvider`.

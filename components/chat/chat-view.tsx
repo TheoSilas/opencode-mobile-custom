@@ -32,7 +32,7 @@ export function ChatView() {
     handleSendPrompt, handleSpeakEntry, handleToggleRecording, handleVoiceRecovery,
     isCreatingSession, isRefreshingDiffs, isRefreshingMessages, isSpeechInputAvailable,
     isSpeechInputListening, isStoppingSession, isUpdatingAutoApprove, latestAssistantTurnUsage,
-    pendingPrompts, pendingInteractions, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
+    pendingPrompts, pendingInteractions, pendingStop, progressIcon, progressVisible, refreshCurrentSession, refreshDiffs,
     rejectQuestion, replyToPermission, replyToQuestion, revertSession, retryAttempt, running, selectDiffMessage,
     selectedAgentLabel, selectedDiffMessageId, selectedSession, sendErrorMessage,
     serverCapabilities, sessionMenuVisible, setAttachments, setAutoApprove, setChangesVisible,
@@ -146,6 +146,7 @@ export function ChatView() {
           pendingInteractions={pendingInteractions}
           retryAttempt={retryAttempt}
           running={running}
+          pendingStop={pendingStop}
           speakingMessageId={speakingMessageId}
         />
 
@@ -227,7 +228,7 @@ export function ChatView() {
           isCreatingSession={isCreatingSession}
           isSpeechInputAvailable={isSpeechInputAvailable}
           isSpeechInputListening={isSpeechInputListening}
-          isStoppingSession={isStoppingSession}
+          isStoppingSession={isStoppingSession || pendingStop === 'requesting' || pendingStop === 'checking' || connection.status !== 'connected'}
           isUpdatingAutoApprove={isUpdatingAutoApprove}
           onToggleConversationMode={() => void toggleConversationMode()}
           onAttach={(source) => void handleAttach(source)}

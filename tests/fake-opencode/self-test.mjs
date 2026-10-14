@@ -401,6 +401,20 @@ try {
   await v2Api.session.inbox.cancel({ sessionID: inboxSession.id, inboxID: cancelled.id });
   assert((await v2Api.session.inbox.list({ sessionID: inboxSession.id })).length === 0, 'Cancellation must remove the pending item');
 
+  await v2request('/__control/reset', json('POST', { scenario: 'reasoning-tool' }));
+  const thinkingSession = await v2Api.session.create({ title: 'Reasoning tool contract' });
+  await v2Api.session.prompt({ sessionID: thinkingSession.id, text: 'Wait for the tool' });
+  const reasoningPath = `/__control/reasoning-tool`;
+  const initialThinking = (await v2Api.message.list({ sessionID: thinkingSession.id })).data.find((item) => item.type === 'assistant');
+  assert(initialThinking.content[0].text === ' first line' && initialThinking.content[1].state.status === 'running', 'Reasoning and running tool must coexist');
+  await v2request(reasoningPath, json('POST', { sessionID: thinkingSession.id, action: 'update', text: ' first line\nsecond line  ' }));
+  const streamed = (await v2Api.message.list({ sessionID: thinkingSession.id })).data.find((item) => item.type === 'assistant');
+  assert(streamed.content[0].text === ' first line\nsecond line  ' && streamed.content[1].state.status === 'running', 'Stream snapshot must retain the exact published text while tool runs');
+  await v2Api.session.interrupt({ sessionID: thinkingSession.id });
+  assert((await v2Api.session.active())[thinkingSession.id], 'Interrupt response alone must not mark server work idle');
+  await v2request(reasoningPath, json('POST', { sessionID: thinkingSession.id, action: 'confirm-interrupt' }));
+  assert(!(await v2Api.session.active())[thinkingSession.id] && (await v2Api.session.get({ sessionID: thinkingSession.id })).outcome === 'interrupted', 'Server confirmation must end the task');
+
   console.log('Fake OpenCode 1.18.3 server self-test passed.');
   console.log('Fake OpenCode 2.0 server self-test passed.');
 } finally {

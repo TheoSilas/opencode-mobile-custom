@@ -217,6 +217,7 @@ function messageToV2(record) {
   for (const part of parts) {
     if (part.type === 'text') content.push({ type: 'text', text: part.text });
     else if (part.type === 'reasoning') content.push({ type: 'reasoning', text: part.text });
+    else if (part.type === 'tool') content.push({ type: 'tool', id: `tool-${record.info.id}`, name: part.tool, state: part.state });
   }
   // V2 has no server-owned todo endpoint. Surface the plan through a
   // `todowrite` tool part so the adapter can derive it from the transcript.
@@ -335,6 +336,27 @@ const server = http.createServer(async (req, res) => {
         v2Clients.clear();
       }
       sendJson(res, 200, { data: { suppressEvents, clients: v2Clients.size } });
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/__control/reasoning-tool') {
+      if (state.scenario !== 'reasoning-tool') return notFound(res);
+      const body = await readJson(req);
+      const session = helpers.getSession(body.sessionID);
+      const message = state.messagesBySession[body.sessionID]?.find((record) => record.info.role === 'assistant');
+      if (!session || !message) return notFound(res);
+      if (body.action === 'update') {
+        message.parts[0].text = body.text;
+        emitV2Event(event('session.reasoning.delta', { sessionID: body.sessionID }));
+      }
+      if (body.action === 'complete' || body.action === 'confirm-interrupt') {
+        message.parts[1].state = { status: 'completed', title: 'bash', input: {}, output: '' };
+        state.sessionStatuses[body.sessionID] = { type: 'idle' };
+        session.time.idle = getNow();
+        session.outcome = body.action === 'complete' ? 'succeeded' : 'interrupted';
+        emitV2Event(event('session.execution.interrupted', { sessionID: body.sessionID }));
+      }
+      sendJson(res, 200, { data: { status: state.sessionStatuses[body.sessionID], content: messageToV2(message).content } });
       return;
     }
 
@@ -705,7 +727,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/session\/[^/]+\/interrupt$/.test(pathname)) {
       const sessionID = pathname.split('/')[3];
-      state.sessionStatuses[sessionID] = { type: 'idle' };
+      if (state.scenario !== 'reasoning-tool') state.sessionStatuses[sessionID] = { type: 'idle' };
       sendJson(res, 200, { interrupted: true });
       return;
     }

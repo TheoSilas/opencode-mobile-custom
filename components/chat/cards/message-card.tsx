@@ -54,8 +54,7 @@ function TranscriptMessageImpl({
   const accentColor = flat ? palette.tint : isUser ? palette.onBubbleUser : palette.tint;
   const slimSpacing = slim ? (flat ? { paddingVertical: 2, gap: 4 } : { borderRadius: 14, gap: 6, paddingHorizontal: 10, paddingVertical: 8 }) : null;
   const reasoning = entry.details.filter((detail): detail is Extract<typeof detail, { kind: 'reasoning' }> => detail.kind === 'reasoning');
-  const [reasoningExpanded, setReasoningExpanded] = useState(true);
-  const reasoningText = reasoning.map((detail) => detail.body).join('\n\n');
+  const [reasoningExpanded, setReasoningExpanded] = useState(false);
 
   return (
     <View style={[styles.messageRow, flat ? styles.messageRowFlat : isUser && styles.messageRowUser]}>
@@ -122,7 +121,7 @@ function TranscriptMessageImpl({
           {entry.error ? <Text variant="bodyMedium" style={{ color: palette.danger }}>{entry.error}</Text> : null}
           {!isUser && reasoning.length > 0 ? (
             <View style={[styles.reasoningBox, { backgroundColor: flat ? `${palette.tint}10` : palette.background, borderColor: palette.border }]}>
-              <Pressable accessibilityRole="button" accessibilityState={{ expanded: reasoningExpanded }} onPress={() => setReasoningExpanded((current) => !current)} style={styles.reasoningHeader}>
+              <Pressable testID={`reasoning-toggle-${entry.id}`} accessibilityRole="button" accessibilityState={{ expanded: reasoningExpanded }} onPress={() => setReasoningExpanded((current) => !current)} style={styles.reasoningHeader}>
                 <View style={styles.reasoningTitle}>
                   <MaterialCommunityIcons name="brain" size={18} color={palette.tint} />
                   <Text variant="labelLarge" style={{ color: palette.tint }}>{t('chat:composer.reasoning')}</Text>
@@ -130,7 +129,7 @@ function TranscriptMessageImpl({
                 </View>
                 <MaterialCommunityIcons name={reasoningExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={palette.muted} />
               </Pressable>
-              {reasoningExpanded ? <Text variant="bodySmall" style={[styles.reasoningText, { color: palette.muted }]}>{reasoningText}</Text> : null}
+              {reasoningExpanded ? reasoning.map((detail) => <Text key={detail.id} testID={`reasoning-content-${detail.id}`} selectable variant="bodySmall" style={[styles.reasoningText, { color: palette.muted }]}>{detail.body}</Text>) : null}
             </View>
           ) : null}
           {!isUser && detailSummary.length > 0 ? (

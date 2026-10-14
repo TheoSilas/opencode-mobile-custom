@@ -1,5 +1,7 @@
 # Testing And Validation
 
+推理／取消验收：`tests/vitest/format.test.ts` 验证纯 reasoning、原文与空内容；fake-server 自检及 `tests/e2e/flows.spec.mjs` 的 reasoning-tool 流程验证流式快照、工具在运行、历史恢复、取消响应与后端实际确认之间的区别。Android/Termux 不运行桌面 Playwright；新提交云端 E2E 未通过前不得称为完成。fake-server／E2E 改动另需人工代码审查，资料见 [fake-e2e-human-review.md](fake-e2e-human-review.md)。正式 4096 切换预案见 [backend-switch-runbook.md](backend-switch-runbook.md)，当前不执行。
+
 <!-- Modified for the TheoSilas fork: document the manual APK build workflow. -->
 ## TheoSilas fork APK build
 

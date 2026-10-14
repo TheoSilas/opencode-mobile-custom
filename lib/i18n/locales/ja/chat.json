@@ -53,6 +53,8 @@
     "runningActivity": "OpenCode は{{activity}}中です...",
     "runningRetry": "OpenCode でエラーが発生し、再試行しています（試行 {{attempt}}）...",
     "runningGeneric": "OpenCode は現在のステップを処理しています...",
+    "cancellingTask": "タスクをキャンセル中。サーバーの確認を待っています...",
+    "statusUnconfirmed": "タスクの状態は未確認です。再接続後に確認します...",
     "answerNeeded": "回答が必要です",
     "waitingForAnswer": "OpenCode はあなたの回答を待っています",
     "openProgressLabel": "進捗を開く。{{total}}件中{{completed}}件のタスクが完了",
@@ -130,7 +132,7 @@
     "startDictation": "音声入力を開始",
     "stopDictation": "音声入力を停止",
     "sendTask": "タスクを送信",
-    "stopTask": "タスクを停止"
+    "stopTask": "タスクをキャンセル"
   },
   "header": {
     "pricingUnavailable": "料金を取得できません",

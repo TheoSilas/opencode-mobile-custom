@@ -51,6 +51,7 @@ type TranscriptListProps = {
   pendingInteractions: number;
   retryAttempt?: number;
   running: boolean;
+  pendingStop?: 'requesting' | 'checking' | 'unknown';
   speakingMessageId?: string;
   slim: boolean;
   transcriptFontSize: number;
@@ -82,6 +83,7 @@ export function TranscriptList({
   pendingInteractions,
   retryAttempt,
   running,
+  pendingStop,
   speakingMessageId,
   slim,
   transcriptFontSize,
@@ -205,11 +207,15 @@ export function TranscriptList({
             </Card>
           ) : null}
 
-          {running && !awaitingUserInput ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={palette.tint} />
-              <Text style={{ color: palette.muted }}>
-                {retryAttempt
+           {running && !awaitingUserInput ? (
+             <View style={styles.loadingRow}>
+               <ActivityIndicator color={palette.tint} />
+               <Text style={{ color: palette.muted }}>
+                 {pendingStop === 'unknown' || connection.status !== 'connected'
+                   ? t('chat:content.statusUnconfirmed')
+                   : pendingStop === 'checking' || pendingStop === 'requesting'
+                     ? t('chat:content.cancellingTask')
+                     : retryAttempt
                   ? t('chat:content.runningRetry', { attempt: retryAttempt })
                   : currentActivityLabel ? t('chat:content.runningActivity', { activity: currentActivityLabel.toLowerCase() }) : t('chat:content.runningGeneric')}
               </Text>
