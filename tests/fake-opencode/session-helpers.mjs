@@ -248,6 +248,8 @@ export function createSessionHelpers({ getNow, getState, emitEvent }) {
       return;
     }
 
+    if (state.scenario === 'post-admission-failure') return;
+
     if (state.scenario === 'permission') {
       createPermissionRequest(sessionId);
       return;

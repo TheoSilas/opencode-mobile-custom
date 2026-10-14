@@ -1389,7 +1389,7 @@ test('OpenCode 2 shows an error when a bound chat account was removed elsewhere'
 test('OpenCode 2 recovers a post-admission failure when the native event is missed', async ({ page, request }) => {
   await resetScenario(request, 'happy-path');
   const port = await getFreePort();
-  const server = spawnV2Server(port);
+  const server = spawnV2Server(port, 'post-admission-failure');
   try {
     const base = `http://127.0.0.1:${port}`;
     await waitForServer(request, `${base}/api/info`);
@@ -1402,11 +1402,15 @@ test('OpenCode 2 recovers a post-admission failure when the native event is miss
     await page.getByRole('button', { name: 'Open Late account failure', exact: true }).click();
     await expect(page.getByTestId('chat-library')).not.toBeVisible();
 
+    const admitted = page.waitForResponse((response) => response.url().includes(`/api/session/${created.data.id}/prompt`)
+      && response.request().method() === 'POST');
     await sendPrompt(page, 'Task accepted before account removal');
-    // The prompt endpoint has synchronously admitted the task and recorded its
-    // credential before returning; delete immediately to exercise the
-    // post-admission terminal failure path.
+    const admission = await admitted;
+    expect(admission.status()).toBe(200);
+    expect((await admission.json()).data.sessionID).toBe(created.data.id);
     expect((await request.delete(`${base}/api/credential/credential-openai`)).ok()).toBeTruthy();
+    const settled = await (await request.get(`${base}/api/session/${created.data.id}`)).json();
+    expect(settled.data.outcome).toBe('failed');
     await expect(page.getByText(/This chat account is no longer available|OpenCode could not complete this task/)).toBeVisible({ timeout: 15_000 });
   } finally {
     server.kill('SIGTERM');

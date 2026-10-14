@@ -37,6 +37,12 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
+      - name: Diagnose post-admission failure flow first
+        run: npx playwright test tests/e2e/flows.spec.mjs -g 'OpenCode 2 recovers a post-admission failure when the native event is missed'
+        env:
+          CI: 'true'
+          EXPO_PUBLIC_E2E_MODE: '1'
+
       - name: Run CI flow suite against fake OpenCode server
         run: npm run test:e2e:web
         env:

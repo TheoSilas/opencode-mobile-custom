@@ -530,14 +530,15 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'DELETE' && credentialMatch) {
       const credentialID = decodeURIComponent(credentialMatch[1]);
       state.credentials = state.credentials.filter((credential) => credential.id !== credentialID);
-      // A prompt already admitted with this credential fails durably. Suppress
-      // the event in the post-admission test so the client must use its status
-      // fallback, while still exposing the same terminal state as V2.
-      for (const session of state.sessions) {
-        if (session.taskCredentialID !== credentialID && session.credentialID !== credentialID) continue;
-        session.outcome = 'failed';
-        session.time.idle = getNow();
-        state.sessionStatuses[session.id] = { type: 'idle' };
+      if (state.scenario === 'post-admission-failure') {
+        // Admission has promoted this credential to the active task. Record the
+        // terminal failure without SSE so the client must reconcile the result.
+        for (const session of state.sessions) {
+          if (session.taskCredentialID !== credentialID || state.sessionStatuses[session.id]?.type !== 'busy') continue;
+          session.outcome = 'failed';
+          session.time.idle = getNow();
+          state.sessionStatuses[session.id] = { type: 'idle' };
+        }
       }
       res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
       res.end();
